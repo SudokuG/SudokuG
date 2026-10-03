@@ -39,8 +39,8 @@ export const xyWing = (level: number): Technique => ({
               { cell: p2, digit: y },
             ],
             colors: [
-              { cell: p1, digit: z, color: 0 },
-              { cell: p2, digit: z, color: 0 },
+              { cell: p1, digit: z, color: 1 },
+              { cell: p2, digit: z, color: 1 },
             ],
             links: [
               { from: { cell: pivot, digit: x }, to: { cell: p1, digit: x }, strong: false },
@@ -96,7 +96,7 @@ export const xyzWing = (level: number): Technique => ({
             eliminations: elim.map((cell) => ({ cell, digit: z })),
             cells: [pivot, p1, p2],
             candidates: cand,
-            colors: [pivot, p1, p2].map((cell) => ({ cell, digit: z, color: 0 as const })),
+            colors: [pivot, p1, p2].map((cell) => ({ cell, digit: z, color: 1 as const })),
             units: [],
             nudge: `There is an XYZ-Wing around ${cellName(pivot)}.`,
             explanation:

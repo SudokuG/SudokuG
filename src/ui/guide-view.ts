@@ -26,7 +26,7 @@ export function initGuide(): void {
     b.className = "guide-item";
     b.dataset.name = entry.name;
     b.setAttribute("role", "tab");
-    b.innerHTML = `<span>${entry.name}</span>${entry.tag ? `<small class="tag">${entry.tag}</small>` : ""}`;
+    b.textContent = entry.name;
     b.addEventListener("click", () => {
       showGuide(entry.name);
       // On a phone the example sits above the list: bring it into view.
@@ -56,9 +56,7 @@ export function showGuide(name = current): void {
   });
 
   $("guide-title").textContent = entry.name;
-  $("guide-badges").innerHTML =
-    `<span class="badge diff-${entry.group.toLowerCase()}">${entry.group}</span>` +
-    (entry.tag ? ` <span class="badge grind-${entry.tag === "grindy" ? "heavy" : "light"}">${entry.tag}</span>` : "");
+  $("guide-badges").innerHTML = `<span class="badge diff-${entry.group.toLowerCase()}">${entry.group}</span>`;
   $("guide-idea").textContent = entry.idea;
   $("guide-spot").textContent = entry.spot;
 

@@ -115,36 +115,45 @@ Two kinds of moves count as **grind**:
 - chains with three or more different digits: closer to solving in your head than to
   spotting a pattern. One-digit chains (X-Chain, Skyscraper, Kite) and two-digit chains are fine.
 
-`ratePuzzle(grid, maxAlternative = 7)` solves the puzzle twice:
+`ratePuzzle(grid)` solves the puzzle twice:
 
 1. **Easiest first** (normal hint order). The hardest technique on this path gives the
    difficulty: Easy (singles), Medium (locked candidates, pairs), Hard (triples, X-Wing,
-   Skyscraper, Kite), Expert (wings, coloring, Swordfish), Extreme (quads, chains,
+   Skyscraper, Kite, Turbot), Expert (wings, coloring, Swordfish), Extreme (quads, chains,
    Jellyfish), Beyond (current techniques get stuck).
-2. **Patterns first** (`patternFirst(maxAlternative)`): techniques up to `maxAlternative`
-   first, then triples and quads, then other non-grindy techniques (one- and two-digit
-   chains, Jellyfish), and multi-digit chains last. A grindy move on this path was the only
-   reasonable way forward: **forced grind**.
+2. **Patterns first** (`patternFirst()`): techniques up to Expert first, then triples and
+   quads, then other non-grindy techniques (one- and two-digit chains, Jellyfish), and
+   multi-digit chains last. A grindy move on this path was the only reasonable way
+   forward: **forced grind**. The "Prefer patterns" hint option uses the same order.
 
 Grind score: forced triple 1, forced quad 2, forced chain with 3+ digits 2. Verdict:
-0 clean, 1 slightly grindy, 2+ grindy. Weights are in rating.ts (`SUBSET_WEIGHT`,
-`CHAIN_WEIGHT`, `GRINDY_CHAIN_DIGITS`).
+0 clean, 1 slightly grindy, 2+ grindy.
 
 Naked and hidden subsets mirror each other (a naked triple in a unit with k empty cells
 is a hidden subset of size k-3). Since smaller subsets are tried first, a reported triple
 always sits in a unit with 6+ empty cells and a quad in one with 8+. The tests check this.
 
-On random puzzles, about 21% of the Hard-or-harder ones are grindy, almost all because
-of long chains.
+## Generator and profiles
 
-## Generator
+A **profile** is the set of techniques a puzzle may need (`targeted.ts`). A generated
+puzzle can be solved with only those techniques and needs at least one technique from
+the hardest group that is switched on. The five templates (Easy … Extreme) switch on
+everything up to their group except the grindy techniques (triples, quads, XY-Chain,
+AIC); players can tick or untick any technique to make their own mix.
 
-`generateRated({ difficulty, maxGrind })` makes random minimal puzzles (180° symmetric)
-and rates them. A match is returned. A puzzle that is too hard or too grindy gets a clue
-back at the spot where the offending step acts, and is rated again (up to 6 times).
-Too easy puzzles are dropped. It is a generator function that yields after every rating,
-so the page stays responsive. Typical time in the browser: under a second; worst cases
-around 2 seconds.
+`generateRated({ allowed })` makes random minimal puzzles (180° symmetric) and solves them
+with the allowed techniques. Too easy: start over. Stuck: give a clue back where the first
+step outside the profile acts and try again (up to 6 times). It yields after every try,
+so the page stays responsive; the page gives up after 800 tries (rare custom mixes).
+Typical time: well under a second.
+
+## Saving and updates
+
+The game in progress (digits, candidates, pairs, colours, undo history, timer) is saved in
+the browser after every change, and restored when the page is reloaded or opened again.
+A new version of the site is fetched in the background by the service worker; players
+keep playing the version they started with and get a small "new version ready" notice.
+Loading it (or simply coming back later) continues the saved game.
 
 ## Puzzle codes
 

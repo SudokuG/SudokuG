@@ -14,6 +14,10 @@ import {
   ratePuzzle,
   seededRandom,
   uniqueSolution,
+  TECHNIQUES,
+  TEMPLATES,
+  hardestGroup,
+  templateOf,
 } from "../src/engine";
 import type { Rating, Technique } from "../src/engine";
 import { SAMPLES } from "../src/samples";
@@ -126,14 +130,29 @@ for (let seed = 1; seed <= 300; seed++) {
 const sampleCodes = SAMPLES.map((s) => encodePuzzle(Grid.fromString(s.puzzle).values).length);
 console.log(`\nPuzzle codes: ${Math.min(...sampleCodes)}-${Math.max(...sampleCodes)} characters for the samples.`);
 
-// 4. Targeted generator: right difficulty, no grind, unique solution.
-for (const d of DIFFICULTIES) {
+// 4. Generator: each template gives a puzzle that the template's techniques solve,
+//    that needs a technique from the template's hardest group, and that has one solution.
+for (const g of DIFFICULTIES) {
+  const must = new Set(hardestGroup(TEMPLATES[g]).names);
+  const allowed = TECHNIQUES.filter((t) => TEMPLATES[g].includes(t.name));
   for (let k = 1; k <= 3; k++) {
-    const g = generateRatedSync({ difficulty: d, maxGrind: "clean" }, seededRandom(1000 * k + d.length));
-    if (g.rating.difficulty !== d || g.rating.grind !== "clean") fail(`generator: asked for clean ${d}, got ${g.rating.grind} ${g.rating.difficulty}`);
-    if (!uniqueSolution(g.puzzle)) fail(`generator: ${d} puzzle has no unique solution`);
-    if (k === 1) console.log(`Generated ${d.padEnd(8)} after ${String(g.attempts).padStart(3)} ratings: ${encodePuzzle(g.puzzle)}  (${g.rating.hardest?.technique})`);
+    const t0 = Date.now();
+    const r = generateRatedSync({ allowed: TEMPLATES[g] }, seededRandom(1000 * k + g.length));
+    const log = logicalSolve(new Grid(r.puzzle), allowed);
+    if (!log.solved) fail(`generator: ${g} puzzle not solvable with the ${g} techniques`);
+    if (!log.steps.some((s) => must.has(s.technique))) fail(`generator: ${g} puzzle doesn't need a ${g} technique`);
+    if (!uniqueSolution(r.puzzle)) fail(`generator: ${g} puzzle has no unique solution`);
+    if (k === 1)
+      console.log(`Generated ${g.padEnd(8)} in ${String(Date.now() - t0).padStart(4)} ms after ${String(r.attempts).padStart(3)} tries: ${encodePuzzle(r.puzzle)}  rated ${r.rating.difficulty}, ${r.rating.grind}`);
   }
+}
+// A custom profile: Hard template without X-Wing but with XY-Wing.
+{
+  const allowed = [...TEMPLATES.Hard.filter((n) => n !== "X-Wing"), "XY-Wing"];
+  const r = generateRatedSync({ allowed }, seededRandom(77));
+  const log = logicalSolve(new Grid(r.puzzle), TECHNIQUES.filter((t) => allowed.includes(t.name) || t.level <= 1));
+  if (!log.solved || !log.steps.some((s) => s.technique === "XY-Wing")) fail("generator: custom profile not respected");
+  console.log(`Custom profile (Hard − X-Wing + XY-Wing): ${r.attempts} tries, template ${templateOf(allowed) ?? "none"}`);
 }
 
 // 5. Techniques section: every entry has an example that shows exactly that technique,

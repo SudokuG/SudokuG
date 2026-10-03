@@ -23,6 +23,11 @@ import {
   patternFirst,
   ratePuzzle,
   rowOf,
+  ALWAYS_ON,
+  TEMPLATES,
+  groupOf,
+  hardestGroup,
+  templateOf,
 } from "../engine";
 import type { Generated, GenerateProgress, Step } from "../engine";
 import { SAMPLES } from "../samples";
@@ -63,11 +68,8 @@ interface Settings {
   autoFinish: number;
   /** Hints try patterns before triples and quads. */
   patterns: boolean;
-  /** Hardest technique that counts as an alternative to a triple or quad (hints and rating). */
-  maxAlt: number;
-  /** Generator: chosen difficulty and whether one forced triple is allowed. */
-  genDifficulty: (typeof DIFFICULTIES)[number];
-  genLight: boolean;
+  /** Generator: the techniques a new puzzle may need. */
+  genProfile: string[];
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -80,28 +82,34 @@ const DEFAULT_SETTINGS: Settings = {
   timer: true,
   autoFinish: 10,
   patterns: true,
-  maxAlt: 7,
-  genDifficulty: "Hard",
-  genLight: false,
+  genProfile: TEMPLATES.Hard,
 };
+
+/** Fixed: patterns up to Expert level count as an alternative to a triple or quad. */
+const MAX_ALT = 7;
 
 const DIFF_DESC: Record<string, string> = {
   Easy: "Singles only. You can solve it without writing candidates.",
   Medium: "Adds locked candidates and pairs.",
-  Hard: "Adds X-Wing, Skyscraper and 2-String Kite.",
+  Hard: "Adds X-Wing, Skyscraper, 2-String Kite and Turbot Fish.",
   Expert: "Adds XY-Wing, XYZ-Wing, coloring and Swordfish.",
   Extreme: "Adds one- and two-digit chains and Jellyfish.",
 };
-
-/** Names for the alternative thresholds offered in Options. */
-const ALT_TIERS: Record<number, string> = { 5.5: "Hard", 7: "Expert", 10: "Extreme" };
+/** Give up after this many tries (some custom mixes are very rare). */
+const MAX_TRIES = 800;
 const SETTINGS_KEY = "pattern-sudoku-settings"; // kept so saved settings survive the rename
 const SINGLES = TECHNIQUES.filter((t) => t.level <= 1);
 
 function loadSettings(): Settings {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
-    if (raw) return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+    if (raw) {
+      const s = { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+      // Keep only technique names that still exist.
+      const known = new Set(TECHNIQUES.map((t) => t.name));
+      s.genProfile = Array.isArray(s.genProfile) ? s.genProfile.filter((n: string) => known.has(n)) : DEFAULT_SETTINGS.genProfile;
+      return s;
+    }
   } catch {
     /* storage unavailable: use defaults */
   }
@@ -212,6 +220,7 @@ function afterChange(): void {
     setStatus(`Solved in ${fmtTime(S.solvedAt - S.startedAt)}. Nice work.`, "good");
   }
   render();
+  saveSoon();
 }
 
 /** Selected cells the player may change (digits and marks; colours work on givens too). */
@@ -261,8 +270,108 @@ function loadPuzzle(text: string, label: string, known?: Generated): string | nu
   S.rating = known ? known.rating : null;
   renderRating();
   render();
+  saveGame();
   if (!known) setTimeout(() => rate(g), 30);
   return null;
+}
+
+/** No puzzle yet: an empty grid, waiting for one to be generated or loaded. */
+function clearPuzzle(): void {
+  S.puzzle = "";
+  S.code = "";
+  S.label = "";
+  S.givens = new Array(81).fill(false);
+  S.solution = null;
+  S.cur = { values: empty81(), pencil: empty81(), removed: empty81(), centre: empty81(), colors: empty81() };
+  S.undo = [];
+  S.redo = [];
+  S.rating = null;
+  renderRating();
+  render();
+}
+
+/** True (and a nudge to the Puzzles tab) when there is nothing to play yet. */
+function noPuzzle(): boolean {
+  if (S.puzzle) return false;
+  setStatus("Generate or load a puzzle in the Puzzles tab first.");
+  return true;
+}
+
+// ---------------------------------------------------------------------------
+// Saving the game, so a reload or a later visit picks up where you left off
+
+const SAVE_KEY = "sudokug-game";
+
+interface SavedGame {
+  v: 1;
+  puzzle: string;
+  label: string;
+  cur: Snapshot;
+  undo: Snapshot[];
+  elapsed: number;
+  solved: boolean;
+}
+
+let saveTimer = 0;
+function saveSoon(): void {
+  clearTimeout(saveTimer);
+  saveTimer = window.setTimeout(saveGame, 300);
+}
+
+function saveGame(): void {
+  try {
+    if (!S.puzzle) return localStorage.removeItem(SAVE_KEY);
+    const data: SavedGame = {
+      v: 1,
+      puzzle: S.puzzle,
+      label: S.label,
+      cur: S.cur,
+      undo: S.undo.slice(-60),
+      elapsed: (S.solvedAt || Date.now()) - S.startedAt,
+      solved: !!S.solvedAt,
+    };
+    localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+  } catch {
+    /* storage full or unavailable: the game just isn't saved */
+  }
+}
+
+const isMasks = (a: unknown): a is number[] => Array.isArray(a) && a.length === 81 && a.every((x) => Number.isInteger(x) && x >= 0 && x < 512);
+const fixSnapshot = (s: Partial<Snapshot> | undefined): Snapshot | null => {
+  if (!s || !isMasks(s.values) || s.values.some((v) => v > 9)) return null;
+  return {
+    values: s.values,
+    pencil: isMasks(s.pencil) ? s.pencil : empty81(),
+    removed: isMasks(s.removed) ? s.removed : empty81(),
+    centre: isMasks(s.centre) ? s.centre : empty81(),
+    colors: isMasks(s.colors) ? s.colors : empty81(),
+  };
+};
+
+/** Restore the saved game. If `onlyPuzzle` is given, only when it is that puzzle. */
+function restoreGame(onlyPuzzle?: string): boolean {
+  let data: SavedGame;
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return false;
+    data = JSON.parse(raw);
+  } catch {
+    return false;
+  }
+  if (data?.v !== 1 || typeof data.puzzle !== "string") return false;
+  if (onlyPuzzle && data.puzzle !== onlyPuzzle) return false;
+  const cur = fixSnapshot(data.cur);
+  if (!cur || loadPuzzle(data.puzzle, data.label || "Saved") !== null) return false;
+  // Never let a saved state overwrite the starting digits.
+  if (cur.values.some((v, i) => S.givens[i] && v !== S.cur.values[i])) return false;
+  S.cur = cur;
+  S.undo = (Array.isArray(data.undo) ? data.undo : []).map(fixSnapshot).filter((x): x is Snapshot => !!x);
+  const elapsed = Number(data.elapsed) || 0;
+  S.startedAt = Date.now() - elapsed;
+  if (data.solved) S.solvedAt = Date.now();
+  render();
+  saveGame();
+  return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -270,10 +379,13 @@ function loadPuzzle(text: string, label: string, known?: Generated): string | nu
 
 let genRun: { it: Generator<GenerateProgress, Generated>; cancelled: boolean } | null = null;
 
+/** Name for the current profile: a template name, or "Custom". */
+const profileName = () => templateOf(S.settings.genProfile) ?? "Custom";
+
 function startGenerate(): void {
   if (genRun) return;
-  const difficulty = S.settings.genDifficulty;
-  const it = generateRated({ difficulty, maxGrind: S.settings.genLight ? "light" : "clean", maxAlternative: S.settings.maxAlt });
+  const label = profileName();
+  const it = generateRated({ allowed: S.settings.genProfile });
   const run = { it, cancelled: false };
   genRun = run;
   $("gen-msg").textContent = "Looking for a puzzle…";
@@ -283,16 +395,20 @@ function startGenerate(): void {
     // Work for up to ~30 ms, then let the page breathe.
     const t0 = performance.now();
     let r = it.next();
-    while (!r.done && performance.now() - t0 < 30) r = it.next();
+    while (!r.done && r.value.attempts < MAX_TRIES && performance.now() - t0 < 30) r = it.next();
     if (r.done) {
       genRun = null;
       const g = r.value;
-      loadPuzzle(g.puzzle.join(""), difficulty, g);
-      $("gen-msg").textContent = `New ${difficulty.toLowerCase()} puzzle, found after rating ${g.attempts} candidate${g.attempts === 1 ? "" : "s"}.`;
+      loadPuzzle(g.puzzle.join(""), label, g);
+      $("gen-msg").textContent = `New ${label.toLowerCase()} puzzle, found after ${g.attempts} tr${g.attempts === 1 ? "y" : "ies"}.`;
       renderGen();
       setTab("play");
+    } else if (r.value.attempts >= MAX_TRIES) {
+      genRun = null;
+      $("gen-msg").textContent = `No puzzle found in ${MAX_TRIES} tries. This mix of techniques is rare on its own; try ticking a few more.`;
+      renderGen();
     } else {
-      $("gen-msg").textContent = `Looking for a puzzle… ${r.value.attempts} rated so far.`;
+      $("gen-msg").textContent = `Looking for a puzzle… ${r.value.attempts} tried so far.`;
       setTimeout(step, 0);
     }
   };
@@ -307,22 +423,68 @@ function cancelGenerate(): void {
   renderGen();
 }
 
+function setProfile(names: string[]): void {
+  const known = TECHNIQUES.map((t) => t.name);
+  S.settings.genProfile = known.filter((n) => names.includes(n) || ALWAYS_ON.includes(n));
+  saveSettings();
+  renderGen();
+}
+
+function buildTechniqueToggles(): void {
+  const list = $("tech-list");
+  let group = "";
+  for (const t of TECHNIQUES) {
+    const g = groupOf(t.name);
+    if (g !== group) {
+      group = g;
+      const h = document.createElement("div");
+      h.className = "tech-group";
+      h.textContent = g;
+      list.appendChild(h);
+    }
+    const label = document.createElement("label");
+    label.className = "tech-toggle";
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.dataset.name = t.name;
+    box.id = `tech-${t.name.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`;
+    if (ALWAYS_ON.includes(t.name)) box.disabled = true;
+    box.addEventListener("change", () => {
+      const on = new Set(S.settings.genProfile);
+      if (box.checked) on.add(t.name);
+      else on.delete(t.name);
+      setProfile([...on]);
+    });
+    const span = document.createElement("span");
+    span.textContent = t.name;
+    label.append(box, span);
+    list.appendChild(label);
+  }
+}
+
 function renderGen(): void {
   const busy = !!genRun;
+  const name = profileName();
   ($("generate") as HTMLButtonElement).disabled = busy;
-  $("generate").textContent = busy ? "Generating…" : `Generate ${S.settings.genDifficulty.toLowerCase()} puzzle`;
+  $("generate").textContent = busy ? "Generating…" : `Generate ${name.toLowerCase()} puzzle`;
   $("gen-cancel").hidden = !busy;
   document.querySelectorAll<HTMLButtonElement>("#diff-pick button").forEach((b) => {
-    const on = b.dataset.d === S.settings.genDifficulty;
+    const on = b.dataset.d === name;
     b.classList.toggle("on", on);
     b.setAttribute("aria-checked", String(on));
   });
-  $("diff-desc").textContent = DIFF_DESC[S.settings.genDifficulty];
-  ($("gen-light") as HTMLInputElement).checked = S.settings.genLight;
+  const top = hardestGroup(S.settings.genProfile);
+  $("diff-desc").textContent =
+    name === "Custom"
+      ? `Your own mix of techniques. Each puzzle needs at least one ${top.group.toLowerCase()} technique you ticked: ${top.names.join(", ")}.`
+      : DIFF_DESC[name];
+  const on = new Set(S.settings.genProfile);
+  document.querySelectorAll<HTMLInputElement>("#tech-list input").forEach((box) => (box.checked = on.has(box.dataset.name!) || box.disabled));
+  $("tech-count").textContent = `(${on.size} of ${TECHNIQUES.length} ticked)`;
 }
 
 function rate(g: Grid): void {
-  S.rating = ratePuzzle(g, S.settings.maxAlt);
+  S.rating = ratePuzzle(g, MAX_ALT);
   renderRating();
 }
 
@@ -340,7 +502,7 @@ function renderRating(): void {
     return;
   }
   const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;");
-  const tier = ALT_TIERS[S.settings.maxAlt] ?? "Expert";
+  const tier = "Expert";
   const rows: string[] = [];
   if (r.solved) {
     rows.push(`<dt>Difficulty</dt><dd><span class="badge diff-${r.difficulty.toLowerCase()}">${r.difficulty}</span> Hardest step: ${esc(r.hardest?.technique ?? "singles only")}.</dd>`);
@@ -379,7 +541,7 @@ function toggleAll(masks: number[], cells: number[], b: number, has: (i: number)
 }
 
 function enterNumber(d: number, mode: Mode = effectiveMode()): void {
-  if (S.finishing) return;
+  if (S.finishing || noPuzzle()) return;
   if (mode === "color") {
     const cells = [...S.selection];
     if (!cells.length) return;
@@ -425,7 +587,7 @@ function enterNumber(d: number, mode: Mode = effectiveMode()): void {
 
 /** Backspace: digits first, then candidates and pairs, then colours. In Colour mode, colours first. */
 function erase(): void {
-  if (S.finishing) return;
+  if (S.finishing || noPuzzle()) return;
   const sel = [...S.selection];
   const cells = editable();
   const anyColor = sel.some((i) => S.cur.colors[i]);
@@ -443,6 +605,12 @@ function erase(): void {
       });
     else if (anyColor) clearColors(s);
   });
+}
+
+/** The "Clear all colours" button: wipe every colour on the board. */
+function clearAllColors(): void {
+  if (noPuzzle()) return;
+  change((s) => s.colors.fill(0));
 }
 
 function clearColorsOfSelection(): void {
@@ -469,6 +637,7 @@ function doRedo(): void {
 
 /** Write every possible candidate into the empty cells (manual mode). */
 function fillCandidates(): void {
+  if (noPuzzle()) return;
   change((s) => {
     for (let i = 0; i < 81; i++) s.pencil[i] = s.values[i] ? 0 : computed(s.values, i) & ~s.removed[i];
   });
@@ -547,11 +716,12 @@ function maybeAutoFinish(): void {
 }
 
 function showHint(): void {
+  if (noPuzzle()) return;
   if (S.finishing) return;
   if (S.hint && S.hint.kind === "step" && S.hintLevel === 1) {
     S.hintLevel = 2;
   } else {
-    S.hint = getHint(engineGrid(), S.solution, S.settings.patterns ? patternFirst(S.settings.maxAlt) : TECHNIQUES);
+    S.hint = getHint(engineGrid(), S.solution, S.settings.patterns ? patternFirst(MAX_ALT) : TECHNIQUES);
     S.hintLevel = 1;
     S.flash.clear();
     if (S.hint.kind === "error") S.hint.cells.forEach((c) => S.flash.add(c));
@@ -585,6 +755,7 @@ function applyHint(): void {
 }
 
 function check(): void {
+  if (noPuzzle()) return;
   S.flash.clear();
   if (!S.solution) return setStatus("Check needs a puzzle with exactly one solution.", "bad");
   const wrong: number[] = [];
@@ -665,6 +836,14 @@ function buildPad(): void {
     pad.appendChild(b);
     padButtons.push(b);
   }
+  // Tenth key, shown only in the phone layout (two rows of five).
+  const del = document.createElement("button");
+  del.type = "button";
+  del.className = "pad-erase";
+  del.textContent = "⌫";
+  del.setAttribute("aria-label", "Erase");
+  del.addEventListener("click", erase);
+  pad.appendChild(del);
 }
 
 function renderModes(): void {
@@ -683,10 +862,11 @@ function renderModes(): void {
   padButtons.forEach((b, k) => {
     const left = 9 - counts[k + 1];
     (b.querySelector(".left") as HTMLElement).textContent = m === "digit" && left > 0 ? String(left) : "";
-    b.classList.toggle("done", m === "digit" && left <= 0);
+    // A digit that is complete is greyed out for digits, candidates and pairs alike.
+    b.classList.toggle("done", m !== "color" && left <= 0);
     b.setAttribute("aria-label", m === "digit" ? `Digit ${k + 1}, ${Math.max(left, 0)} left` : `${names[m]} ${k + 1}`);
   });
-  $("erase").textContent = m === "color" ? "Clear colour" : "Erase";
+  $("erase").textContent = m === "color" ? "Clear all colours" : "Erase";
 }
 
 function render(): void {
@@ -695,7 +875,7 @@ function render(): void {
   const prim = S.primary;
   const primVal = values[prim];
   const clashes = new Grid(values, empty81()).conflicts();
-  const single = S.selection.size === 1;
+  const single = S.selection.size === 1 && !!S.puzzle;
 
   const hint = S.hint;
   const step: Step | null = hint && hint.kind === "step" ? hint.step : null;
@@ -708,8 +888,8 @@ function render(): void {
     const v = values[i];
     const isPeer = set.peers && single && i !== prim && (rowOf(i) === rowOf(prim) || colOf(i) === colOf(prim) || boxOf(i) === boxOf(prim));
     el.classList.toggle("given", S.givens[i]);
-    el.classList.toggle("sel", S.selection.has(i));
-    el.classList.toggle("primary", i === prim && S.selection.has(i));
+    el.classList.toggle("sel", !!S.puzzle && S.selection.has(i));
+    el.classList.toggle("primary", !!S.puzzle && i === prim && S.selection.has(i));
     el.classList.toggle("peer", isPeer);
     el.classList.toggle("same", set.same && !!primVal && v === primVal && i !== prim);
     el.classList.toggle("region", decor.region.has(i));
@@ -743,13 +923,13 @@ function render(): void {
   ($("undo") as HTMLButtonElement).disabled = !S.undo.length;
   ($("redo") as HTMLButtonElement).disabled = !S.redo.length;
   $("fill-cands").hidden = set.auto;
-  $("puzzle-label").textContent = S.label;
-  $("puzzle-code").textContent = S.code;
-  $("timer").hidden = !set.timer;
+  $("puzzle-label").textContent = S.puzzle ? S.label : "No puzzle yet";
+  document.querySelectorAll<HTMLElement>(".puzzle-code").forEach((el) => (el.textContent = S.code));
+  document.querySelectorAll<HTMLElement>(".code-row").forEach((el) => (el.hidden = !S.puzzle));
+  $("timer").hidden = !set.timer || !S.puzzle;
 
   // Options
   (["auto", "mistakes", "tidy", "peers", "same", "timer", "patterns"] as const).forEach((k) => (($(`opt-${k}`) as HTMLInputElement).checked = set[k]));
-  ($("opt-maxalt") as HTMLSelectElement).value = String(set.maxAlt);
   ($("opt-finish") as HTMLSelectElement).value = String(set.autoFinish);
   ($("opt-theme") as HTMLSelectElement).value = set.theme;
 
@@ -771,7 +951,7 @@ function render(): void {
       if (forced)
         $("hint-note").textContent = hint.step.chainDigits
           ? "Nothing shorter works here, so this long chain is the way forward."
-          : `No pattern up to ${ALT_TIERS[set.maxAlt] ?? "Expert"} level works here, so this subset is the way forward.`;
+          : "No fish, wing, kite or coloring move works here, so this subset is the way forward.";
       if (full && hint.step.notation) {
         chain.textContent = hint.step.notation;
         chain.hidden = false;
@@ -958,7 +1138,7 @@ function init(): void {
   document.querySelectorAll<HTMLButtonElement>("#modes .mode-btn").forEach((b) => b.addEventListener("click", () => setMode(b.dataset.mode as Mode)));
   $("undo").addEventListener("click", doUndo);
   $("redo").addEventListener("click", doRedo);
-  $("erase").addEventListener("click", erase);
+  $("erase").addEventListener("click", () => (effectiveMode() === "color" ? clearAllColors() : erase()));
   $("hint").addEventListener("click", showHint);
   $("hint-more").addEventListener("click", showHint);
   $("hint-apply").addEventListener("click", applyHint);
@@ -981,15 +1161,6 @@ function init(): void {
     saveSettings();
   });
   $("opt-auto").addEventListener("change", (e) => setAuto((e.target as HTMLInputElement).checked));
-  $("opt-maxalt").addEventListener("change", (e) => {
-    S.settings.maxAlt = Number((e.target as HTMLSelectElement).value);
-    saveSettings();
-    S.hint = null;
-    S.rating = null;
-    renderRating();
-    render();
-    setTimeout(() => rate(Grid.fromString(S.puzzle)), 30);
-  });
   (["mistakes", "tidy", "peers", "same", "timer", "patterns"] as const).forEach((k) =>
     $(`opt-${k}`).addEventListener("change", (e) => {
       S.settings[k] = (e.target as HTMLInputElement).checked;
@@ -1004,11 +1175,15 @@ function init(): void {
     $("puzzle-msg").textContent = err ?? "Puzzle loaded.";
   });
   $("copy").addEventListener("click", () => copyText(S.puzzle, $("puzzle-msg")));
-  $("copy-code").addEventListener("click", () => copyText(S.code, $("status"), $("puzzle-code")));
+  document.querySelectorAll<HTMLElement>(".copy-code").forEach((b) =>
+    b.addEventListener("click", () => copyText(S.code, $("status"), b.parentElement!.querySelector<HTMLElement>(".puzzle-code")!)),
+  );
   // On the website (not inside a frame), offer a link that opens this exact puzzle.
   const onWebsite = /^https?:$/.test(location.protocol) && window.self === window.top;
-  $("copy-link").hidden = !onWebsite;
-  $("copy-link").addEventListener("click", () => copyText(`${location.origin}${location.pathname}#${S.code}`, $("status")));
+  document.querySelectorAll<HTMLElement>(".copy-link").forEach((b) => {
+    b.hidden = !onWebsite;
+    b.addEventListener("click", () => copyText(`${location.origin}${location.pathname}#${S.code}`, $("status")));
+  });
 
   const pick = $("diff-pick");
   for (const d of DIFFICULTIES) {
@@ -1017,20 +1192,14 @@ function init(): void {
     b.dataset.d = d;
     b.textContent = d;
     b.setAttribute("role", "radio");
-    b.addEventListener("click", () => {
-      S.settings.genDifficulty = d;
-      saveSettings();
-      renderGen();
-    });
+    b.addEventListener("click", () => setProfile(TEMPLATES[d]));
     pick.appendChild(b);
   }
-  $("gen-light").addEventListener("change", (e) => {
-    S.settings.genLight = (e.target as HTMLInputElement).checked;
-    saveSettings();
-  });
+  buildTechniqueToggles();
   $("generate").addEventListener("click", startGenerate);
   $("gen-cancel").addEventListener("click", cancelGenerate);
   $("restart").addEventListener("click", () => {
+    if (noPuzzle()) return;
     loadPuzzle(S.puzzle, S.label);
     $("puzzle-msg").textContent = "Restarted.";
   });
@@ -1046,12 +1215,49 @@ function init(): void {
     const end = S.solvedAt || Date.now();
     $("timer").textContent = fmtTime(end - S.startedAt);
   }, 500);
+  // Save when the page is hidden or closed, and now and then while playing (for the timer).
+  document.addEventListener("visibilitychange", () => document.visibilityState === "hidden" && saveGame());
+  window.addEventListener("pagehide", saveGame);
+  setInterval(saveGame, 15000);
+  watchForUpdates();
 
-  setTab("play");
   renderGen();
-  // A puzzle code after # in the address (for hosting on your own site) opens that puzzle.
-  const fromLink = location.hash.length > 1 && loadPuzzle(decodeURIComponent(location.hash.slice(1)), "Shared") === null;
-  if (!fromLink) loadPuzzle(SAMPLES[0].puzzle, SAMPLES[0].name);
+  // Opening order: a shared puzzle link, else the saved game, else an empty grid.
+  const shared = location.hash.length > 1 ? decodeURIComponent(location.hash.slice(1)) : "";
+  let sharedPuzzle = "";
+  try {
+    sharedPuzzle = shared ? new Grid(parsePuzzle(shared)).toString() : "";
+  } catch {
+    sharedPuzzle = "";
+  }
+  if (sharedPuzzle) {
+    // Opening the same link again continues the saved progress on that puzzle.
+    if (!restoreGame(sharedPuzzle)) loadPuzzle(sharedPuzzle, "Shared");
+    setTab("play");
+  } else if (restoreGame()) {
+    setTab("play");
+  } else {
+    clearPuzzle();
+    setTab("puzzles");
+  }
+}
+
+/**
+ * Updates: the service worker fetches a new version in the background. The game keeps
+ * running the version it started with; a small notice offers to switch. The game is
+ * saved, so switching (or simply opening the site later) continues where you were.
+ */
+function watchForUpdates(): void {
+  if (!("serviceWorker" in navigator)) return;
+  const hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (hadController) $("update-toast").hidden = false;
+  });
+  $("update-reload").addEventListener("click", () => {
+    saveGame();
+    location.reload();
+  });
+  $("update-later").addEventListener("click", () => ($("update-toast").hidden = true));
 }
 
 init();

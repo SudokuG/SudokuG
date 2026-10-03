@@ -197,22 +197,28 @@ function lineOf(a: number, b: number): "row" | "column" | "box" {
   return "box";
 }
 
-/** Two conjugate pairs of one digit joined by a weak link: Skyscraper, 2-String Kite or Turbot Fish. */
-export const shortXChain = (level: number): Technique => ({
-  name: "Skyscraper / 2-String Kite",
+export type ShortChainKind = "Skyscraper" | "2-String Kite" | "Turbot Fish";
+
+/** Name of a four-candidate single-digit chain (two conjugate pairs joined by a weak link). */
+function shortKind(path: number[]): ShortChainKind {
+  const [p0, p1, p2, p3] = path.map(cellOfNode);
+  const k1 = lineOf(p0, p1);
+  const k2 = lineOf(p2, p3);
+  if (k1 !== "box" && k1 === k2) return "Skyscraper";
+  if (k1 !== "box" && k2 !== "box" && boxOf(p1) === boxOf(p2)) return "2-String Kite";
+  return "Turbot Fish";
+}
+
+/** Skyscraper, 2-String Kite or Turbot Fish: two units with two places for a digit, connected at one end. */
+export const shortXChain = (kind: ShortChainKind, level: number): Technique => ({
+  name: kind,
   level,
   find(g) {
-    const f = findChain(g, X_RULES, 4, 4);
+    const f = findChain(g, X_RULES, 4, 4, (p) => shortKind(p) === kind);
     if (!f) return null;
-    const [p0, p1, p2, p3] = f.path.map(cellOfNode);
     const d = digitOfNode(f.path[0]);
-    const k1 = lineOf(p0, p1);
-    const k2 = lineOf(p2, p3);
-    let name = "Turbot Fish";
-    if (k1 !== "box" && k1 === k2) name = "Skyscraper";
-    else if (k1 !== "box" && k2 !== "box" && boxOf(p1) === boxOf(p2)) name = "2-String Kite";
     const intro = `Two units each have exactly two places for ${d}, and one end of each sees the other.`;
-    return toStep(name, level, `Look at the ${d}s: two units where ${d} has only two places are connected.`, f, intro);
+    return toStep(kind, level, `Look at the ${d}s: two units where ${d} has only two places are connected.`, f, intro);
   },
 });
 

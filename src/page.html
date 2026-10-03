@@ -15,11 +15,11 @@
     <!-- Left: the puzzle -->
     <section id="play-view" class="board-wrap" aria-label="Sudoku grid">
       <div id="board" class="board mode-digit" role="grid" tabindex="0" aria-label="Sudoku grid. Use arrow keys to move, 1 to 9 to enter digits."></div>
-      <div class="code-row">
+      <div class="code-row code-row-desktop">
         <span class="code-label">Puzzle code</span>
-        <code id="puzzle-code" class="puzzle-code"></code>
-        <button id="copy-code" class="link-btn" type="button">Copy</button>
-        <button id="copy-link" class="link-btn" type="button" hidden>Copy link</button>
+        <code class="puzzle-code"></code>
+        <button class="link-btn copy-code" type="button">Copy</button>
+        <button class="link-btn copy-link" type="button" hidden>Copy link</button>
       </div>
       <p id="status" class="status" aria-live="polite"></p>
     </section>
@@ -43,8 +43,8 @@
           <span class="key k-pat"></span>pattern
           <span class="key k-elim"></span>removed
           <span class="key k-put"></span>placed
-          <span class="key k-line"></span>strong link
-          <span class="key k-weak"></span>weak link
+          <span class="key k-line"></span>strong link: at least one is true
+          <span class="key k-weak"></span>weak link: not both true
         </p>
       </div>
     </section>
@@ -76,24 +76,24 @@
         <div id="modes" class="modes" role="radiogroup" aria-label="Entry mode">
           <button data-mode="digit" class="mode-btn m-digit" type="button" role="radio" title="Digits (Z)"><span class="mode-icon">5</span>Digit</button>
           <button data-mode="pencil" class="mode-btn m-pencil" type="button" role="radio" title="Candidates (X, or hold Shift)"><span class="mode-icon corner">1 3<br>&nbsp;&nbsp;7</span>Candidate</button>
-          <button data-mode="centre" class="mode-btn m-centre" type="button" role="radio" title="Pairs in the centre of the cell (C)"><span class="mode-icon centre">47</span>Pairs</button>
+          <button data-mode="centre" class="mode-btn m-centre" type="button" role="radio" title="Pairs in the centre of the cell (C)"><span class="mode-icon pairs">47</span>Pairs</button>
           <button data-mode="color" class="mode-btn m-color" type="button" role="radio" title="Colour cells (V)"><span class="mode-icon swatch"></span>Colour</button>
         </div>
 
         <div id="pad" class="pad" aria-label="Number pad"></div>
 
-        <div class="actions">
+        <div class="actions act-edit">
           <button id="undo" class="btn" type="button" title="Undo (Ctrl+Z)">Undo</button>
           <button id="redo" class="btn" type="button" title="Redo (Ctrl+Y)">Redo</button>
           <button id="erase" class="btn" type="button" title="Erase (Backspace)">Erase</button>
         </div>
 
-        <div class="actions">
+        <div class="actions act-hint">
           <button id="hint" class="btn primary wide" type="button" title="Hint (H)">Hint</button>
           <button id="check" class="btn" type="button">Check</button>
         </div>
 
-        <div class="actions small-actions">
+        <div class="actions small-actions act-cands">
           <button id="fill-cands" class="btn" type="button">Fill candidates</button>
           <button id="clear-cands" class="btn" type="button">Clear candidates</button>
         </div>
@@ -102,9 +102,13 @@
       <!-- Puzzles -->
       <div id="pane-puzzles" class="pane" role="tabpanel" aria-labelledby="tab-puzzles" hidden>
         <h2 class="pane-title">New puzzle</h2>
-        <div id="diff-pick" class="diff-pick" role="radiogroup" aria-label="Difficulty"></div>
+        <div id="diff-pick" class="diff-pick" role="radiogroup" aria-label="Difficulty template"></div>
         <p id="diff-desc" class="small"></p>
-        <label class="opt compact"><input id="gen-light" type="checkbox"> <span><b>Allow one forced triple</b><small>Otherwise every generated puzzle is clean: no triple, quad or long chain is ever the only way forward.</small></span></label>
+        <details id="tech-pick" class="tech-pick">
+          <summary>Techniques <span id="tech-count" class="tech-count"></span></summary>
+          <p class="small">Puzzles only need the ticked techniques, and at least one from the hardest ticked group. A template sets the ticks; change any of them to make your own mix.</p>
+          <div id="tech-list" class="tech-list"></div>
+        </details>
         <div class="row">
           <button id="generate" class="btn primary" type="button">Generate</button>
           <button id="gen-cancel" class="btn" type="button" hidden>Cancel</button>
@@ -160,18 +164,10 @@
           <small>When only this many cells are left, all your digits are correct, and the rest follows from singles, the puzzle fills itself in.</small>
         </div>
 
-        <h2 class="pane-title">Hints and rating</h2>
+        <h2 class="pane-title">Hints</h2>
         <div class="options">
-          <label class="opt"><input id="opt-patterns" type="checkbox"> <span><b>Prefer patterns over triples and quads</b><small>Hints show a fish, wing, kite or coloring move before a triple or quad, when one exists.</small></span></label>
-          <div class="opt-select">
-            <label for="opt-maxalt"><b>A pattern counts as an alternative up to</b></label>
-            <select id="opt-maxalt">
-              <option value="5.5">Hard: X-Wing, Skyscraper, 2-String Kite</option>
-              <option value="7">Expert: also XY-Wing, coloring, Swordfish</option>
-              <option value="10">Extreme: also one- and two-digit chains, Jellyfish</option>
-            </select>
-            <small>A triple or quad only counts as grind when no pattern up to this level works at that moment. Chains with three or more digits always come last.</small>
-          </div>
+          <label class="opt"><input id="opt-patterns" type="checkbox"> <span><b>Prefer patterns over triples and quads</b><small>Hints show a fish, wing, kite, coloring or short chain before a triple, quad or long chain, when one exists.</small></span></label>
+
         </div>
 
         <h2 class="pane-title">Mouse and keyboard</h2>
@@ -190,6 +186,20 @@
         <div id="guide-list" class="guide-list" role="tablist" aria-orientation="vertical" aria-label="Techniques"></div>
       </div>
     </aside>
+
+    <!-- On a phone the puzzle code goes to the bottom of the page -->
+    <div class="code-row code-row-mobile">
+      <span class="code-label">Puzzle code</span>
+      <code class="puzzle-code"></code>
+      <button class="link-btn copy-code" type="button">Copy</button>
+      <button class="link-btn copy-link" type="button" hidden>Copy link</button>
+    </div>
   </main>
+
+  <div id="update-toast" class="toast" role="status" hidden>
+    <span>A new version of SudokuG is ready. Your game is saved, so nothing is lost.</span>
+    <button id="update-reload" class="btn primary" type="button">Load it</button>
+    <button id="update-later" class="btn" type="button">Later</button>
+  </div>
 </div>
 <script>/*SCRIPT*/</script>

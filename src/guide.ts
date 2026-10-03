@@ -6,8 +6,6 @@ export interface GuideEntry {
   name: string;
   /** Difficulty group shown as a heading in the list. */
   group: "Easy" | "Medium" | "Hard" | "Expert" | "Extreme";
-  /** Shown as a small tag: grindy techniques and ones that can be. */
-  tag?: string;
   idea: string;
   spot: string;
 }
@@ -58,14 +56,12 @@ export const GUIDE: GuideEntry[] = [
   {
     name: "Naked Triple",
     group: "Hard",
-    tag: "grindy",
     idea: "Three cells in a unit together contain only three different candidates (each cell may have two or three of them). Those three digits fill those three cells and can be removed elsewhere in the unit.",
-    spot: "Hard to see without full notes. Easy when a unit has only a few empty cells; tedious in a wide-open row. The rating counts it as grind when it's the only way forward.",
+    spot: "Look in rows, columns or boxes with many empty cells for three cells whose notes only use three digits between them. Each cell may show just two of the three, which makes them easy to miss.",
   },
   {
     name: "Hidden Triple",
     group: "Hard",
-    tag: "grindy",
     idea: "Three digits in a unit can only go in the same three cells. Those cells hold exactly those digits, so their other candidates can be removed.",
     spot: "The mirror image of a naked subset: in a unit with k empty cells, a hidden triple is the same move as a naked subset of size k − 3.",
   },
@@ -120,16 +116,14 @@ export const GUIDE: GuideEntry[] = [
   {
     name: "Naked Quad",
     group: "Extreme",
-    tag: "grindy",
     idea: "Four cells in a unit together contain only four candidates. Those four digits fill those cells and can be removed from the rest of the unit.",
-    spot: "Only findable with full notes and a careful search of a wide-open unit. The engine reports quads only in units with eight or more empty cells; with fewer, a smaller subset does the same job.",
+    spot: "Needs full notes and a careful look at a wide-open unit. In a unit with fewer than eight empty cells, a smaller subset always does the same job, so look for that first.",
   },
   {
     name: "Hidden Quad",
     group: "Extreme",
-    tag: "grindy",
     idea: "Four digits in a unit can only go in the same four cells, so those cells hold exactly those digits and their other candidates can go.",
-    spot: "Very rare in practice and very tedious to find.",
+    spot: "Very rare. Count, per digit, the cells it can go to in a wide-open unit; four digits sharing the same four cells is the pattern.",
   },
   {
     name: "X-Chain",
@@ -152,15 +146,13 @@ export const GUIDE: GuideEntry[] = [
   {
     name: "XY-Chain",
     group: "Extreme",
-    tag: "often grindy",
     idea: "A chain through cells with exactly two candidates. Entering a cell with one digit forces the other; the next cell must share that digit. One of the two ends holds the digit they have in common.",
-    spot: "Counts as grind when it uses three or more different digits: following it is close to solving the puzzle in your head.",
+    spot: "Start at a cell with two candidates and hop to another two-candidate cell that sees it and shares one digit, always leaving through the other digit. When the digit you started with reappears at the end, any cell that sees both ends loses it.",
   },
   {
     name: "Alternating Inference Chain",
     group: "Extreme",
-    tag: "often grindy",
     idea: "The general chain: any mix of strong links (at least one is true) and weak links (at least one is false), across cells and units. All other chains are special cases.",
-    spot: "Counts as grind when it uses three or more different digits.",
+    spot: "Usually found by extending a shorter idea that almost works: follow \"if this isn't true, then that must be\" through two-candidate cells and two-spot units until you reach a candidate that clashes with the start.",
   },
 ];

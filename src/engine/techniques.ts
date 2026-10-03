@@ -27,7 +27,9 @@ export const TECHNIQUES: Technique[] = [
   nakedSubset(3, 4), //       Naked Triple
   hiddenSubset(3, 4.5), //    Hidden Triple
   fish(2, 5), //              X-Wing
-  shortXChain(5.5), //        Skyscraper, 2-String Kite, Turbot Fish
+  shortXChain("Skyscraper", 5.5),
+  shortXChain("2-String Kite", 5.5),
+  shortXChain("Turbot Fish", 5.5),
   xyWing(6),
   simpleColoring(6.5),
   xyzWing(6.5),
