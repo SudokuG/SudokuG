@@ -1,0 +1,22 @@
+{
+  "name": "sudokug",
+  "version": "1.0.0",
+  "description": "SudokuG: sudoku player and generator with human-style hints and puzzles without grind",
+  "main": "index.js",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "esbuild test/engine.test.ts --bundle --platform=node --outfile=dist/test.cjs --log-level=warning && node dist/test.cjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@fontsource/atkinson-hyperlegible": "^5.3.0",
+    "@fontsource/bricolage-grotesque": "^5.3.0",
+    "@types/node": "^26.6.4",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2"
+  },
+  "type": "module"
+}

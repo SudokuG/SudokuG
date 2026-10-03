@@ -1,0 +1,195 @@
+<title>SudokuG</title>
+<style>/*FONTS*/
+/*STYLE*/</style>
+
+<div class="app">
+  <header class="top">
+    <h1>SudokuG</h1>
+    <div class="meta">
+      <span id="puzzle-label" class="puzzle-label">Easy</span>
+      <span id="timer" class="timer" aria-label="Time">0:00</span>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- Left: the puzzle -->
+    <section id="play-view" class="board-wrap" aria-label="Sudoku grid">
+      <div id="board" class="board mode-digit" role="grid" tabindex="0" aria-label="Sudoku grid. Use arrow keys to move, 1 to 9 to enter digits."></div>
+      <div class="code-row">
+        <span class="code-label">Puzzle code</span>
+        <code id="puzzle-code" class="puzzle-code"></code>
+        <button id="copy-code" class="link-btn" type="button">Copy</button>
+        <button id="copy-link" class="link-btn" type="button" hidden>Copy link</button>
+      </div>
+      <p id="status" class="status" aria-live="polite"></p>
+    </section>
+
+    <!-- Left, in the Techniques tab: an example of the chosen technique -->
+    <section id="guide-view" class="board-wrap guide-view" aria-label="Technique example" hidden>
+      <div class="guide-head">
+        <h2 id="guide-title" class="guide-title"></h2>
+        <span id="guide-badges"></span>
+      </div>
+      <div id="guide-board" class="board static" aria-hidden="true"></div>
+      <div class="guide-text">
+        <h3>The idea</h3>
+        <p id="guide-idea"></p>
+        <h3>How to spot it</h3>
+        <p id="guide-spot"></p>
+        <h3>In this example</h3>
+        <p id="guide-example"></p>
+        <code id="guide-chain" class="hint-chain" hidden></code>
+        <p class="legend small">
+          <span class="key k-pat"></span>pattern
+          <span class="key k-elim"></span>removed
+          <span class="key k-put"></span>placed
+          <span class="key k-line"></span>strong link
+          <span class="key k-weak"></span>weak link
+        </p>
+      </div>
+    </section>
+
+    <aside class="panel">
+      <nav class="tabs" role="tablist" aria-label="Panel">
+        <button id="tab-play" class="tab on" type="button" role="tab" aria-selected="true" aria-controls="pane-play">Play</button>
+        <button id="tab-puzzles" class="tab" type="button" role="tab" aria-selected="false" aria-controls="pane-puzzles">Puzzles</button>
+        <button id="tab-options" class="tab" type="button" role="tab" aria-selected="false" aria-controls="pane-options">Options</button>
+        <button id="tab-techniques" class="tab" type="button" role="tab" aria-selected="false" aria-controls="pane-techniques">Techniques</button>
+      </nav>
+
+      <!-- Play -->
+      <div id="pane-play" class="pane" role="tabpanel" aria-labelledby="tab-play">
+        <div id="hint-card" class="hint-card" hidden>
+          <div class="hint-head">
+            <span id="hint-tech" class="hint-tech"></span>
+            <button id="hint-close" class="icon-btn" type="button" aria-label="Close hint">×</button>
+          </div>
+          <p id="hint-text" class="hint-text"></p>
+          <p id="hint-note" class="hint-note" hidden></p>
+          <code id="hint-chain" class="hint-chain" hidden></code>
+          <div class="hint-actions">
+            <button id="hint-more" class="btn" type="button">Show the move</button>
+            <button id="hint-apply" class="btn primary" type="button">Apply</button>
+          </div>
+        </div>
+
+        <div id="modes" class="modes" role="radiogroup" aria-label="Entry mode">
+          <button data-mode="digit" class="mode-btn m-digit" type="button" role="radio" title="Digits (Z)"><span class="mode-icon">5</span>Digit</button>
+          <button data-mode="pencil" class="mode-btn m-pencil" type="button" role="radio" title="Candidates (X, or hold Shift)"><span class="mode-icon corner">1 3<br>&nbsp;&nbsp;7</span>Candidate</button>
+          <button data-mode="centre" class="mode-btn m-centre" type="button" role="radio" title="Pairs in the centre of the cell (C)"><span class="mode-icon centre">47</span>Pairs</button>
+          <button data-mode="color" class="mode-btn m-color" type="button" role="radio" title="Colour cells (V)"><span class="mode-icon swatch"></span>Colour</button>
+        </div>
+
+        <div id="pad" class="pad" aria-label="Number pad"></div>
+
+        <div class="actions">
+          <button id="undo" class="btn" type="button" title="Undo (Ctrl+Z)">Undo</button>
+          <button id="redo" class="btn" type="button" title="Redo (Ctrl+Y)">Redo</button>
+          <button id="erase" class="btn" type="button" title="Erase (Backspace)">Erase</button>
+        </div>
+
+        <div class="actions">
+          <button id="hint" class="btn primary wide" type="button" title="Hint (H)">Hint</button>
+          <button id="check" class="btn" type="button">Check</button>
+        </div>
+
+        <div class="actions small-actions">
+          <button id="fill-cands" class="btn" type="button">Fill candidates</button>
+          <button id="clear-cands" class="btn" type="button">Clear candidates</button>
+        </div>
+      </div>
+
+      <!-- Puzzles -->
+      <div id="pane-puzzles" class="pane" role="tabpanel" aria-labelledby="tab-puzzles" hidden>
+        <h2 class="pane-title">New puzzle</h2>
+        <div id="diff-pick" class="diff-pick" role="radiogroup" aria-label="Difficulty"></div>
+        <p id="diff-desc" class="small"></p>
+        <label class="opt compact"><input id="gen-light" type="checkbox"> <span><b>Allow one forced triple</b><small>Otherwise every generated puzzle is clean: no triple, quad or long chain is ever the only way forward.</small></span></label>
+        <div class="row">
+          <button id="generate" class="btn primary" type="button">Generate</button>
+          <button id="gen-cancel" class="btn" type="button" hidden>Cancel</button>
+        </div>
+        <p id="gen-msg" class="small" aria-live="polite"></p>
+
+        <h2 class="pane-title">Load a puzzle</h2>
+        <label for="import" class="small-label">Paste a puzzle code, or 81 characters (0 or . for empty cells)</label>
+        <textarea id="import" rows="3" spellcheck="false" placeholder="S8Hkd4Gu0LQWANmLj7CzpCa"></textarea>
+        <div class="row">
+          <button id="load" class="btn" type="button">Load</button>
+          <button id="copy" class="btn" type="button">Copy as 81 digits</button>
+          <button id="restart" class="btn" type="button">Restart</button>
+        </div>
+        <p id="puzzle-msg" class="small"></p>
+
+        <h2 class="pane-title">Sample puzzles</h2>
+        <p class="small">Each one is named after its trickiest step.</p>
+        <div id="samples" class="samples"></div>
+
+        <details class="info">
+          <summary>Rating (spoiler)</summary>
+          <div id="rating" class="rating"></div>
+        </details>
+      </div>
+
+      <!-- Options -->
+      <div id="pane-options" class="pane" role="tabpanel" aria-labelledby="tab-options" hidden>
+        <div class="opt-select">
+          <label for="opt-theme"><b>Theme</b></label>
+          <select id="opt-theme">
+            <option value="system">Same as my device</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
+        </div>
+        <div class="options">
+          <label class="opt"><input id="opt-auto" type="checkbox"> <span><b>Auto-candidates</b><small>Show all candidates and keep them up to date as you place digits. Turning this off clears them.</small></span></label>
+          <label class="opt"><input id="opt-mistakes" type="checkbox"> <span><b>Highlight mistakes</b><small>Mark a digit red as soon as it does not match the solution.</small></span></label>
+          <label class="opt"><input id="opt-tidy" type="checkbox"> <span><b>Remove candidates automatically</b><small>Placing a digit removes it from the candidates and pairs in its row, column and box.</small></span></label>
+          <label class="opt"><input id="opt-peers" type="checkbox"> <span><b>Highlight row, column and box</b><small>Shade the cells that share a unit with the selected cell.</small></span></label>
+          <label class="opt"><input id="opt-same" type="checkbox"> <span><b>Highlight the same digit</b><small>Mark digits and candidates equal to the selected cell's digit.</small></span></label>
+          <label class="opt"><input id="opt-timer" type="checkbox"> <span><b>Show timer</b></span></label>
+        </div>
+        <div class="opt-select">
+          <label for="opt-finish"><b>Auto-finish</b></label>
+          <select id="opt-finish">
+            <option value="0">Off</option>
+            <option value="5">Last 5 cells</option>
+            <option value="10">Last 10 cells</option>
+            <option value="15">Last 15 cells</option>
+          </select>
+          <small>When only this many cells are left, all your digits are correct, and the rest follows from singles, the puzzle fills itself in.</small>
+        </div>
+
+        <h2 class="pane-title">Hints and rating</h2>
+        <div class="options">
+          <label class="opt"><input id="opt-patterns" type="checkbox"> <span><b>Prefer patterns over triples and quads</b><small>Hints show a fish, wing, kite or coloring move before a triple or quad, when one exists.</small></span></label>
+          <div class="opt-select">
+            <label for="opt-maxalt"><b>A pattern counts as an alternative up to</b></label>
+            <select id="opt-maxalt">
+              <option value="5.5">Hard: X-Wing, Skyscraper, 2-String Kite</option>
+              <option value="7">Expert: also XY-Wing, coloring, Swordfish</option>
+              <option value="10">Extreme: also one- and two-digit chains, Jellyfish</option>
+            </select>
+            <small>A triple or quad only counts as grind when no pattern up to this level works at that moment. Chains with three or more digits always come last.</small>
+          </div>
+        </div>
+
+        <h2 class="pane-title">Mouse and keyboard</h2>
+        <ul class="keys small">
+          <li>Drag across cells, or <kbd>Shift</kbd>+click, to select several cells. <kbd>Ctrl</kbd>+click (or drag) deselects.</li>
+          <li><kbd>Z</kbd> <kbd>X</kbd> <kbd>C</kbd> <kbd>V</kbd> choose Digit, Candidate, Pairs or Colour; <kbd>Space</kbd> cycles through them</li>
+          <li>Hold <kbd>Shift</kbd> while typing or clicking a number to enter candidates</li>
+          <li>In Colour mode, <kbd>1</kbd>–<kbd>9</kbd> paint a colour; <kbd>0</kbd> or <kbd>Backspace</kbd> clears it</li>
+          <li>Arrow keys move, <kbd>Shift</kbd>+arrow extends the selection, <kbd>Backspace</kbd> erases</li>
+          <li><kbd>H</kbd> hint, <kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd> undo and redo, <kbd>Esc</kbd> closes the hint</li>
+        </ul>
+      </div>
+
+      <!-- Techniques -->
+      <div id="pane-techniques" class="pane" role="tabpanel" aria-labelledby="tab-techniques" hidden>
+        <div id="guide-list" class="guide-list" role="tablist" aria-orientation="vertical" aria-label="Techniques"></div>
+      </div>
+    </aside>
+  </main>
+</div>
+<script>/*SCRIPT*/</script>
