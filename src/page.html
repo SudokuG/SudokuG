@@ -7,6 +7,7 @@
     <h1>SudokuG</h1>
     <div class="meta">
       <span id="puzzle-label" class="puzzle-label">Easy</span>
+      <span id="puzzle-author" class="puzzle-author" hidden></span>
       <span id="timer" class="timer" aria-label="Time">0:00</span>
     </div>
   </header>
@@ -59,6 +60,17 @@
 
       <!-- Play -->
       <div id="pane-play" class="pane" role="tabpanel" aria-labelledby="tab-play">
+        <div id="solved-card" class="solved-card" hidden>
+          <div class="solved-head">
+            <span class="solved-title">Solved</span>
+            <span id="solved-time" class="solved-time"></span>
+          </div>
+          <p id="solved-text" class="small"></p>
+          <div class="hint-actions">
+            <button id="solved-new" class="btn primary" type="button">New puzzle</button>
+            <button id="solved-pick" class="btn" type="button">Choose another</button>
+          </div>
+        </div>
         <div id="hint-card" class="hint-card" hidden>
           <div class="hint-head">
             <span id="hint-tech" class="hint-tech"></span>
@@ -85,7 +97,7 @@
         <div class="actions act-edit">
           <button id="undo" class="btn" type="button" title="Undo (Ctrl+Z)">Undo</button>
           <button id="redo" class="btn" type="button" title="Redo (Ctrl+Y)">Redo</button>
-          <button id="erase" class="btn" type="button" title="Erase (Backspace)">Erase</button>
+          <button id="erase" class="btn" type="button" title="Erase (Backspace). In Colour mode, hold to clear all colours.">Erase</button>
         </div>
 
         <div class="actions act-hint">
@@ -101,6 +113,10 @@
 
       <!-- Puzzles -->
       <div id="pane-puzzles" class="pane" role="tabpanel" aria-labelledby="tab-puzzles" hidden>
+        <h2 class="pane-title">Daily puzzles</h2>
+        <p id="daily-date" class="small"></p>
+        <div id="daily-pick" class="daily-pick"></div>
+
         <h2 class="pane-title">New puzzle</h2>
         <div id="diff-pick" class="diff-pick" role="radiogroup" aria-label="Difficulty template"></div>
         <p id="diff-desc" class="small"></p>
@@ -132,6 +148,16 @@
         <details class="info">
           <summary>Rating (spoiler)</summary>
           <div id="rating" class="rating"></div>
+        </details>
+
+        <details class="info" id="stats-box">
+          <summary>Your stats</summary>
+          <div id="stats" class="stats"></div>
+          <p class="small">Kept in this browser only. Best times count games without hints.</p>
+          <div class="row">
+            <button id="stats-reset" class="btn" type="button">Reset stats</button>
+            <button id="stats-reset-yes" class="btn danger" type="button" hidden>Yes, delete my stats</button>
+          </div>
         </details>
       </div>
 
@@ -178,7 +204,12 @@
           <li>In Colour mode, <kbd>1</kbd>–<kbd>9</kbd> paint a colour; <kbd>0</kbd> or <kbd>Backspace</kbd> clears it</li>
           <li>Arrow keys move, <kbd>Shift</kbd>+arrow extends the selection, <kbd>Backspace</kbd> erases</li>
           <li><kbd>H</kbd> hint, <kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd> undo and redo, <kbd>Esc</kbd> closes the hint</li>
+          <li>On a phone, the <b>S</b> key works like a held Shift: tap cells to add them to the selection, and digits go in as candidates. Hold Erase in Colour mode to clear all colours.</li>
+          <li>The timer pauses while the page is hidden and after 2 minutes without input.</li>
         </ul>
+
+        <h2 class="pane-title">Privacy</h2>
+        <p class="small">SudokuG has no accounts, no cookies and no tracking. Your settings, current game and stats are stored only in this browser and never sent anywhere. The site is hosted on GitHub Pages; like any web host, GitHub sees your IP address when the page loads (<a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement" target="_blank" rel="noopener">GitHub's privacy statement</a>).</p>
       </div>
 
       <!-- Techniques -->

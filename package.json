@@ -6,7 +6,8 @@
   "scripts": {
     "build": "node build.mjs",
     "test": "esbuild test/engine.test.ts --bundle --platform=node --outfile=dist/test.cjs --log-level=warning && node dist/test.cjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "dailies": "esbuild scripts/make-dailies.ts --bundle --platform=node --outfile=dist/dailies.cjs --log-level=warning && node dist/dailies.cjs"
   },
   "keywords": [],
   "author": "",

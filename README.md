@@ -56,6 +56,8 @@ src/
     app.ts           state, input modes, rendering, auto-finish, generator UI
     board.ts         the 9×9 board elements, hint highlighting, chain lines, cell colours
     guide-view.ts    the Techniques tab
+    stats.ts         local stats (solved, best times, dailies)
+    daily.ts         today's daily puzzles, hand-crafted overrides
     style.css        styles (light and dark theme)
   guide.ts           texts of the Techniques tab
   guide-examples.ts  example positions for each technique (found by search, checked by tests)
@@ -63,6 +65,8 @@ src/
   page.html          page markup; build.mjs inlines fonts, CSS and JS into it
   sw.js              service worker: keeps the game on the device for offline play
   samples.ts         built-in puzzles
+  daily-data.ts      generated daily puzzles (do not edit by hand)
+scripts/             make-dailies.ts
 test/engine.test.ts  validation on the samples + N random puzzles (N=300 by default)
 public/              icons copied into the website
 build.mjs            builds dist/index.html (single file), dist/artifact.html and site/ (website + PWA)
@@ -147,13 +151,27 @@ step outside the profile acts and try again (up to 6 times). It yields after eve
 so the page stays responsive; the page gives up after 800 tries (rare custom mixes).
 Typical time: well under a second.
 
-## Saving and updates
+## Saving, stats and updates
 
-The game in progress (digits, candidates, pairs, colours, undo history, timer) is saved in
-the browser after every change, and restored when the page is reloaded or opened again.
-A new version of the site is fetched in the background by the service worker; players
-keep playing the version they started with and get a small "new version ready" notice.
-Loading it (or simply coming back later) continues the saved game.
+Everything is stored in the player's own browser (localStorage); nothing is sent anywhere.
+- **Games:** the last 12 puzzles played are saved after every change (digits, candidates,
+  pairs, colours, undo history, time, hints used) and continue where you left off.
+- **Stats:** solved count, best time (games without hints) and average per difficulty,
+  and which daily puzzles are done (`src/ui/stats.ts`).
+- **Timer:** counts only while the page is visible and you have clicked or typed in the
+  last 2 minutes.
+- **Updates:** the service worker fetches a new version in the background; players keep
+  the version they started with and get a small "new version ready" notice.
+
+## Daily puzzles
+
+Five puzzles a day (one per template), the same for everyone, by the player's local date.
+They are generated ahead of time by `npm run dailies` (`scripts/make-dailies.ts`) into
+`src/daily-data.ts`, so changes to the generator never change a day's puzzles. The current
+file runs until 2027-11-04; the tests warn when fewer than 60 days are left. To extend:
+`START=2027-11-05 DAYS=365 npm run dailies` and append (or regenerate from the original start).
+Hand-crafted puzzles used with the setter's permission go in `HANDCRAFTED` in
+`src/ui/daily.ts` and are shown with "By <author>".
 
 ## Puzzle codes
 

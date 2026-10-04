@@ -83,6 +83,9 @@ h1 { font-family: var(--font-display); font-weight: 800; font-size: 1.6rem; lett
 .meta { display: flex; gap: 14px; align-items: baseline; color: var(--muted); }
 .puzzle-label { text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.78rem; font-weight: 700; }
 .timer { font-variant-numeric: tabular-nums; font-size: 1rem; }
+.timer.paused { opacity: 0.55; }
+.timer.paused::after { content: " paused"; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; }
+.puzzle-author { font-size: 0.85rem; font-style: italic; }
 
 .layout { display: grid; grid-template-columns: minmax(0, 1fr) 316px; gap: 24px; align-items: start; }
 .code-row-mobile { display: none; }
@@ -146,8 +149,12 @@ h1 { font-family: var(--font-display); font-weight: 800; font-size: 1.6rem; lett
 .cands span.put { color: var(--surface); font-weight: 700; background: var(--place); }
 
 /* Pairs: small digits in the middle of the cell */
-.cell .centre { position: absolute; inset: 0; display: grid; place-items: center; z-index: 1; font-size: 3.1cqi; line-height: 1; color: var(--m-centre); font-weight: 700; letter-spacing: 0.04em; font-variant-numeric: tabular-nums; }
-.cell .centre.many { font-size: 2.3cqi; letter-spacing: 0; }
+/* Pairs: digits in the middle of the cell, inside a rounded outline */
+.cell .centre { position: absolute; inset: 0; display: grid; place-items: center; z-index: 1; font-size: 2.9cqi; line-height: 1; color: var(--ink); font-variant-numeric: tabular-nums; }
+.cell .centre .pill { display: inline-flex; align-items: center; gap: 0.08em; padding: 0.22em 0.3em; border: 1.5px solid var(--pencil); border-radius: 999px; background: var(--surface); }
+.cell .centre .pill span { display: grid; place-items: center; min-width: 1.15em; height: 1.15em; border-radius: 50%; }
+.cell .centre .pill span.hl { background: var(--same); font-weight: 700; }
+.cell .centre.many { font-size: 2.3cqi; }
 
 .status { min-height: 1.5em; margin: 10px auto 0; max-width: 600px; text-align: center; color: var(--muted); }
 .status.good { color: var(--place); font-weight: 700; }
@@ -199,13 +206,14 @@ h1 { font-family: var(--font-display); font-weight: 800; font-size: 1.6rem; lett
 }
 .pad.pad-pencil button { font-size: 1.05rem; color: var(--m-pencil); }
 .pad.pad-centre button { font-size: 1.05rem; color: var(--m-centre); }
-.pad.pad-color button:not(.pad-erase) { background: var(--swatch); border-color: transparent; color: var(--ink); }
+.pad.pad-color button:not(.pad-sticky) { background: var(--swatch); border-color: transparent; color: var(--ink); }
 .pad.pad-color button .num { position: absolute; left: 7px; top: 4px; font-size: 0.75rem; opacity: 0.75; }
 .pad button .left { position: absolute; right: 7px; bottom: 4px; font-size: 0.68rem; color: var(--muted); font-weight: 400; }
 .pad button.done { opacity: 0.35; }
 .pad button:hover { border-color: var(--pen); }
 .pad.pad-color button { min-height: 52px; }
-.pad .pad-erase { display: none; color: var(--muted); font-weight: 400; }
+.pad .pad-sticky { display: none; color: var(--m-pencil); font-weight: 800; }
+.pad .pad-sticky.on { background: var(--m-pencil); border-color: var(--m-pencil); color: var(--surface); }
 
 .hint-card { background: var(--surface); border: 1px solid var(--btn-border); border-left: 4px solid var(--hint); border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
 .hint-card.error { border-left-color: var(--elim); }
@@ -358,12 +366,42 @@ kbd { font-family: inherit; font-size: 0.8em; border: 1px solid var(--btn-border
   #pane-play .act-edit { order: 4; }
   #pane-play .act-hint { order: 5; }
   #pane-play .act-cands { order: 6; }
-  #pane-play .act-edit #erase { display: none; }
+  #pane-play .solved-card { order: 0; }
 
   .pad { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 7px; }
   .pad button { font-size: 1.7rem; padding: 0; min-height: 58px; }
   .pad.pad-pencil button, .pad.pad-centre button { font-size: 1.3rem; }
-  .pad .pad-erase { display: block; font-size: 1.4rem; }
+  .pad .pad-sticky { display: block; font-size: 1.5rem; }
   .pad button .left { right: 6px; bottom: 3px; }
   .pad.pad-color button { min-height: 58px; }
 }
+
+/* ---- Solved card ---- */
+.solved-card { background: var(--surface); border: 1px solid var(--btn-border); border-left: 4px solid var(--place); border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.solved-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.solved-title { font-family: var(--font-display); font-weight: 800; font-size: 1.15rem; color: var(--place); }
+.solved-time { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 1.1rem; }
+.solved-card .small { margin: 0; }
+
+/* ---- Daily puzzles ---- */
+.daily-pick { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.daily-pick button {
+  display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0;
+  font: inherit; font-size: 0.8rem; font-weight: 700; color: var(--ink); background: var(--btn);
+  border: 1px solid var(--btn-border); border-radius: 8px; padding: 7px 2px; cursor: pointer;
+}
+.daily-pick button small { font-weight: 400; color: var(--muted); font-size: 0.72rem; font-variant-numeric: tabular-nums; }
+.daily-pick button.done { border-color: var(--place); }
+.daily-pick button.done small { color: var(--place); font-weight: 700; }
+.daily-pick button.on { box-shadow: inset 0 0 0 2px var(--pen); }
+.daily-pick button:disabled { opacity: 0.45; cursor: default; }
+.daily-pick button:focus-visible { outline: 3px solid var(--pen); outline-offset: 2px; }
+
+/* ---- Stats ---- */
+.table-wrap { overflow-x: auto; margin-top: 10px; }
+.stats-table { border-collapse: collapse; width: 100%; font-size: 0.88rem; font-variant-numeric: tabular-nums; }
+.stats-table th, .stats-table td { padding: 5px 8px; text-align: right; border-bottom: 1px solid var(--btn-border); }
+.stats-table th[scope="row"], .stats-table thead th:first-child { text-align: left; }
+.stats-table thead th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.btn.danger { color: var(--elim); border-color: var(--elim); }
+.pane a { color: var(--pen); }

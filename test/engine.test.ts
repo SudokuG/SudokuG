@@ -23,6 +23,7 @@ import type { Rating, Technique } from "../src/engine";
 import { SAMPLES } from "../src/samples";
 import { GUIDE } from "../src/guide";
 import { exampleStep } from "../src/guide-step";
+import { DAILY, DAILY_START } from "../src/daily-data";
 
 let failures = 0;
 const fail = (msg: string) => {
@@ -171,6 +172,28 @@ for (const entry of GUIDE) {
   }
 }
 console.log(`Techniques section: ${GUIDE.length} entries checked.`);
+
+// 6. Daily puzzles: every code decodes, has one solution and fits its template.
+{
+  let checked = 0;
+  DAILY.forEach((row, day) => {
+    const codes = row.split(" ");
+    if (codes.length !== DIFFICULTIES.length) fail(`daily ${day}: expected ${DIFFICULTIES.length} codes`);
+    codes.forEach((code, k) => {
+      const g = DIFFICULTIES[k];
+      const values = decodePuzzle(code);
+      if (!uniqueSolution(values)) fail(`daily ${day}/${g}: no unique solution`);
+      const log = logicalSolve(new Grid(values), TECHNIQUES.filter((t) => TEMPLATES[g].includes(t.name)));
+      if (!log.solved) fail(`daily ${day}/${g}: not solvable with the ${g} techniques`);
+      checked++;
+    });
+  });
+  const end = new Date(`${DAILY_START}T12:00:00Z`);
+  end.setUTCDate(end.getUTCDate() + DAILY.length - 1);
+  const daysLeft = Math.round((end.getTime() - Date.now()) / 86400000);
+  console.log(`Daily puzzles: ${checked} checked, available until ${end.toISOString().slice(0, 10)} (${daysLeft} days from now).`);
+  if (daysLeft < 60) console.warn("WARNING: fewer than 60 days of daily puzzles left. Run `npm run dailies` with a later START.");
+}
 
 if (failures) {
   console.error(`\n${failures} failure(s)`);

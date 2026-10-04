@@ -32,7 +32,9 @@ import {
 import type { Generated, GenerateProgress, Step } from "../engine";
 import { SAMPLES } from "../samples";
 import { BoardView, paintBackground, stepDecor } from "./board";
+import { dailyPuzzle, formatDay, today } from "./daily";
 import { initGuide, moveGuide, showGuide } from "./guide-view";
+import { addSolve, loadStats, resetStats } from "./stats";
 
 // ---------------------------------------------------------------------------
 // State
@@ -144,8 +146,20 @@ const S = {
   hint: null as Hint | null,
   hintLevel: 1, // 1 = nudge, 2 = full move
   flash: new Set<number>(), // cells marked by Check or by an error hint
-  startedAt: Date.now(),
-  solvedAt: 0,
+  /** Active solving time in ms. Counts only while the page is visible and you are not idle. */
+  elapsed: 0,
+  solved: false,
+  /** Time of the last click or key press (idle detection). */
+  lastInput: Date.now(),
+  /** Hints asked for in this game (best times only count games without hints). */
+  hintsUsed: 0,
+  /** Where the puzzle came from: daily date + difficulty, and the setter's name if known. */
+  daily: null as { date: string; difficulty: string } | null,
+  author: "",
+  /** "S" key on phones: keep adding cells to the selection, and enter candidates. */
+  sticky: false,
+  /** Text on the "solved" card. */
+  solvedNote: "",
   tab: "play" as Tab,
   rating: null as Rating | null,
   code: "",
@@ -163,7 +177,7 @@ const clone = (s: Snapshot): Snapshot => ({
 });
 
 /** The mode a number entry will use right now. */
-const effectiveMode = (shiftKey = false): Mode => ((S.shift || shiftKey) && S.mode === "digit" ? "pencil" : S.mode);
+const effectiveMode = (shiftKey = false): Mode => ((S.shift || S.sticky || shiftKey) && S.mode === "digit" ? "pencil" : S.mode);
 
 /** Candidates implied by the placed digits alone. */
 function computed(values: number[], i: number): number {
@@ -215,9 +229,9 @@ function afterChange(): void {
   S.hint = null;
   S.flash.clear();
   setStatus("");
-  if (!S.solvedAt && S.cur.values.every((v, i) => v && (!S.solution || v === S.solution[i])) && !engineGrid().conflicts().size) {
-    S.solvedAt = Date.now();
-    setStatus(`Solved in ${fmtTime(S.solvedAt - S.startedAt)}. Nice work.`, "good");
+  if (!S.solved && S.puzzle && S.cur.values.every((v, i) => v && (!S.solution || v === S.solution[i])) && !engineGrid().conflicts().size) {
+    S.solved = true;
+    recordSolve();
   }
   render();
   saveSoon();
@@ -264,8 +278,13 @@ function loadPuzzle(text: string, label: string, known?: Generated): string | nu
   S.popped.clear();
   S.selection = new Set([40]);
   S.primary = 40;
-  S.startedAt = Date.now();
-  S.solvedAt = 0;
+  S.elapsed = 0;
+  S.solved = false;
+  S.hintsUsed = 0;
+  S.daily = null;
+  S.author = "";
+  S.solvedNote = "";
+  S.lastInput = Date.now();
   setStatus(res.count === 1 ? "" : "This puzzle has more than one solution, so Check and mistake highlighting are off.", res.count === 1 ? "" : "bad");
   S.rating = known ? known.rating : null;
   renderRating();
@@ -300,7 +319,10 @@ function noPuzzle(): boolean {
 // ---------------------------------------------------------------------------
 // Saving the game, so a reload or a later visit picks up where you left off
 
-const SAVE_KEY = "sudokug-game";
+const SAVE_KEY = "sudokug-games";
+const OLD_SAVE_KEY = "sudokug-game";
+/** How many games in progress are remembered (most recent first). */
+const MAX_SAVED = 12;
 
 interface SavedGame {
   v: 1;
@@ -310,6 +332,36 @@ interface SavedGame {
   undo: Snapshot[];
   elapsed: number;
   solved: boolean;
+  hints?: number;
+  daily?: { date: string; difficulty: string } | null;
+  author?: string;
+  at?: number;
+}
+
+interface SaveFile {
+  v: 1;
+  current: string;
+  games: Record<string, SavedGame>;
+}
+
+function readSaves(): SaveFile {
+  const empty: SaveFile = { v: 1, current: "", games: {} };
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (raw) {
+      const f = JSON.parse(raw);
+      if (f?.v === 1 && f.games && typeof f.games === "object") return f;
+    }
+    // Saves from the previous version (one game only).
+    const old = localStorage.getItem(OLD_SAVE_KEY);
+    if (old) {
+      const g = JSON.parse(old);
+      if (g?.v === 1 && typeof g.puzzle === "string") return { v: 1, current: g.puzzle, games: { [g.puzzle]: g } };
+    }
+  } catch {
+    /* unreadable: start fresh */
+  }
+  return empty;
 }
 
 let saveTimer = 0;
@@ -320,17 +372,28 @@ function saveSoon(): void {
 
 function saveGame(): void {
   try {
-    if (!S.puzzle) return localStorage.removeItem(SAVE_KEY);
-    const data: SavedGame = {
-      v: 1,
-      puzzle: S.puzzle,
-      label: S.label,
-      cur: S.cur,
-      undo: S.undo.slice(-60),
-      elapsed: (S.solvedAt || Date.now()) - S.startedAt,
-      solved: !!S.solvedAt,
-    };
-    localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+    const f = readSaves();
+    f.current = S.puzzle;
+    if (S.puzzle) {
+      f.games[S.puzzle] = {
+        v: 1,
+        puzzle: S.puzzle,
+        label: S.label,
+        cur: S.cur,
+        undo: S.undo.slice(-60),
+        elapsed: S.elapsed,
+        solved: S.solved,
+        hints: S.hintsUsed,
+        daily: S.daily,
+        author: S.author,
+        at: Date.now(),
+      };
+      // Keep only the most recent games.
+      const keys = Object.keys(f.games).sort((x, y) => (f.games[y].at ?? 0) - (f.games[x].at ?? 0));
+      for (const k of keys.slice(MAX_SAVED)) delete f.games[k];
+    }
+    localStorage.setItem(SAVE_KEY, JSON.stringify(f));
+    localStorage.removeItem(OLD_SAVE_KEY);
   } catch {
     /* storage full or unavailable: the game just isn't saved */
   }
@@ -348,30 +411,153 @@ const fixSnapshot = (s: Partial<Snapshot> | undefined): Snapshot | null => {
   };
 };
 
-/** Restore the saved game. If `onlyPuzzle` is given, only when it is that puzzle. */
-function restoreGame(onlyPuzzle?: string): boolean {
-  let data: SavedGame;
-  try {
-    const raw = localStorage.getItem(SAVE_KEY);
-    if (!raw) return false;
-    data = JSON.parse(raw);
-  } catch {
-    return false;
-  }
-  if (data?.v !== 1 || typeof data.puzzle !== "string") return false;
-  if (onlyPuzzle && data.puzzle !== onlyPuzzle) return false;
+/** Restore a saved game: the given puzzle (81 characters), or the last one played. */
+function restoreGame(puzzle?: string): boolean {
+  const f = readSaves();
+  const data = f.games[puzzle ?? f.current];
+  if (!data || data.v !== 1 || typeof data.puzzle !== "string") return false;
   const cur = fixSnapshot(data.cur);
   if (!cur || loadPuzzle(data.puzzle, data.label || "Saved") !== null) return false;
   // Never let a saved state overwrite the starting digits.
   if (cur.values.some((v, i) => S.givens[i] && v !== S.cur.values[i])) return false;
   S.cur = cur;
   S.undo = (Array.isArray(data.undo) ? data.undo : []).map(fixSnapshot).filter((x): x is Snapshot => !!x);
-  const elapsed = Number(data.elapsed) || 0;
-  S.startedAt = Date.now() - elapsed;
-  if (data.solved) S.solvedAt = Date.now();
+  S.elapsed = Math.max(0, Number(data.elapsed) || 0);
+  S.solved = !!data.solved;
+  S.hintsUsed = Number(data.hints) || 0;
+  S.daily = data.daily && typeof data.daily.date === "string" ? data.daily : null;
+  S.author = typeof data.author === "string" ? data.author : "";
+  S.solvedNote = S.solved ? `Solved in ${fmtTime(S.elapsed)}.` : "";
   render();
   saveGame();
   return true;
+}
+
+/** Open a puzzle: continue it if it was played before, otherwise start it fresh. */
+function openPuzzle(text: string, label: string, meta?: { daily?: { date: string; difficulty: string }; author?: string }): string | null {
+  let key: string;
+  try {
+    key = new Grid(parsePuzzle(text)).toString();
+  } catch (e) {
+    return (e as Error).message;
+  }
+  if (restoreGame(key)) return null;
+  const err = loadPuzzle(key, label);
+  if (err) return err;
+  S.daily = meta?.daily ?? null;
+  S.author = meta?.author ?? "";
+  render();
+  saveGame();
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Timer: counts only while the page is visible and you have been active recently
+
+const IDLE_MS = 2 * 60 * 1000;
+function startTimer(): void {
+  const mark = () => (S.lastInput = Date.now());
+  document.addEventListener("pointerdown", mark, { capture: true });
+  document.addEventListener("keydown", mark, { capture: true });
+  let last = Date.now();
+  setInterval(() => {
+    const now = Date.now();
+    const dt = Math.min(now - last, 2000);
+    last = now;
+    const playing = !!S.puzzle && !S.solved;
+    const active = playing && document.visibilityState === "visible" && now - S.lastInput < IDLE_MS;
+    if (active && !S.finishing) S.elapsed += dt;
+    const el = $("timer");
+    el.textContent = fmtTime(S.elapsed);
+    el.classList.toggle("paused", playing && !active);
+    el.title = playing && !active ? "Paused: carries on when you click or type" : "";
+  }, 500);
+}
+
+// ---------------------------------------------------------------------------
+// Finishing a puzzle: stats and the "solved" card
+
+/** Stats group for the current game. */
+function statsCategory(): string {
+  if (S.daily) return S.daily.difficulty;
+  if ((DIFFICULTIES as readonly string[]).includes(S.label) || S.label === "Custom") return S.label;
+  return "Other";
+}
+
+function recordSolve(): void {
+  const category = statsCategory();
+  const { stats, newBest } = addSolve({ category, time: S.elapsed, hints: S.hintsUsed, daily: S.daily });
+  const c = stats.byCategory[category];
+  const parts = [`${S.daily ? `Daily ${S.daily.difficulty}` : category}`, S.hintsUsed ? `${S.hintsUsed} hint${S.hintsUsed === 1 ? "" : "s"}` : "no hints"];
+  let best = "";
+  if (newBest) best = "A new best time!";
+  else if (c.best !== null) best = `Your best ${category.toLowerCase()} time: ${fmtTime(c.best)}.`;
+  const count = `Solved ${c.solved} ${category === "Other" ? "other" : category.toLowerCase()} puzzle${c.solved === 1 ? "" : "s"} so far.`;
+  S.solvedNote = [`${parts.join(" · ")}.`, best, count].filter(Boolean).join(" ");
+  setStatus(`Solved in ${fmtTime(S.elapsed)}.`, "good");
+  renderStats();
+  renderDaily();
+}
+
+/** Which profile "New puzzle" uses after finishing, or null when there is no obvious one. */
+function nextProfile(): string | null {
+  if (S.daily) return S.daily.difficulty;
+  if ((DIFFICULTIES as readonly string[]).includes(S.label) || S.label === "Custom") return S.label;
+  return null;
+}
+
+function renderSolved(): void {
+  const card = $("solved-card");
+  card.hidden = !S.solved || !S.puzzle;
+  if (card.hidden) return;
+  $("solved-time").textContent = fmtTime(S.elapsed);
+  $("solved-text").textContent = S.solvedNote;
+  const next = nextProfile();
+  $("solved-new").hidden = !next;
+  if (next) $("solved-new").textContent = `New ${next.toLowerCase()} puzzle`;
+}
+
+function renderStats(): void {
+  const st = loadStats();
+  const cats = [...DIFFICULTIES, "Custom", "Other"].filter((c) => st.byCategory[c]);
+  const el = $("stats");
+  if (!cats.length) {
+    el.innerHTML = `<p class="small">No puzzles finished yet.</p>`;
+    return;
+  }
+  const rows = cats
+    .map((c) => {
+      const x = st.byCategory[c];
+      return `<tr><th scope="row">${c}</th><td>${x.solved}</td><td>${x.best === null ? "–" : fmtTime(x.best)}</td><td>${fmtTime(x.total / x.solved)}</td></tr>`;
+    })
+    .join("");
+  const dailies = Object.keys(st.daily).length;
+  el.innerHTML = `<div class="table-wrap"><table class="stats-table"><thead><tr><th></th><th>Solved</th><th>Best</th><th>Average</th></tr></thead><tbody>${rows}</tbody></table></div><p class="small">Daily puzzles finished: ${dailies}.</p>`;
+}
+
+function renderDaily(): void {
+  const date = today();
+  $("daily-date").textContent = formatDay(date);
+  const st = loadStats();
+  document.querySelectorAll<HTMLButtonElement>("#daily-pick button").forEach((b) => {
+    const g = b.dataset.d!;
+    const done = st.daily[`${date}/${g}`];
+    const available = !!dailyPuzzle(date, g);
+    b.disabled = !available;
+    b.classList.toggle("done", done !== undefined);
+    b.classList.toggle("on", !!S.daily && S.daily.date === date && S.daily.difficulty === g);
+    b.innerHTML = `<span>${g}</span><small>${done !== undefined ? `✓ ${fmtTime(done)}` : available ? "Play" : "–"}</small>`;
+  });
+}
+
+function openDaily(difficulty: string): void {
+  const date = today();
+  const p = dailyPuzzle(date, difficulty);
+  if (!p) return;
+  const err = openPuzzle(p.code, `Daily ${difficulty}`, { daily: { date, difficulty }, author: p.author });
+  if (err) return setStatus(err, "bad");
+  renderDaily();
+  setTab("play");
 }
 
 // ---------------------------------------------------------------------------
@@ -705,7 +891,7 @@ function maybeAutoFinish(): void {
     else {
       S.finishing = false;
       afterChange();
-      if (S.solvedAt) setStatus(`Solved in ${fmtTime(S.solvedAt - S.startedAt)}. The last ${order.length} cells were filled in for you.`, "good");
+      if (S.solved) setStatus(`The last ${order.length} cells were filled in for you.`, "good");
       setTimeout(() => {
         S.popped.clear();
         render();
@@ -722,6 +908,7 @@ function showHint(): void {
     S.hintLevel = 2;
   } else {
     S.hint = getHint(engineGrid(), S.solution, S.settings.patterns ? patternFirst(MAX_ALT) : TECHNIQUES);
+    if (S.hint.kind === "step") S.hintsUsed++;
     S.hintLevel = 1;
     S.flash.clear();
     if (S.hint.kind === "error") S.hint.cells.forEach((c) => S.flash.add(c));
@@ -797,12 +984,14 @@ function buildBoard(): void {
     if (i === null) return;
     e.preventDefault();
     boardEl.focus({ preventScroll: true });
-    if (e.ctrlKey || e.metaKey) {
+    if (e.ctrlKey || e.metaKey || (S.sticky && S.selection.has(i) && S.selection.size > 1)) {
+      // Ctrl, or tapping a selected cell while S is on: take it out of the selection.
       drag = "remove";
       S.selection.delete(i);
+      if (S.primary === i) S.primary = [...S.selection].pop() ?? i;
     } else {
       drag = "add";
-      select(i, e.shiftKey);
+      select(i, e.shiftKey || S.sticky);
     }
     boardEl.setPointerCapture(e.pointerId);
     render();
@@ -836,14 +1025,43 @@ function buildPad(): void {
     pad.appendChild(b);
     padButtons.push(b);
   }
-  // Tenth key, shown only in the phone layout (two rows of five).
-  const del = document.createElement("button");
-  del.type = "button";
-  del.className = "pad-erase";
-  del.textContent = "⌫";
-  del.setAttribute("aria-label", "Erase");
-  del.addEventListener("click", erase);
-  pad.appendChild(del);
+  // Tenth key, shown only in the phone layout (two rows of five): "S" works like a held
+  // Shift key. Tapping cells adds them to the selection, and digits go in as candidates.
+  const sticky = document.createElement("button");
+  sticky.type = "button";
+  sticky.id = "pad-sticky";
+  sticky.className = "pad-sticky";
+  sticky.textContent = "S";
+  sticky.title = "Like holding Shift: select several cells, enter candidates";
+  sticky.addEventListener("click", () => {
+    S.sticky = !S.sticky;
+    render();
+  });
+  pad.appendChild(sticky);
+}
+
+/** Erase button: a tap erases; in Colour mode, holding it clears every colour. */
+function wireEraseButton(): void {
+  const btn = $("erase");
+  let timer = 0;
+  let held = false;
+  btn.addEventListener("pointerdown", () => {
+    held = false;
+    if (effectiveMode() !== "color") return;
+    timer = window.setTimeout(() => {
+      held = true;
+      clearAllColors();
+      setStatus("All colours cleared.");
+    }, 600);
+  });
+  const cancel = () => clearTimeout(timer);
+  btn.addEventListener("pointerup", cancel);
+  btn.addEventListener("pointerleave", cancel);
+  btn.addEventListener("pointercancel", cancel);
+  btn.addEventListener("click", () => {
+    if (held) return;
+    erase();
+  });
 }
 
 function renderModes(): void {
@@ -866,7 +1084,11 @@ function renderModes(): void {
     b.classList.toggle("done", m !== "color" && left <= 0);
     b.setAttribute("aria-label", m === "digit" ? `Digit ${k + 1}, ${Math.max(left, 0)} left` : `${names[m]} ${k + 1}`);
   });
-  $("erase").textContent = m === "color" ? "Clear all colours" : "Erase";
+  $("erase").textContent = m === "color" ? "Clear colour" : "Erase";
+  $("erase").title = m === "color" ? "Clear the colour of the selected cells. Hold to clear all colours." : "Erase (Backspace)";
+  const sticky = $("pad-sticky");
+  sticky.classList.toggle("on", S.sticky);
+  sticky.setAttribute("aria-pressed", String(S.sticky));
 }
 
 function render(): void {
@@ -906,8 +1128,18 @@ function render(): void {
     // hint, when the candidates the engine reasons with are shown so the whole pattern is visible.
     const showCentre = !v && !!centre[i] && !full;
     const cd = digitsOf(centre[i]);
-    view.centre[i].textContent = showCentre ? cd.join("") : "";
-    view.centre[i].className = `centre${cd.length > 4 ? " many" : ""}`;
+    if (showCentre) {
+      const pill = document.createElement("span");
+      pill.className = "pill";
+      for (const d of cd) {
+        const ds = document.createElement("span");
+        ds.textContent = String(d);
+        if (set.same && primVal === d) ds.className = "hl";
+        pill.appendChild(ds);
+      }
+      view.centre[i].replaceChildren(pill);
+    } else if (view.centre[i].firstChild) view.centre[i].replaceChildren();
+    view.centre[i].className = `centre${cd.length > 3 ? " many" : ""}`;
     const m = v || showCentre ? 0 : full ? shownCands(i) | engineCands(i) : shownCands(i);
     for (let d = 1; d <= 9; d++) {
       const s = view.cands[i][d - 1];
@@ -924,6 +1156,9 @@ function render(): void {
   ($("redo") as HTMLButtonElement).disabled = !S.redo.length;
   $("fill-cands").hidden = set.auto;
   $("puzzle-label").textContent = S.puzzle ? S.label : "No puzzle yet";
+  $("puzzle-author").hidden = !S.puzzle || !S.author;
+  $("puzzle-author").textContent = S.author ? `By ${S.author}` : "";
+  renderSolved();
   document.querySelectorAll<HTMLElement>(".puzzle-code").forEach((el) => (el.textContent = S.code));
   document.querySelectorAll<HTMLElement>(".code-row").forEach((el) => (el.hidden = !S.puzzle));
   $("timer").hidden = !set.timer || !S.puzzle;
@@ -1128,7 +1363,7 @@ function init(): void {
     b.title = s.note;
     b.textContent = s.name;
     b.addEventListener("click", () => {
-      loadPuzzle(s.puzzle, s.name);
+      openPuzzle(s.puzzle, s.name);
       $("puzzle-msg").textContent = `Loaded “${s.name}”: ${s.note.toLowerCase()}.`;
     });
     samples.appendChild(b);
@@ -1138,7 +1373,7 @@ function init(): void {
   document.querySelectorAll<HTMLButtonElement>("#modes .mode-btn").forEach((b) => b.addEventListener("click", () => setMode(b.dataset.mode as Mode)));
   $("undo").addEventListener("click", doUndo);
   $("redo").addEventListener("click", doRedo);
-  $("erase").addEventListener("click", () => (effectiveMode() === "color" ? clearAllColors() : erase()));
+  wireEraseButton();
   $("hint").addEventListener("click", showHint);
   $("hint-more").addEventListener("click", showHint);
   $("hint-apply").addEventListener("click", applyHint);
@@ -1171,7 +1406,8 @@ function init(): void {
 
   $("load").addEventListener("click", () => {
     const text = ($("import") as HTMLTextAreaElement).value;
-    const err = loadPuzzle(text, "Imported");
+    const err = openPuzzle(text, "Imported");
+    if (!err) setTab("play");
     $("puzzle-msg").textContent = err ?? "Puzzle loaded.";
   });
   $("copy").addEventListener("click", () => copyText(S.puzzle, $("puzzle-msg")));
@@ -1196,11 +1432,44 @@ function init(): void {
     pick.appendChild(b);
   }
   buildTechniqueToggles();
+
+  const daily = $("daily-pick");
+  for (const d of DIFFICULTIES) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.dataset.d = d;
+    b.addEventListener("click", () => openDaily(d));
+    daily.appendChild(b);
+  }
+  // At midnight the daily puzzles change: refresh the list now and then.
+  setInterval(renderDaily, 60000);
+  renderDaily();
+  renderStats();
+  $("stats-reset").addEventListener("click", () => ($("stats-reset-yes").hidden = false));
+  $("stats-reset-yes").addEventListener("click", () => {
+    resetStats();
+    $("stats-reset-yes").hidden = true;
+    renderStats();
+    renderDaily();
+  });
+  $("solved-new").addEventListener("click", () => {
+    const next = nextProfile();
+    if (!next) return;
+    if (next !== "Custom") setProfile(TEMPLATES[next as keyof typeof TEMPLATES]);
+    startGenerate();
+    setTab("puzzles");
+  });
+  $("solved-pick").addEventListener("click", () => setTab("puzzles"));
   $("generate").addEventListener("click", startGenerate);
   $("gen-cancel").addEventListener("click", cancelGenerate);
   $("restart").addEventListener("click", () => {
     if (noPuzzle()) return;
+    const meta = { daily: S.daily, author: S.author };
     loadPuzzle(S.puzzle, S.label);
+    S.daily = meta.daily;
+    S.author = meta.author;
+    render();
+    saveGame();
     $("puzzle-msg").textContent = "Restarted.";
   });
   document.addEventListener("keydown", onKey);
@@ -1211,10 +1480,7 @@ function init(): void {
     renderModes();
   });
 
-  setInterval(() => {
-    const end = S.solvedAt || Date.now();
-    $("timer").textContent = fmtTime(end - S.startedAt);
-  }, 500);
+  startTimer();
   // Save when the page is hidden or closed, and now and then while playing (for the timer).
   document.addEventListener("visibilitychange", () => document.visibilityState === "hidden" && saveGame());
   window.addEventListener("pagehide", saveGame);
@@ -1232,7 +1498,7 @@ function init(): void {
   }
   if (sharedPuzzle) {
     // Opening the same link again continues the saved progress on that puzzle.
-    if (!restoreGame(sharedPuzzle)) loadPuzzle(sharedPuzzle, "Shared");
+    openPuzzle(sharedPuzzle, "Shared");
     setTab("play");
   } else if (restoreGame()) {
     setTab("play");
