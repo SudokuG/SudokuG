@@ -24,11 +24,12 @@
   --btn-border: #c6cfd9;
   --shadow: rgba(22, 33, 44, 0.14);
 
-  /* Entry modes: selection tint and accent */
-  --sel-digit: #c9dcf6;  --m-digit: #1f55b0;
-  --sel-pencil: #cdebd5; --m-pencil: #23824e;
-  --sel-centre: #e3d8f7; --m-centre: #6b47b8;
-  --sel-color: #f7dfc8;  --m-color: #b35a1a;
+  /* Entry modes: accent, and the tints for selection, row/column/box and same digit */
+  --m-digit: #1f55b0;  --sel-digit: #c9dcf6;  --peer-digit: #e6edf6;  --same-digit: #a9c6ef;
+  --m-pencil: #23824e; --sel-pencil: #cdebd5; --peer-pencil: #e6f3ea; --same-pencil: #a8dbb7;
+  --m-centre: #6b47b8; --sel-centre: #e3d8f7; --peer-centre: #efe9fa; --same-centre: #cdbcf0;
+  --m-color: #a87600;  --sel-color: #f5e4b3;  --peer-color: #f8f1dc;  --same-color: #ebd283;
+  --entry: #a06e00;      /* digits the player enters: gold */
 
   /* Cell colours 1-9 */
   --c1: #b7bcc2; --c2: #f4978e; --c3: #f8b878; --c4: #f6dc6e; --c5: #9bd8a5;
@@ -45,10 +46,11 @@
     --hint: #6e5419; --hint-soft: #2e2819; --pat: #7fb0ff; --amber: #f0b54a; --col-a: #6aa5ff; --col-b: #f07cc0; --chain: #f0b54a;
     --elim: #ff7a6b; --place: #5fd394; --place-soft: #1f4231; --error-soft: #4a2420;
     --btn: #1d2631; --btn-border: #34414f; --shadow: rgba(0, 0, 0, 0.5);
-    --sel-digit: #27405f; --m-digit: #8db4ff;
-    --sel-pencil: #1e4630; --m-pencil: #5fd394;
-    --sel-centre: #3a2d58; --m-centre: #b69cff;
-    --sel-color: #4f3520; --m-color: #f0a060;
+    --m-digit: #8db4ff;  --sel-digit: #2e4d75;  --peer-digit: #223142;  --same-digit: #3d659e;
+    --m-pencil: #5fd394; --sel-pencil: #255a3e; --peer-pencil: #1f3529; --same-pencil: #317150;
+    --m-centre: #b69cff; --sel-centre: #46386e; --peer-centre: #2b2643; --same-centre: #5a478c;
+    --m-color: #f2c14e;  --sel-color: #5c4818;  --peer-color: #302a1a;  --same-color: #7d6322;
+    --entry: #f2c14e;
     --c1: #5b636c; --c2: #a3443c; --c3: #a8652a; --c4: #9a8628; --c5: #3f7f4d;
     --c6: #2f7c78; --c7: #3b5f9e; --c8: #6a4ea1; --c9: #9c4a72;
     --paint-op: 0.85;
@@ -61,10 +63,11 @@
   --hint: #6e5419; --hint-soft: #2e2819; --pat: #7fb0ff; --amber: #f0b54a; --col-a: #6aa5ff; --col-b: #f07cc0; --chain: #f0b54a;
   --elim: #ff7a6b; --place: #5fd394; --place-soft: #1f4231; --error-soft: #4a2420;
   --btn: #1d2631; --btn-border: #34414f; --shadow: rgba(0, 0, 0, 0.5);
-  --sel-digit: #27405f; --m-digit: #8db4ff;
-  --sel-pencil: #1e4630; --m-pencil: #5fd394;
-  --sel-centre: #3a2d58; --m-centre: #b69cff;
-  --sel-color: #4f3520; --m-color: #f0a060;
+  --m-digit: #8db4ff;  --sel-digit: #2e4d75;  --peer-digit: #223142;  --same-digit: #3d659e;
+  --m-pencil: #5fd394; --sel-pencil: #255a3e; --peer-pencil: #1f3529; --same-pencil: #317150;
+  --m-centre: #b69cff; --sel-centre: #46386e; --peer-centre: #2b2643; --same-centre: #5a478c;
+  --m-color: #f2c14e;  --sel-color: #5c4818;  --peer-color: #302a1a;  --same-color: #7d6322;
+  --entry: #f2c14e;
   --c1: #5b636c; --c2: #a3443c; --c3: #a8652a; --c4: #9a8628; --c5: #3f7f4d;
   --c6: #2f7c78; --c7: #3b5f9e; --c8: #6a4ea1; --c9: #9c4a72;
   --paint-op: 0.85;
@@ -98,11 +101,11 @@ h1 { font-family: var(--font-display); font-weight: 800; font-size: 1.6rem; lett
   display: grid; grid-template-columns: repeat(9, 1fr); grid-template-rows: repeat(9, 1fr);
   background: var(--surface); border: 2.5px solid var(--ink); border-radius: 4px;
   user-select: none; -webkit-user-select: none; touch-action: none; position: relative;
-  --sel: var(--sel-digit); --accent: var(--m-digit);
+  --sel: var(--sel-digit); --accent: var(--m-digit); --b-peer: var(--peer-digit); --b-same: var(--same-digit);
 }
-.board.mode-pencil { --sel: var(--sel-pencil); --accent: var(--m-pencil); }
-.board.mode-centre { --sel: var(--sel-centre); --accent: var(--m-centre); }
-.board.mode-color { --sel: var(--sel-color); --accent: var(--m-color); }
+.board.mode-pencil { --sel: var(--sel-pencil); --accent: var(--m-pencil); --b-peer: var(--peer-pencil); --b-same: var(--same-pencil); }
+.board.mode-centre { --sel: var(--sel-centre); --accent: var(--m-centre); --b-peer: var(--peer-centre); --b-same: var(--same-centre); }
+.board.mode-color { --sel: var(--sel-color); --accent: var(--m-color); --b-peer: var(--peer-color); --b-same: var(--same-color); }
 .board:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
 .board.static { touch-action: auto; }
 .cell {
@@ -115,8 +118,8 @@ h1 { font-family: var(--font-display); font-weight: 800; font-size: 1.6rem; lett
 .cell.by { border-bottom: 2px solid var(--ink); }
 .cell.c8 { border-right: 0; }
 .cell.r8 { border-bottom: 0; }
-.cell.peer { background: var(--peer); }
-.cell.same { background: var(--same); }
+.cell.peer { background: var(--b-peer); }
+.cell.same { background: var(--b-same); }
 .cell.region { background: var(--hint-soft); }
 .cell.pattern { background: var(--hint); }
 .cell.target { background: var(--place-soft); }
@@ -130,7 +133,7 @@ h1 { font-family: var(--font-display); font-weight: 800; font-size: 1.6rem; lett
 .paint { position: absolute; inset: 0; opacity: var(--paint-op); pointer-events: none; }
 .cell.sel .paint { opacity: calc(var(--paint-op) * 0.55); }
 
-.val { position: relative; z-index: 1; font-size: 7.2cqi; line-height: 1; font-weight: 400; color: var(--pen); }
+.val { position: relative; z-index: 1; font-size: 7.2cqi; line-height: 1; font-weight: 400; color: var(--entry); }
 .cell.given .val { color: var(--ink); font-weight: 700; }
 .cell.clash .val { color: var(--elim); }
 .cell.pop .val { animation: pop 0.4s ease-out; color: var(--place); }
@@ -141,7 +144,7 @@ h1 { font-family: var(--font-display); font-weight: 800; font-size: 1.6rem; lett
   display: grid; place-items: center; font-size: 2.45cqi; line-height: 1; color: var(--pencil);
   border-radius: 50%; margin: 6%; font-variant-numeric: tabular-nums;
 }
-.cands span.hl { color: var(--ink); font-weight: 700; background: var(--same); }
+.cands span.hl { color: var(--ink); font-weight: 700; background: var(--b-same); }
 .cands span.pat { color: var(--surface); font-weight: 700; background: var(--pat); }
 .cands span.elim { color: var(--surface); font-weight: 700; background: var(--elim); text-decoration: line-through; }
 .cands span.ca { color: var(--surface); font-weight: 700; background: var(--col-a); }
@@ -153,7 +156,7 @@ h1 { font-family: var(--font-display); font-weight: 800; font-size: 1.6rem; lett
 .cell .centre { position: absolute; inset: 0; display: grid; place-items: center; z-index: 1; font-size: 2.9cqi; line-height: 1; color: var(--ink); font-variant-numeric: tabular-nums; }
 .cell .centre .pill { display: inline-flex; align-items: center; gap: 0.08em; padding: 0.22em 0.3em; border: 1.5px solid var(--pencil); border-radius: 999px; background: var(--surface); }
 .cell .centre .pill span { display: grid; place-items: center; min-width: 1.15em; height: 1.15em; border-radius: 50%; }
-.cell .centre .pill span.hl { background: var(--same); font-weight: 700; }
+.cell .centre .pill span.hl { background: var(--b-same); font-weight: 700; }
 .cell .centre.many { font-size: 2.3cqi; }
 
 .status { min-height: 1.5em; margin: 10px auto 0; max-width: 600px; text-align: center; color: var(--muted); }
@@ -212,8 +215,16 @@ h1 { font-family: var(--font-display); font-weight: 800; font-size: 1.6rem; lett
 .pad button.done { opacity: 0.35; }
 .pad button:hover { border-color: var(--pen); }
 .pad.pad-color button { min-height: 52px; }
-.pad .pad-sticky { display: none; color: var(--m-pencil); font-weight: 800; }
-.pad .pad-sticky.on { background: var(--m-pencil); border-color: var(--m-pencil); color: var(--surface); }
+/* The S key takes the colour of the entry mode it is used in */
+.pad .pad-sticky { display: none; color: var(--accent); border-color: var(--accent); font-weight: 800; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.pad .pad-sticky.on { background: var(--accent); color: var(--surface); }
+.pad { --accent: var(--m-digit); }
+/* No zoom gestures on the keypad: holding S with one finger and tapping with another must
+   not be taken for a pinch, which would cancel the held key. */
+.pad, .pad button, .modes, .act-edit { touch-action: none; }
+.pad.base-pencil { --accent: var(--m-pencil); }
+.pad.base-centre { --accent: var(--m-centre); }
+.pad.base-color { --accent: var(--m-color); }
 
 .hint-card { background: var(--surface); border: 1px solid var(--btn-border); border-left: 4px solid var(--hint); border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
 .hint-card.error { border-left-color: var(--elim); }

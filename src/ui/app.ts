@@ -72,6 +72,8 @@ interface Settings {
   patterns: boolean;
   /** Generator: the techniques a new puzzle may need. */
   genProfile: string[];
+  /** Phone S key: stays on until pressed again (instead of only while held). */
+  stickyToggle: boolean;
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -85,6 +87,7 @@ const DEFAULT_SETTINGS: Settings = {
   autoFinish: 10,
   patterns: true,
   genProfile: TEMPLATES.Hard,
+  stickyToggle: false,
 };
 
 /** Fixed: patterns up to Expert level count as an alternative to a triple or quad. */
@@ -1021,7 +1024,18 @@ function buildPad(): void {
     b.type = "button";
     b.innerHTML = `<span class="num">${d}</span><span class="left"></span>`;
     b.style.setProperty("--swatch", `var(--c${d})`);
-    b.addEventListener("click", (e) => enterNumber(d, effectiveMode(e.shiftKey)));
+    // While the S key is held with one finger, another finger may tap the digits: act on
+    // pointerdown then, since some phones send no click for a second touch.
+    let handled = false;
+    b.addEventListener("pointerdown", (e) => {
+      if (!S.sticky || S.settings.stickyToggle) return;
+      handled = true;
+      enterNumber(d, effectiveMode(e.shiftKey));
+    });
+    b.addEventListener("click", (e) => {
+      if (handled) return void (handled = false);
+      enterNumber(d, effectiveMode(e.shiftKey));
+    });
     pad.appendChild(b);
     padButtons.push(b);
   }
@@ -1033,7 +1047,25 @@ function buildPad(): void {
   sticky.className = "pad-sticky";
   sticky.textContent = "S";
   sticky.title = "Like holding Shift: select several cells, enter candidates";
+  // Default: active only while held. With the toggle option: tap on, tap off.
+  sticky.addEventListener("pointerdown", (e) => {
+    if (S.settings.stickyToggle) return;
+    e.preventDefault();
+    sticky.setPointerCapture(e.pointerId);
+    S.sticky = true;
+    render();
+  });
+  const release = () => {
+    if (S.settings.stickyToggle || !S.sticky) return;
+    S.sticky = false;
+    render();
+  };
+  sticky.addEventListener("pointerup", release);
+  sticky.addEventListener("pointercancel", release);
+  sticky.addEventListener("lostpointercapture", release);
+  sticky.addEventListener("contextmenu", (e) => e.preventDefault());
   sticky.addEventListener("click", () => {
+    if (!S.settings.stickyToggle) return;
     S.sticky = !S.sticky;
     render();
   });
@@ -1073,7 +1105,7 @@ function renderModes(): void {
     b.setAttribute("aria-checked", String(on));
   });
   const pad = $("pad");
-  pad.className = `pad pad-${m}`;
+  pad.className = `pad pad-${m} base-${S.mode}`;
   const counts = new Array(10).fill(0);
   S.cur?.values.forEach((v) => v && counts[v]++);
   const names: Record<Mode, string> = { digit: "Digit", pencil: "Candidate", centre: "Pair", color: "Colour" };
@@ -1164,7 +1196,7 @@ function render(): void {
   $("timer").hidden = !set.timer || !S.puzzle;
 
   // Options
-  (["auto", "mistakes", "tidy", "peers", "same", "timer", "patterns"] as const).forEach((k) => (($(`opt-${k}`) as HTMLInputElement).checked = set[k]));
+  (["auto", "mistakes", "tidy", "peers", "same", "timer", "patterns", "stickyToggle"] as const).forEach((k) => (($(`opt-${k}`) as HTMLInputElement).checked = set[k]));
   ($("opt-finish") as HTMLSelectElement).value = String(set.autoFinish);
   ($("opt-theme") as HTMLSelectElement).value = set.theme;
 
@@ -1396,9 +1428,10 @@ function init(): void {
     saveSettings();
   });
   $("opt-auto").addEventListener("change", (e) => setAuto((e.target as HTMLInputElement).checked));
-  (["mistakes", "tidy", "peers", "same", "timer", "patterns"] as const).forEach((k) =>
+  (["mistakes", "tidy", "peers", "same", "timer", "patterns", "stickyToggle"] as const).forEach((k) =>
     $(`opt-${k}`).addEventListener("change", (e) => {
       S.settings[k] = (e.target as HTMLInputElement).checked;
+      if (k === "stickyToggle") S.sticky = false;
       saveSettings();
       render();
     }),
