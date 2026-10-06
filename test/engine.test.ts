@@ -10,6 +10,7 @@ import {
   encodePuzzle,
   generatePuzzle,
   generateRatedSync,
+  spreadOf,
   logicalSolve,
   ratePuzzle,
   seededRandom,
@@ -19,7 +20,7 @@ import {
   hardestGroup,
   templateOf,
 } from "../src/engine";
-import type { Rating, Technique } from "../src/engine";
+import type { Rating, Step, Technique } from "../src/engine";
 import { SAMPLES } from "../src/samples";
 import { GUIDE } from "../src/guide";
 import { exampleStep } from "../src/guide-step";
@@ -143,9 +144,20 @@ for (const g of DIFFICULTIES) {
     if (!log.solved) fail(`generator: ${g} puzzle not solvable with the ${g} techniques`);
     if (!log.steps.some((s) => must.has(s.technique))) fail(`generator: ${g} puzzle doesn't need a ${g} technique`);
     if (!uniqueSolution(r.puzzle)) fail(`generator: ${g} puzzle has no unique solution`);
+    if (r.rating.difficulty !== g) fail(`generator: ${g} puzzle rated ${r.rating.difficulty}`);
     if (k === 1)
-      console.log(`Generated ${g.padEnd(8)} in ${String(Date.now() - t0).padStart(4)} ms after ${String(r.attempts).padStart(3)} tries: ${encodePuzzle(r.puzzle)}  rated ${r.rating.difficulty}, ${r.rating.grind}`);
+      console.log(
+        `Generated ${g.padEnd(8)} in ${String(Date.now() - t0).padStart(4)} ms after ${String(r.attempts).padStart(3)} tries: ${encodePuzzle(r.puzzle)}  rated ${r.rating.difficulty}, ${r.rating.grind}, ${spreadOf(log.steps).locks} lock(s)`,
+      );
   }
+}
+// Spread: separate locks need a few placements between the hard steps.
+{
+  const st = (level: number, placed: number) => ({ level, placements: new Array(placed).fill({ cell: 0, digit: 1 }) }) as unknown as Step;
+  const one = spreadOf([st(1, 5), st(5, 0), st(5.5, 0), st(1, 3), st(6, 0), st(1, 20)]);
+  const two = spreadOf([st(1, 5), st(5, 0), st(1, 4), st(6, 0), st(1, 20)]);
+  if (one.locks !== 1 || one.hardSteps !== 3) fail(`spread: expected 1 lock and 3 hard steps, got ${JSON.stringify(one)}`);
+  if (two.locks !== 2) fail(`spread: expected 2 locks, got ${JSON.stringify(two)}`);
 }
 // A custom profile: Hard template without X-Wing but with XY-Wing.
 {

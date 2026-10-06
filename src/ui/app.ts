@@ -31,9 +31,10 @@ import {
 } from "../engine";
 import type { Generated, GenerateProgress, Step } from "../engine";
 import { SAMPLES } from "../samples";
-import { BoardView, paintBackground, stepDecor } from "./board";
+import { BoardView, PALETTES, paintBackground, paletteBit, stepDecor, stripes } from "./board";
 import { dailyPuzzle, formatDay, today } from "./daily";
 import { initGuide, moveGuide, showGuide } from "./guide-view";
+import { isLiked, likedList, toggleLike } from "./likes";
 import { addSolve, loadStats, resetStats } from "./stats";
 
 // ---------------------------------------------------------------------------
@@ -54,7 +55,7 @@ interface Snapshot {
   removed: number[];
   /** "Pairs": small digits written in the centre of a cell. */
   centre: number[];
-  /** Cell colours, as a bitmask of colours 1-9. */
+  /** Cell colours: bits 0-8 are colours 1-9 of the first palette, 9-17 the second, 18-26 the third. */
   colors: number[];
 }
 
@@ -74,6 +75,8 @@ interface Settings {
   genProfile: string[];
   /** Phone S key: stays on until pressed again (instead of only while held). */
   stickyToggle: boolean;
+  /** Number pad shows how many of each digit are left. */
+  padCounts: boolean;
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -88,6 +91,7 @@ const DEFAULT_SETTINGS: Settings = {
   patterns: true,
   genProfile: TEMPLATES.Hard,
   stickyToggle: false,
+  padCounts: true,
 };
 
 /** Fixed: patterns up to Expert level count as an alternative to a triple or quad. */
@@ -161,6 +165,9 @@ const S = {
   author: "",
   /** "S" key on phones: keep adding cells to the selection, and enter candidates. */
   sticky: false,
+  /** Colour palette that Colour mode paints with (0-2), and which palettes are hidden. */
+  palette: 0,
+  colorHidden: new Array(PALETTES).fill(false) as boolean[],
   /** Text on the "solved" card. */
   solvedNote: "",
   tab: "play" as Tab,
@@ -410,7 +417,7 @@ const fixSnapshot = (s: Partial<Snapshot> | undefined): Snapshot | null => {
     pencil: isMasks(s.pencil) ? s.pencil : empty81(),
     removed: isMasks(s.removed) ? s.removed : empty81(),
     centre: isMasks(s.centre) ? s.centre : empty81(),
-    colors: isMasks(s.colors) ? s.colors : empty81(),
+    colors: Array.isArray(s.colors) && s.colors.length === 81 && s.colors.every((x) => Number.isInteger(x) && x >= 0 && x < 1 << (9 * PALETTES)) ? s.colors : empty81(),
   };
 };
 
@@ -518,6 +525,46 @@ function renderSolved(): void {
   const next = nextProfile();
   $("solved-new").hidden = !next;
   if (next) $("solved-new").textContent = `New ${next.toLowerCase()} puzzle`;
+  renderLikeButton();
+}
+
+function renderLikeButton(): void {
+  const liked = !!S.puzzle && isLiked(S.puzzle);
+  const b = $("solved-like");
+  b.classList.toggle("on", liked);
+  b.setAttribute("aria-pressed", String(liked));
+  b.innerHTML = `<span aria-hidden="true">${liked ? "♥" : "♡"}</span> ${liked ? "Liked" : "Like"}`;
+  b.title = liked ? "Liked: you'll find it under Puzzles › Liked puzzles. Tap to unlike." : "Keep this puzzle under Puzzles › Liked puzzles";
+}
+
+function renderLikes(): void {
+  const list = likedList();
+  const el = $("likes");
+  if (!list.length) {
+    el.innerHTML = `<p class="small">None yet. When you finish a puzzle you enjoyed, tap Like and it shows up here.</p>`;
+    return;
+  }
+  el.replaceChildren(
+    ...list.map((l) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "liked";
+      b.classList.toggle("on", l.puzzle === S.puzzle);
+      const when = new Date(l.at).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+      const name = document.createElement("span");
+      name.className = "liked-name";
+      name.textContent = `♥ ${l.label}`;
+      const meta = document.createElement("small");
+      meta.textContent = `${l.time !== null ? `${fmtTime(l.time)} · ` : ""}liked ${when}`;
+      b.append(name, meta);
+      b.addEventListener("click", () => {
+        const err = openPuzzle(l.code, l.label);
+        if (err) return void ($("puzzle-msg").textContent = err);
+        setTab("play");
+      });
+      return b;
+    }),
+  );
 }
 
 function renderStats(): void {
@@ -584,7 +631,7 @@ function startGenerate(): void {
     // Work for up to ~30 ms, then let the page breathe.
     const t0 = performance.now();
     let r = it.next();
-    while (!r.done && r.value.attempts < MAX_TRIES && performance.now() - t0 < 30) r = it.next();
+    while (!r.done && (r.value.spreading || r.value.attempts < MAX_TRIES) && performance.now() - t0 < 30) r = it.next();
     if (r.done) {
       genRun = null;
       const g = r.value;
@@ -592,12 +639,14 @@ function startGenerate(): void {
       $("gen-msg").textContent = `New ${label.toLowerCase()} puzzle, found after ${g.attempts} tr${g.attempts === 1 ? "y" : "ies"}.`;
       renderGen();
       setTab("play");
-    } else if (r.value.attempts >= MAX_TRIES) {
+    } else if (!r.value.spreading && r.value.attempts >= MAX_TRIES) {
       genRun = null;
       $("gen-msg").textContent = `No puzzle found in ${MAX_TRIES} tries. This mix of techniques is rare on its own; try ticking a few more.`;
       renderGen();
     } else {
-      $("gen-msg").textContent = `Looking for a puzzle… ${r.value.attempts} tried so far.`;
+      $("gen-msg").textContent = r.value.spreading
+        ? "Found one. Moving clues so the hard steps come up more than once…"
+        : `Looking for a puzzle… ${r.value.attempts} tried so far.`;
       setTimeout(step, 0);
     }
   };
@@ -734,7 +783,10 @@ function enterNumber(d: number, mode: Mode = effectiveMode()): void {
   if (mode === "color") {
     const cells = [...S.selection];
     if (!cells.length) return;
-    change((s) => toggleAll(s.colors, cells, bit(d), (i) => !!(S.cur.colors[i] & bit(d))));
+    const b = paletteBit(S.palette, d);
+    // Painting into a hidden palette shows it again, or nothing would seem to happen.
+    S.colorHidden[S.palette] = false;
+    if (!change((s) => toggleAll(s.colors, cells, b, (i) => !!(S.cur.colors[i] & b)))) render();
     return;
   }
   const cells = editable();
@@ -757,6 +809,11 @@ function enterNumber(d: number, mode: Mode = effectiveMode()): void {
     change((s) => toggleAll(s.centre, empty, bit(d), (i) => !!(S.cur.centre[i] & bit(d))));
   } else {
     const allSame = cells.every((i) => S.cur.values[i] === d);
+    if (!allSame) {
+      // One digit in two cells of the same row, column or box is never right: a misclick.
+      const shared = sharedUnit(cells);
+      if (shared) return setStatus(`These cells share a ${shared}, so they can't all be ${d}.`, "bad");
+    }
     const changed = change((s) => {
       for (const i of cells) {
         if (allSame) s.values[i] = 0;
@@ -774,13 +831,26 @@ function enterNumber(d: number, mode: Mode = effectiveMode()): void {
   }
 }
 
+/** "row", "column" or "box" if two of the cells share one, else null. */
+function sharedUnit(cells: number[]): string | null {
+  for (let a = 0; a < cells.length; a++)
+    for (let b = a + 1; b < cells.length; b++) {
+      const [x, y] = [cells[a], cells[b]];
+      if (rowOf(x) === rowOf(y)) return "row";
+      if (colOf(x) === colOf(y)) return "column";
+      if (boxOf(x) === boxOf(y)) return "box";
+    }
+  return null;
+}
+
 /** Backspace: digits first, then candidates and pairs, then colours. In Colour mode, colours first. */
 function erase(): void {
   if (S.finishing || noPuzzle()) return;
   const sel = [...S.selection];
   const cells = editable();
-  const anyColor = sel.some((i) => S.cur.colors[i]);
-  const clearColors = (s: Snapshot) => sel.forEach((i) => (s.colors[i] = 0));
+  const target = colorsToClear();
+  const anyColor = !!target;
+  const clearColors = (s: Snapshot) => sel.forEach((i) => (s.colors[i] &= ~target));
   if (S.mode === "color" && anyColor) return void change(clearColors);
   const anyValue = cells.some((i) => S.cur.values[i]);
   const anyMarks = cells.some((i) => !S.cur.values[i] && (S.cur.pencil[i] || S.cur.removed[i] || S.cur.centre[i]));
@@ -796,14 +866,30 @@ function erase(): void {
   });
 }
 
-/** The "Clear all colours" button: wipe every colour on the board. */
+const paletteMask = (p: number) => 511 << (p * 9);
+
+/**
+ * Which colour bits clearing the selection removes: the current palette's colours, or,
+ * if the selected cells have none, the colours of every palette that is shown.
+ */
+function colorsToClear(): number {
+  const sel = [...S.selection];
+  const cur = paletteMask(S.palette);
+  if (!S.colorHidden[S.palette] && sel.some((i) => S.cur.colors[i] & cur)) return cur;
+  let visible = 0;
+  for (let p = 0; p < PALETTES; p++) if (!S.colorHidden[p]) visible |= paletteMask(p);
+  return sel.some((i) => S.cur.colors[i] & visible) ? visible : 0;
+}
+
+/** Holding "Clear colour": wipe every colour on the board, in all palettes, shown or hidden. */
 function clearAllColors(): void {
   if (noPuzzle()) return;
   change((s) => s.colors.fill(0));
 }
 
 function clearColorsOfSelection(): void {
-  change((s) => S.selection.forEach((i) => (s.colors[i] = 0)));
+  const target = colorsToClear();
+  if (target) change((s) => S.selection.forEach((i) => (s.colors[i] &= ~target)));
 }
 
 function doUndo(): void {
@@ -1023,17 +1109,19 @@ function buildPad(): void {
     const b = document.createElement("button");
     b.type = "button";
     b.innerHTML = `<span class="num">${d}</span><span class="left"></span>`;
-    b.style.setProperty("--swatch", `var(--c${d})`);
     // While the S key is held with one finger, another finger may tap the digits: act on
-    // pointerdown then, since some phones send no click for a second touch.
-    let handled = false;
+    // pointerdown then, since some phones send no click for a second touch. The click that
+    // may still follow that touch is ignored; any later tap is handled normally (a flag that
+    // waited for that click swallowed the next real tap when the phone sent none).
+    let handledAt = -Infinity;
     b.addEventListener("pointerdown", (e) => {
+      handledAt = -Infinity;
       if (!S.sticky || S.settings.stickyToggle) return;
-      handled = true;
+      handledAt = e.timeStamp;
       enterNumber(d, effectiveMode(e.shiftKey));
     });
     b.addEventListener("click", (e) => {
-      if (handled) return void (handled = false);
+      if (e.timeStamp - handledAt < 1000) return void (handledAt = -Infinity);
       enterNumber(d, effectiveMode(e.shiftKey));
     });
     pad.appendChild(b);
@@ -1072,28 +1160,68 @@ function buildPad(): void {
   pad.appendChild(sticky);
 }
 
-/** Erase button: a tap erases; in Colour mode, holding it clears every colour. */
+/**
+ * Erase button. In Colour mode it is "Clear colour": a tap clears the selected cells; held
+ * for a quarter second it turns into "Clear all colour", and letting go then clears every
+ * colour in all palettes. Sliding off the button first cancels.
+ */
 function wireEraseButton(): void {
   const btn = $("erase");
   let timer = 0;
-  let held = false;
+  let armed = false;
+  let firedAt = -Infinity;
+  const disarm = () => {
+    clearTimeout(timer);
+    if (!armed) return;
+    armed = false;
+    btn.classList.remove("armed");
+    renderModes();
+  };
   btn.addEventListener("pointerdown", () => {
-    held = false;
+    disarm();
     if (effectiveMode() !== "color") return;
     timer = window.setTimeout(() => {
-      held = true;
-      clearAllColors();
-      setStatus("All colours cleared.");
-    }, 600);
+      armed = true;
+      btn.classList.add("armed");
+      btn.textContent = "Clear all colour";
+    }, 250);
   });
-  const cancel = () => clearTimeout(timer);
-  btn.addEventListener("pointerup", cancel);
-  btn.addEventListener("pointerleave", cancel);
-  btn.addEventListener("pointercancel", cancel);
-  btn.addEventListener("click", () => {
-    if (held) return;
+  btn.addEventListener("pointerup", (e) => {
+    clearTimeout(timer);
+    if (!armed) return;
+    firedAt = e.timeStamp;
+    disarm();
+    clearAllColors();
+    setStatus("All colours cleared, in all palettes.");
+  });
+  btn.addEventListener("pointerleave", disarm);
+  btn.addEventListener("pointercancel", disarm);
+  btn.addEventListener("contextmenu", (e) => e.preventDefault());
+  btn.addEventListener("click", (e) => {
+    if (e.timeStamp - firedAt < 1000) return; // the click that ends a hold
     erase();
   });
+}
+
+const EYE_OPEN = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>`;
+const EYE_SHUT = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path d="M4 20 20 4"/></svg>`;
+const PALETTE_NAMES = ["solid", "stripes /", "stripes \\"];
+
+/** The palette and eye buttons, shown only in Colour mode. */
+function renderColorTools(): void {
+  const show = S.mode === "color";
+  $("color-tools").hidden = !show;
+  if (!show) return;
+  const p = S.palette;
+  ($("pal-icon") as HTMLElement).style.background =
+    p === 0 ? "conic-gradient(from 45deg, var(--c2) 0 120deg, var(--c5) 120deg 240deg, var(--c7) 240deg)" : `${stripes(p, [2, 5, 7], "3px", "2px")}, var(--btn)`;
+  $("pal-label").textContent = `Palette ${p + 1}`;
+  $("palette").setAttribute("aria-label", `Palette ${p + 1} of ${PALETTES} (${PALETTE_NAMES[p]}). Tap for the next one.`);
+  const hidden = S.colorHidden[p];
+  const eye = $("eye");
+  eye.innerHTML = `${hidden ? EYE_SHUT : EYE_OPEN}<span>${hidden ? "Hidden" : "Shown"}</span>`;
+  eye.setAttribute("aria-pressed", String(hidden));
+  eye.setAttribute("aria-label", hidden ? `Palette ${p + 1} is hidden. Tap to show it.` : `Palette ${p + 1} is shown. Tap to hide it.`);
 }
 
 function renderModes(): void {
@@ -1105,19 +1233,22 @@ function renderModes(): void {
     b.setAttribute("aria-checked", String(on));
   });
   const pad = $("pad");
-  pad.className = `pad pad-${m} base-${S.mode}`;
+  pad.className = `pad pad-${m} base-${S.mode}${m === "color" && S.colorHidden[S.palette] ? " pal-hidden" : ""}`;
   const counts = new Array(10).fill(0);
   S.cur?.values.forEach((v) => v && counts[v]++);
   const names: Record<Mode, string> = { digit: "Digit", pencil: "Candidate", centre: "Pair", color: "Colour" };
   padButtons.forEach((b, k) => {
     const left = 9 - counts[k + 1];
-    (b.querySelector(".left") as HTMLElement).textContent = m === "digit" && left > 0 ? String(left) : "";
+    (b.querySelector(".left") as HTMLElement).textContent = m === "digit" && left > 0 && S.settings.padCounts ? String(left) : "";
+    const d = k + 1;
+    b.style.setProperty("--swatch", S.palette === 0 ? `linear-gradient(var(--c${d}), var(--c${d}))` : stripes(S.palette, [d], "5px", "4px"));
     // A digit that is complete is greyed out for digits, candidates and pairs alike.
     b.classList.toggle("done", m !== "color" && left <= 0);
-    b.setAttribute("aria-label", m === "digit" ? `Digit ${k + 1}, ${Math.max(left, 0)} left` : `${names[m]} ${k + 1}`);
+    b.setAttribute("aria-label", m === "digit" ? `Digit ${k + 1}, ${Math.max(left, 0)} left` : m === "color" ? `Colour ${k + 1}, palette ${S.palette + 1}` : `${names[m]} ${k + 1}`);
   });
-  $("erase").textContent = m === "color" ? "Clear colour" : "Erase";
-  $("erase").title = m === "color" ? "Clear the colour of the selected cells. Hold to clear all colours." : "Erase (Backspace)";
+  if (!$("erase").classList.contains("armed")) $("erase").textContent = m === "color" ? "Clear colour" : "Erase";
+  $("erase").title = m === "color" ? "Clear the colour of the selected cells. Hold to clear all colours, in all palettes." : "Erase (Backspace)";
+  renderColorTools();
   const sticky = $("pad-sticky");
   sticky.classList.toggle("on", S.sticky);
   sticky.setAttribute("aria-pressed", String(S.sticky));
@@ -1127,7 +1258,10 @@ function render(): void {
   const { values, colors, centre } = S.cur;
   const set = S.settings;
   const prim = S.primary;
-  const primVal = values[prim];
+  // The digit to highlight: that of the first selected cell with a digit, so adding
+  // cells to the selection (Shift, S key, dragging) keeps the highlight you started with.
+  const hlCell = [...S.selection].find((i) => values[i]) ?? prim;
+  const primVal = values[hlCell];
   const clashes = new Grid(values, empty81()).conflicts();
   const single = S.selection.size === 1 && !!S.puzzle;
 
@@ -1145,7 +1279,7 @@ function render(): void {
     el.classList.toggle("sel", !!S.puzzle && S.selection.has(i));
     el.classList.toggle("primary", !!S.puzzle && i === prim && S.selection.has(i));
     el.classList.toggle("peer", isPeer);
-    el.classList.toggle("same", set.same && !!primVal && v === primVal && i !== prim);
+    el.classList.toggle("same", set.same && !!primVal && v === primVal && i !== hlCell);
     el.classList.toggle("region", decor.region.has(i));
     el.classList.toggle("pattern", decor.pattern.has(i));
     el.classList.toggle("target", decor.target.has(i));
@@ -1153,7 +1287,7 @@ function render(): void {
     el.classList.toggle("clash", clashes.has(i));
     el.classList.toggle("mistake", set.mistakes && !!S.solution && !S.givens[i] && !!v && v !== S.solution[i]);
     el.classList.toggle("pop", S.popped.has(i));
-    view.paint[i].style.background = paintBackground(colors[i]);
+    view.paint[i].style.background = paintBackground(colors[i], S.colorHidden);
     view.vals[i].textContent = v ? String(v) : "";
 
     // Pairs are shown in the centre and replace the candidate grid, except during a full
@@ -1183,6 +1317,7 @@ function render(): void {
     el.setAttribute("aria-selected", String(S.selection.has(i)));
   }
 
+  view.drawSelection(S.puzzle ? S.selection : new Set());
   renderModes();
   ($("undo") as HTMLButtonElement).disabled = !S.undo.length;
   ($("redo") as HTMLButtonElement).disabled = !S.redo.length;
@@ -1196,7 +1331,7 @@ function render(): void {
   $("timer").hidden = !set.timer || !S.puzzle;
 
   // Options
-  (["auto", "mistakes", "tidy", "peers", "same", "timer", "patterns", "stickyToggle"] as const).forEach((k) => (($(`opt-${k}`) as HTMLInputElement).checked = set[k]));
+  (["auto", "mistakes", "tidy", "peers", "same", "timer", "patterns", "stickyToggle", "padCounts"] as const).forEach((k) => (($(`opt-${k}`) as HTMLInputElement).checked = set[k]));
   ($("opt-finish") as HTMLSelectElement).value = String(set.autoFinish);
   ($("opt-theme") as HTMLSelectElement).value = set.theme;
 
@@ -1277,6 +1412,7 @@ function setTab(t: Tab): void {
     $(`tab-${name}`).classList.toggle("on", name === t);
     $(`tab-${name}`).setAttribute("aria-selected", String(name === t));
   }
+  if (t === "puzzles") renderLikes();
   $("play-view").hidden = t === "techniques";
   $("guide-view").hidden = t !== "techniques";
   if (t === "techniques") showGuide();
@@ -1406,6 +1542,14 @@ function init(): void {
   $("undo").addEventListener("click", doUndo);
   $("redo").addEventListener("click", doRedo);
   wireEraseButton();
+  $("palette").addEventListener("click", () => {
+    S.palette = (S.palette + 1) % PALETTES;
+    render();
+  });
+  $("eye").addEventListener("click", () => {
+    S.colorHidden[S.palette] = !S.colorHidden[S.palette];
+    render();
+  });
   $("hint").addEventListener("click", showHint);
   $("hint-more").addEventListener("click", showHint);
   $("hint-apply").addEventListener("click", applyHint);
@@ -1428,7 +1572,7 @@ function init(): void {
     saveSettings();
   });
   $("opt-auto").addEventListener("change", (e) => setAuto((e.target as HTMLInputElement).checked));
-  (["mistakes", "tidy", "peers", "same", "timer", "patterns", "stickyToggle"] as const).forEach((k) =>
+  (["mistakes", "tidy", "peers", "same", "timer", "patterns", "stickyToggle", "padCounts"] as const).forEach((k) =>
     $(`opt-${k}`).addEventListener("change", (e) => {
       S.settings[k] = (e.target as HTMLInputElement).checked;
       if (k === "stickyToggle") S.sticky = false;
@@ -1493,6 +1637,16 @@ function init(): void {
     setTab("puzzles");
   });
   $("solved-pick").addEventListener("click", () => setTab("puzzles"));
+  $("solved-like").addEventListener("click", () => {
+    if (!S.puzzle) return;
+    const label = S.daily
+      ? `Daily ${S.daily.difficulty}, ${new Date(`${S.daily.date}T12:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short" })}`
+      : S.label;
+    toggleLike(S.puzzle, { code: S.code, label, time: S.solved ? S.elapsed : null });
+    renderLikeButton();
+    renderLikes();
+  });
+  renderLikes();
   $("generate").addEventListener("click", startGenerate);
   $("gen-cancel").addEventListener("click", cancelGenerate);
   $("restart").addEventListener("click", () => {

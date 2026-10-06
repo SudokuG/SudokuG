@@ -54,10 +54,11 @@ src/
     code.ts          encodePuzzle()/decodePuzzle(): shareable puzzle codes
   ui/
     app.ts           state, input modes, rendering, auto-finish, generator UI
-    board.ts         the 9×9 board elements, hint highlighting, chain lines, cell colours
+    board.ts         the 9×9 board elements, hint highlighting, chain lines, selection outline, colour palettes
     guide-view.ts    the Techniques tab
     stats.ts         local stats (solved, best times, dailies)
     daily.ts         today's daily puzzles, hand-crafted overrides
+    likes.ts         liked puzzles (this browser only)
     style.css        styles (light and dark theme)
   guide.ts           texts of the Techniques tab
   guide-examples.ts  example positions for each technique (found by search, checked by tests)
@@ -149,7 +150,27 @@ AIC); players can tick or untick any technique to make their own mix.
 with the allowed techniques. Too easy: start over. Stuck: give a clue back where the first
 step outside the profile acts and try again (up to 6 times). It yields after every try,
 so the page stays responsive; the page gives up after 800 tries (rare custom mixes).
-Typical time: well under a second.
+
+**Spreading the hard steps.** A random minimal puzzle tends to be singles, one *lock*
+where the hard technique is needed, then singles to the end. For profiles up to Hard or
+harder, `spreadOut()` then moves clues around (take a clue pair out, put one in elsewhere,
+or just take one out) and keeps a change when the puzzle stays unique, stays within the
+profile, still needs a technique of its hardest group, and gets stuck at least as often.
+`spreadOf(steps)` counts the locks: hard steps (X-Wing level and up) on the easiest-first
+path with at least 4 placements between them count as separate locks. Targets: 2 locks
+for Hard, 3 for Expert and Extreme; it stops at the target or after 1000 moves.
+Typical time: about a second.
+
+## Colours
+
+Colour mode has three palettes of the same nine colours: solid fills, stripes leaning
+right (/) and stripes leaning left (\). Because the colours are the same in each palette,
+the pattern tells the palettes apart, and a cell can carry colours of all three at once
+(the stripes are drawn over the fill). A cell's colours are one 27-bit mask: bit
+`p*9 + d-1` is colour d of palette p (`paletteBit` in `board.ts`). The eye button hides
+or shows the current palette. Clear colour clears the current palette in the selected
+cells (or every shown palette if the current one has nothing there); holding it clears
+every colour of every palette.
 
 ## Saving, stats and updates
 
@@ -158,6 +179,9 @@ Everything is stored in the player's own browser (localStorage); nothing is sent
   pairs, colours, undo history, time, hints used) and continue where you left off.
 - **Stats:** solved count, best time (games without hints) and average per difficulty,
   and which daily puzzles are done (`src/ui/stats.ts`).
+- **Likes:** after finishing a puzzle you can like it; liked puzzles are listed in the
+  Puzzles tab to play again (`src/ui/likes.ts`). They stay in this browser: sharing likes
+  between players would need a small server, which the site doesn't have (yet).
 - **Timer:** counts only while the page is visible and you have clicked or typed in the
   last 2 minutes.
 - **Updates:** the service worker fetches a new version in the background; players keep
@@ -167,9 +191,12 @@ Everything is stored in the player's own browser (localStorage); nothing is sent
 
 Five puzzles a day (one per template), the same for everyone, by the player's local date.
 They are generated ahead of time by `npm run dailies` (`scripts/make-dailies.ts`) into
-`src/daily-data.ts`, so changes to the generator never change a day's puzzles. The current
-file runs until 2027-11-04; the tests warn when fewer than 60 days are left. To extend:
-`START=2027-11-05 DAYS=365 npm run dailies` and append (or regenerate from the original start).
+`src/daily-data.ts`, so changes to the generator never change a day's puzzles. Hard,
+Expert and Extreme dailies are the best of up to 3 candidates with a longer spreading
+search (3000 moves). The current file runs until 2027-11-04; the tests warn when fewer
+than 60 days are left. To extend, keep the existing days and add new ones:
+`FROM=2027-11-05 DAYS=765 npm run dailies` (DAYS counts from the start of the file; days
+before FROM are kept as they are). It runs on 2 processes (WORKERS=2), about 7 s per day.
 Hand-crafted puzzles used with the setter's permission go in `HANDCRAFTED` in
 `src/ui/daily.ts` and are shown with "By <author>".
 

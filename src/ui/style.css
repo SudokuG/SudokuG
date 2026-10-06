@@ -30,6 +30,8 @@
   --m-centre: #6b47b8; --sel-centre: #e3d8f7; --peer-centre: #efe9fa; --same-centre: #cdbcf0;
   --m-color: #a87600;  --sel-color: #f5e4b3;  --peer-color: #f8f1dc;  --same-color: #ebd283;
   --entry: #a06e00;      /* digits the player enters: gold */
+  --grid: var(--ink);    /* 3×3 box lines and the board edge */
+  --grid-border: var(--grid);
 
   /* Cell colours 1-9 */
   --c1: #b7bcc2; --c2: #f4978e; --c3: #f8b878; --c4: #f6dc6e; --c5: #9bd8a5;
@@ -51,6 +53,10 @@
     --m-centre: #b69cff; --sel-centre: #46386e; --peer-centre: #2b2643; --same-centre: #5a478c;
     --m-color: #f2c14e;  --sel-color: #5c4818;  --peer-color: #302a1a;  --same-color: #7d6322;
     --entry: #f2c14e;
+    /* Box lines are the board's background showing through transparent borders: phone
+       browsers that darken pages on their own (Samsung Internet) dim border colours but
+       leave background colours of this brightness alone. */
+    --grid: #b1bcc8; --grid-border: transparent;
     --c1: #5b636c; --c2: #a3443c; --c3: #a8652a; --c4: #9a8628; --c5: #3f7f4d;
     --c6: #2f7c78; --c7: #3b5f9e; --c8: #6a4ea1; --c9: #9c4a72;
     --paint-op: 0.85;
@@ -68,6 +74,10 @@
   --m-centre: #b69cff; --sel-centre: #46386e; --peer-centre: #2b2643; --same-centre: #5a478c;
   --m-color: #f2c14e;  --sel-color: #5c4818;  --peer-color: #302a1a;  --same-color: #7d6322;
   --entry: #f2c14e;
+    /* Box lines are the board's background showing through transparent borders: phone
+       browsers that darken pages on their own (Samsung Internet) dim border colours but
+       leave background colours of this brightness alone. */
+    --grid: #b1bcc8; --grid-border: transparent;
   --c1: #5b636c; --c2: #a3443c; --c3: #a8652a; --c4: #9a8628; --c5: #3f7f4d;
   --c6: #2f7c78; --c7: #3b5f9e; --c8: #6a4ea1; --c9: #9c4a72;
   --paint-op: 0.85;
@@ -91,7 +101,7 @@ h1 { font-family: var(--font-display); font-weight: 800; font-size: 1.6rem; lett
 .puzzle-author { font-size: 0.85rem; font-style: italic; }
 
 .layout { display: grid; grid-template-columns: minmax(0, 1fr) 316px; gap: 24px; align-items: start; }
-.code-row-mobile { display: none; }
+.code-row.code-row-mobile { display: none; }
 
 /* ---- Board ---- */
 .board-wrap { min-width: 0; }
@@ -99,7 +109,7 @@ h1 { font-family: var(--font-display); font-weight: 800; font-size: 1.6rem; lett
   container-type: inline-size;
   width: 100%; max-width: 600px; aspect-ratio: 1; margin: 0 auto;
   display: grid; grid-template-columns: repeat(9, 1fr); grid-template-rows: repeat(9, 1fr);
-  background: var(--surface); border: 2.5px solid var(--ink); border-radius: 4px;
+  background: var(--grid); border: 2.5px solid var(--grid-border); border-radius: 4px;
   user-select: none; -webkit-user-select: none; touch-action: none; position: relative;
   --sel: var(--sel-digit); --accent: var(--m-digit); --b-peer: var(--peer-digit); --b-same: var(--same-digit);
 }
@@ -111,22 +121,21 @@ h1 { font-family: var(--font-display); font-weight: 800; font-size: 1.6rem; lett
 .cell {
   position: relative; display: grid; place-items: center; cursor: pointer;
   border-right: 1px solid var(--hair); border-bottom: 1px solid var(--hair);
-  background: var(--surface);
+  background-color: var(--surface); background-clip: padding-box;
 }
 .board.static .cell { cursor: default; }
-.cell.bx { border-right: 2px solid var(--ink); }
-.cell.by { border-bottom: 2px solid var(--ink); }
+.cell.bx { border-right: 2px solid var(--grid-border); }
+.cell.by { border-bottom: 2px solid var(--grid-border); }
 .cell.c8 { border-right: 0; }
 .cell.r8 { border-bottom: 0; }
-.cell.peer { background: var(--b-peer); }
-.cell.same { background: var(--b-same); }
-.cell.region { background: var(--hint-soft); }
-.cell.pattern { background: var(--hint); }
-.cell.target { background: var(--place-soft); }
-.cell.error { background: var(--error-soft); }
-.cell.sel { background: var(--sel); }
-.cell.primary { box-shadow: inset 0 0 0 2px var(--accent); }
-.cell.mistake { background: var(--error-soft); }
+.cell.peer { background-color: var(--b-peer); }
+.cell.same { background-color: var(--b-same); }
+.cell.region { background-color: var(--hint-soft); }
+.cell.pattern { background-color: var(--hint); }
+.cell.target { background-color: var(--place-soft); }
+.cell.error { background-color: var(--error-soft); }
+.cell.sel { background-color: var(--sel); }
+.cell.mistake { background-color: var(--error-soft); }
 .cell.mistake .val { color: var(--elim); }
 
 /* Painted colours sit above the cell's own shading; a selected cell lets the selection show through. */
@@ -209,7 +218,8 @@ h1 { font-family: var(--font-display); font-weight: 800; font-size: 1.6rem; lett
 }
 .pad.pad-pencil button { font-size: 1.05rem; color: var(--m-pencil); }
 .pad.pad-centre button { font-size: 1.05rem; color: var(--m-centre); }
-.pad.pad-color button:not(.pad-sticky) { background: var(--swatch); border-color: transparent; color: var(--ink); }
+.pad.pad-color button:not(.pad-sticky) { background: var(--swatch), var(--btn); border-color: var(--btn-border); color: var(--ink); }
+.pad.pad-color.pal-hidden button:not(.pad-sticky) { opacity: 0.55; }
 .pad.pad-color button .num { position: absolute; left: 7px; top: 4px; font-size: 0.75rem; opacity: 0.75; }
 .pad button .left { position: absolute; right: 7px; bottom: 4px; font-size: 0.68rem; color: var(--muted); font-weight: 400; }
 .pad button.done { opacity: 0.35; }
@@ -255,6 +265,9 @@ kbd { font-family: inherit; font-size: 0.8em; border: 1px solid var(--btn-border
 .overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; overflow: visible; }
 .overlay line { stroke: var(--chain); stroke-width: 3.2; stroke-linecap: round; vector-effect: non-scaling-stroke; }
 .overlay line.weak { stroke-dasharray: 5 5; stroke-width: 2.4; }
+/* Outline around the selected cells */
+.sel-overlay { z-index: 2; }
+.sel-overlay path { fill: none; stroke: var(--accent); stroke-width: 6; stroke-linecap: square; }
 
 /* Tabs */
 .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--btn-border); }
@@ -359,6 +372,21 @@ kbd { font-family: inherit; font-size: 0.8em; border: 1px solid var(--btn-border
 .toast span { flex: 1 1 220px; min-width: 0; }
 .toast .btn { padding: 7px 12px; font-size: 0.85rem; }
 
+/* Colour mode: palette and show/hide buttons, below the entry modes */
+.color-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.tool-btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 0;
+  font: inherit; font-size: 0.85rem; font-weight: 700; color: var(--ink);
+  background: var(--btn); border: 1px solid var(--m-color); border-radius: 8px; padding: 6px 8px; cursor: pointer;
+}
+.tool-btn:hover { background: var(--peer-color); }
+.tool-btn:focus-visible { outline: 3px solid var(--pen); outline-offset: 2px; }
+.pal-icon { width: 22px; height: 22px; border-radius: 4px; border: 1px solid var(--btn-border); flex: none; }
+.tool-btn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; flex: none; }
+.tool-btn[aria-pressed="true"] { color: var(--muted); border-style: dashed; }
+#erase { flex: 1.25; white-space: nowrap; padding-inline: 6px; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+#erase.armed { background: var(--m-color); border-color: var(--m-color); color: var(--surface); }
+
 /* ---- Phone layout ----
    Order: title, tabs, grid, (hint), number pad (2 rows of 5), entry modes, buttons, puzzle code. */
 @media (max-width: 760px) {
@@ -368,12 +396,13 @@ kbd { font-family: inherit; font-size: 0.8em; border: 1px solid var(--btn-border
   .pane { grid-area: pane; }
   #play-view, #guide-view { grid-area: board; }
   .code-row-desktop { display: none; }
-  .code-row-mobile { display: flex; grid-area: code; margin-top: 4px; }
+  .code-row.code-row-mobile { display: flex; grid-area: code; margin-top: 4px; }
   .status { margin-top: 8px; min-height: 0; }
 
   #pane-play .hint-card { order: 1; }
   #pane-play .pad { order: 2; }
   #pane-play .modes { order: 3; }
+  #pane-play .color-tools { order: 3; }
   #pane-play .act-edit { order: 4; }
   #pane-play .act-hint { order: 5; }
   #pane-play .act-cands { order: 6; }
@@ -393,6 +422,22 @@ kbd { font-family: inherit; font-size: 0.8em; border: 1px solid var(--btn-border
 .solved-title { font-family: var(--font-display); font-weight: 800; font-size: 1.15rem; color: var(--place); }
 .solved-time { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 1.1rem; }
 .solved-card .small { margin: 0; }
+.solved-card .hint-actions { flex-wrap: wrap; }
+.like-btn { color: var(--elim); }
+.like-btn.on { background: var(--elim); border-color: var(--elim); color: var(--surface); }
+
+/* ---- Liked puzzles ---- */
+.likes { display: flex; flex-direction: column; gap: 6px; }
+.liked {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px; text-align: left;
+  font: inherit; font-size: 0.9rem; color: var(--ink); background: var(--btn);
+  border: 1px solid var(--btn-border); border-radius: 8px; padding: 7px 10px; cursor: pointer;
+}
+.liked:hover { border-color: var(--pen); }
+.liked.on { box-shadow: inset 0 0 0 2px var(--pen); }
+.liked-name { font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
+.liked-name::first-letter { color: var(--elim); }
+.liked small { color: var(--muted); font-size: 0.78rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
 /* ---- Daily puzzles ---- */
 .daily-pick { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
@@ -416,3 +461,4 @@ kbd { font-family: inherit; font-size: 0.8em; border: 1px solid var(--btn-border
 .stats-table thead th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
 .btn.danger { color: var(--elim); border-color: var(--elim); }
 .pane a { color: var(--pen); }
+@media (min-width: 761px) { #erase.armed { font-size: 0.8rem; } }

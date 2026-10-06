@@ -37,7 +37,7 @@ const page = readFileSync("src/page.html", "utf8")
   .replace("/*SCRIPT*/", () => script);
 
 const wrap = (head, body) =>
-  `<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n${head}\n</head>\n<body>\n${body}\n</body>\n</html>\n`;
+  `<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n<meta name="color-scheme" content="light dark">\n${head}\n</head>\n<body>\n${body}\n</body>\n</html>\n`;
 
 mkdirSync("dist", { recursive: true });
 writeFileSync("dist/artifact.html", page);
