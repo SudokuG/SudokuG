@@ -85,6 +85,8 @@
 }
 
 * { box-sizing: border-box; }
+/* Holding a button must not select its text or open the phone's search/translate popup. */
+button { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
 [hidden] { display: none !important; }
 html, body { background: var(--paper); color: var(--ink); }
 body { font-family: var(--font-ui); font-size: 15px; line-height: 1.45; }
@@ -229,9 +231,11 @@ h1 { font-family: var(--font-display); font-weight: 800; font-size: 1.6rem; lett
 .pad .pad-sticky { display: none; color: var(--accent); border-color: var(--accent); font-weight: 800; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .pad .pad-sticky.on { background: var(--accent); color: var(--surface); }
 .pad { --accent: var(--m-digit); }
-/* No zoom gestures on the keypad: holding S with one finger and tapping with another must
-   not be taken for a pinch, which would cancel the held key. */
-.pad, .pad button, .modes, .act-edit { touch-action: none; }
+/* Swiping up or down over the buttons scrolls the page, but no pinch zoom: holding S with
+   one finger and tapping with another must not be taken for a pinch, which would cancel
+   the held key. The S key itself takes no gestures at all, and a two-finger touch that
+   starts on it gets none either (browsers combine the rules of all touching fingers). */
+.pad, .pad button, .modes, .act-edit, .color-tools { touch-action: pan-y; }
 .pad.base-pencil { --accent: var(--m-pencil); }
 .pad.base-centre { --accent: var(--m-centre); }
 .pad.base-color { --accent: var(--m-color); }

@@ -34,7 +34,9 @@ import { SAMPLES } from "../samples";
 import { BoardView, PALETTES, paintBackground, paletteBit, stepDecor, stripes } from "./board";
 import { dailyPuzzle, formatDay, today } from "./daily";
 import { initGuide, moveGuide, showGuide } from "./guide-view";
+import { pickFromLibrary } from "../library";
 import { isLiked, likedList, toggleLike } from "./likes";
+import { browserId, markPlayed, playedSet } from "./played";
 import { addSolve, loadStats, resetStats } from "./stats";
 
 // ---------------------------------------------------------------------------
@@ -277,6 +279,7 @@ function loadPuzzle(text: string, label: string, known?: Generated): string | nu
   if (res.count === 0) return "This puzzle has no solution. Check for typos.";
   S.puzzle = g.toString();
   S.code = encodePuzzle(g.values);
+  markPlayed(S.code);
   S.label = label;
   S.givens = g.values.map((v) => v !== 0);
   S.solution = res.count === 1 ? res.solution : null;
@@ -540,6 +543,7 @@ function renderLikeButton(): void {
 function renderLikes(): void {
   const list = likedList();
   const el = $("likes");
+  $("likes-share").hidden = !list.length;
   if (!list.length) {
     el.innerHTML = `<p class="small">None yet. When you finish a puzzle you enjoyed, tap Like and it shows up here.</p>`;
     return;
@@ -613,40 +617,85 @@ function openDaily(difficulty: string): void {
 // ---------------------------------------------------------------------------
 // Generating
 
-let genRun: { it: Generator<GenerateProgress, Generated>; cancelled: boolean } | null = null;
+let genRun: { it: Generator<GenerateProgress, Generated | null>; cancelled: boolean } | null = null;
 
 /** Name for the current profile: a template name, or "Custom". */
 const profileName = () => templateOf(S.settings.genProfile) ?? "Custom";
 
-function startGenerate(): void {
+/** "5 hard, 2 expert and 1 extreme move" */
+function movesText(m: { Hard: number; Expert: number; Extreme: number }): string {
+  const parts = (["Hard", "Expert", "Extreme"] as const).filter((g) => m[g]).map((g) => `${m[g]} ${g.toLowerCase()}`);
+  if (!parts.length) return "";
+  const total = m.Hard + m.Expert + m.Extreme;
+  const list = parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}` : parts[0];
+  return `${list} move${total === 1 ? "" : "s"}`;
+}
+
+/** Message under Generate, optionally with a "make a brand-new one" link. */
+function genMessage(text: string, offerFresh = false): void {
+  const el = $("gen-msg");
+  el.textContent = text;
+  if (!offerFresh) return;
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "link-btn";
+  b.textContent = "Make a brand-new one instead";
+  b.addEventListener("click", () => startGenerate(true));
+  el.append(" ", b);
+}
+
+/**
+ * "Generate": for a template, first an unplayed puzzle from the library (instant, liked
+ * ones first); otherwise, or with `fresh`, a new one. Making one takes up to about 5
+ * seconds: the generator keeps moving clues until the puzzle has the hard moves its
+ * difficulty asks for, and takes the best one found when time is up.
+ */
+function startGenerate(fresh = false): void {
   if (genRun) return;
   const label = profileName();
-  const it = generateRated({ allowed: S.settings.genProfile });
+  if (!fresh && label !== "Custom") {
+    const pick = pickFromLibrary(label, playedSet());
+    if (pick) {
+      loadPuzzle(pick.code, label);
+      const liked = pick.likes ? ` Liked by ${pick.likes} player${pick.likes === 1 ? "" : "s"}.` : "";
+      const an = /^[AEIOU]/.test(label) ? "An" : "A";
+      const left = pick.left ? `${pick.left} more you haven't played.` : "That was the last one you hadn't played; next time a new one is made.";
+      genMessage(`${an} ${label.toLowerCase()} puzzle from the library.${liked} ${left}`, true);
+      setTab("play");
+      return;
+    }
+  }
+  const it = generateRated({ allowed: S.settings.genProfile, timeBudgetMs: 5000, maxAttempts: MAX_TRIES });
   const run = { it, cancelled: false };
   genRun = run;
-  $("gen-msg").textContent = "Looking for a puzzle…";
+  genMessage("Looking for a puzzle…");
   renderGen();
   const step = () => {
     if (run.cancelled) return;
     // Work for up to ~30 ms, then let the page breathe.
     const t0 = performance.now();
     let r = it.next();
-    while (!r.done && (r.value.spreading || r.value.attempts < MAX_TRIES) && performance.now() - t0 < 30) r = it.next();
+    while (!r.done && performance.now() - t0 < 30) r = it.next();
     if (r.done) {
       genRun = null;
       const g = r.value;
+      renderGen();
+      if (!g) return genMessage(`No puzzle found in ${MAX_TRIES} tries. This mix of techniques is rare on its own; try ticking a few more.`);
       loadPuzzle(g.puzzle.join(""), label, g);
-      $("gen-msg").textContent = `New ${label.toLowerCase()} puzzle, found after ${g.attempts} tr${g.attempts === 1 ? "y" : "ies"}.`;
-      renderGen();
+      const moves = movesText(g.moves);
+      genMessage(
+        g.missing
+          ? `New ${label.toLowerCase()} puzzle${moves ? ` with ${moves}` : ""}: the best one found in 5 seconds, ${g.missing} move${g.missing === 1 ? "" : "s"} short of the usual mix.`
+          : `New ${label.toLowerCase()} puzzle${moves ? ` with ${moves}` : ""}.`,
+      );
       setTab("play");
-    } else if (!r.value.spreading && r.value.attempts >= MAX_TRIES) {
-      genRun = null;
-      $("gen-msg").textContent = `No puzzle found in ${MAX_TRIES} tries. This mix of techniques is rare on its own; try ticking a few more.`;
-      renderGen();
     } else {
-      $("gen-msg").textContent = r.value.spreading
-        ? "Found one. Moving clues so the hard steps come up more than once…"
-        : `Looking for a puzzle… ${r.value.attempts} tried so far.`;
+      const p = r.value;
+      genMessage(
+        p.candidates
+          ? `Found ${p.candidates === 1 ? "a candidate" : `${p.candidates} candidates`}; moving clues to get enough hard moves${Number.isFinite(p.missing) && p.missing > 0 ? ` (${p.missing} more needed)` : ""}…`
+          : `Looking for a puzzle… ${p.attempts} tried so far.`,
+      );
       setTimeout(step, 0);
     }
   };
@@ -1161,44 +1210,43 @@ function buildPad(): void {
 }
 
 /**
- * Erase button. In Colour mode it is "Clear colour": a tap clears the selected cells; held
- * for a quarter second it turns into "Clear all colour", and letting go then clears every
- * colour in all palettes. Sliding off the button first cancels.
+ * Erase button. In Colour mode it is "Clear colour": a tap clears the selected cells.
+ * Held, it clears every colour in all palettes after HOLD_MS, without waiting for the
+ * finger to lift. After a quarter second the label already says "Clear all colour", as a
+ * hint that holding does something else. Sliding off the button first cancels.
  */
+const HOLD_MS = 600;
 function wireEraseButton(): void {
   const btn = $("erase");
-  let timer = 0;
-  let armed = false;
+  let hintTimer = 0;
+  let fireTimer = 0;
   let firedAt = -Infinity;
-  const disarm = () => {
-    clearTimeout(timer);
-    if (!armed) return;
-    armed = false;
+  const reset = () => {
+    clearTimeout(hintTimer);
+    clearTimeout(fireTimer);
+    if (!btn.classList.contains("armed")) return;
     btn.classList.remove("armed");
     renderModes();
   };
   btn.addEventListener("pointerdown", () => {
-    disarm();
+    reset();
     if (effectiveMode() !== "color") return;
-    timer = window.setTimeout(() => {
-      armed = true;
+    hintTimer = window.setTimeout(() => {
       btn.classList.add("armed");
       btn.textContent = "Clear all colour";
     }, 250);
+    fireTimer = window.setTimeout(() => {
+      firedAt = performance.now();
+      reset();
+      clearAllColors();
+      setStatus("All colours cleared, in all palettes.");
+    }, HOLD_MS);
   });
-  btn.addEventListener("pointerup", (e) => {
-    clearTimeout(timer);
-    if (!armed) return;
-    firedAt = e.timeStamp;
-    disarm();
-    clearAllColors();
-    setStatus("All colours cleared, in all palettes.");
-  });
-  btn.addEventListener("pointerleave", disarm);
-  btn.addEventListener("pointercancel", disarm);
-  btn.addEventListener("contextmenu", (e) => e.preventDefault());
-  btn.addEventListener("click", (e) => {
-    if (e.timeStamp - firedAt < 1000) return; // the click that ends a hold
+  btn.addEventListener("pointerup", reset);
+  btn.addEventListener("pointerleave", reset);
+  btn.addEventListener("pointercancel", reset);
+  btn.addEventListener("click", () => {
+    if (performance.now() - firedAt < 1500) return void (firedAt = -Infinity); // the click that ends a hold
     erase();
   });
 }
@@ -1647,7 +1695,7 @@ function init(): void {
     renderLikes();
   });
   renderLikes();
-  $("generate").addEventListener("click", startGenerate);
+  $("generate").addEventListener("click", () => startGenerate());
   $("gen-cancel").addEventListener("click", cancelGenerate);
   $("restart").addEventListener("click", () => {
     if (noPuzzle()) return;
@@ -1658,6 +1706,10 @@ function init(): void {
     render();
     saveGame();
     $("puzzle-msg").textContent = "Restarted.";
+  });
+  // A long press on a button opens no context menu (it would get in the way of holding).
+  document.addEventListener("contextmenu", (e) => {
+    if ((e.target as HTMLElement).closest?.("button")) e.preventDefault();
   });
   document.addEventListener("keydown", onKey);
   document.addEventListener("keyup", onKeyUp);

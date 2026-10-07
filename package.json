@@ -7,7 +7,9 @@
     "build": "node build.mjs",
     "test": "esbuild test/engine.test.ts --bundle --platform=node --outfile=dist/test.cjs --log-level=warning && node dist/test.cjs",
     "typecheck": "tsc --noEmit",
-    "dailies": "esbuild scripts/make-dailies.ts --bundle --platform=node --outfile=dist/dailies.cjs --log-level=warning && node dist/dailies.cjs"
+    "dailies": "esbuild scripts/make-dailies.ts --bundle --platform=node --outfile=dist/dailies.cjs --log-level=warning && node dist/dailies.cjs",
+    "library": "esbuild scripts/make-library.ts --bundle --platform=node --outfile=dist/library.cjs --log-level=warning && node dist/library.cjs",
+    "add-likes": "esbuild scripts/add-likes.ts --bundle --platform=node --outfile=dist/add-likes.cjs --log-level=warning && node dist/add-likes.cjs"
   },
   "keywords": [],
   "author": "",

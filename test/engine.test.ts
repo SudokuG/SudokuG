@@ -11,6 +11,9 @@ import {
   generatePuzzle,
   generateRatedSync,
   spreadOf,
+  missingMoves,
+  moveCounts,
+  REQUIREMENTS,
   logicalSolve,
   ratePuzzle,
   seededRandom,
@@ -25,6 +28,7 @@ import { SAMPLES } from "../src/samples";
 import { GUIDE } from "../src/guide";
 import { exampleStep } from "../src/guide-step";
 import { DAILY, DAILY_START } from "../src/daily-data";
+import { LIBRARY, LIKES } from "../src/library-data";
 
 let failures = 0;
 const fail = (msg: string) => {
@@ -139,7 +143,7 @@ for (const g of DIFFICULTIES) {
   const allowed = TECHNIQUES.filter((t) => TEMPLATES[g].includes(t.name));
   for (let k = 1; k <= 3; k++) {
     const t0 = Date.now();
-    const r = generateRatedSync({ allowed: TEMPLATES[g] }, seededRandom(1000 * k + g.length));
+    const r = generateRatedSync({ allowed: TEMPLATES[g], maxCandidates: 3 }, seededRandom(1000 * k + g.length));
     const log = logicalSolve(new Grid(r.puzzle), allowed);
     if (!log.solved) fail(`generator: ${g} puzzle not solvable with the ${g} techniques`);
     if (!log.steps.some((s) => must.has(s.technique))) fail(`generator: ${g} puzzle doesn't need a ${g} technique`);
@@ -147,7 +151,7 @@ for (const g of DIFFICULTIES) {
     if (r.rating.difficulty !== g) fail(`generator: ${g} puzzle rated ${r.rating.difficulty}`);
     if (k === 1)
       console.log(
-        `Generated ${g.padEnd(8)} in ${String(Date.now() - t0).padStart(4)} ms after ${String(r.attempts).padStart(3)} tries: ${encodePuzzle(r.puzzle)}  rated ${r.rating.difficulty}, ${r.rating.grind}, ${spreadOf(log.steps).locks} lock(s)`,
+        `Generated ${g.padEnd(8)} in ${String(Date.now() - t0).padStart(4)} ms after ${String(r.attempts).padStart(3)} tries: ${encodePuzzle(r.puzzle)}  rated ${r.rating.difficulty}, ${r.rating.grind}, ${spreadOf(log.steps).locks} lock(s), moves ${JSON.stringify(r.moves)} (${r.missing} missing)`,
       );
   }
 }
@@ -158,6 +162,19 @@ for (const g of DIFFICULTIES) {
   const two = spreadOf([st(1, 5), st(5, 0), st(1, 4), st(6, 0), st(1, 20)]);
   if (one.locks !== 1 || one.hardSteps !== 3) fail(`spread: expected 1 lock and 3 hard steps, got ${JSON.stringify(one)}`);
   if (two.locks !== 2) fail(`spread: expected 2 locks, got ${JSON.stringify(two)}`);
+}
+// Requirements cascade: harder moves count toward easier needs.
+{
+  const req = REQUIREMENTS.Extreme!; // 1 extreme, 2 expert, 5 hard
+  const cases: [Record<"Hard" | "Expert" | "Extreme", number>, number][] = [
+    [{ Extreme: 1, Expert: 2, Hard: 5 }, 0],
+    [{ Extreme: 1, Expert: 4, Hard: 3 }, 0], // two extra expert moves stand in for two hard ones
+    [{ Extreme: 0, Expert: 2, Hard: 5 }, 1],
+    [{ Extreme: 3, Expert: 0, Hard: 2 }, 3],
+    [{ Extreme: 0, Expert: 0, Hard: 9 }, 3],
+  ];
+  if (REQUIREMENTS.Extreme?.locks !== 3) fail("requirements: Extreme should ask for 3 separate locks");
+  for (const [c, want] of cases) if (missingMoves(c, req) !== want) fail(`requirements: ${JSON.stringify(c)} should miss ${want}, got ${missingMoves(c, req)}`);
 }
 // A custom profile: Hard template without X-Wing but with XY-Wing.
 {
@@ -186,8 +203,10 @@ for (const entry of GUIDE) {
 console.log(`Techniques section: ${GUIDE.length} entries checked.`);
 
 // 6. Daily puzzles: every code decodes, has one solution and fits its template.
+const REQUIRED_FROM = Math.round((Date.parse("2026-10-09T12:00:00Z") - Date.parse(`${DAILY_START}T12:00:00Z`)) / 86400000);
 {
   let checked = 0;
+  let short = 0;
   DAILY.forEach((row, day) => {
     const codes = row.split(" ");
     if (codes.length !== DIFFICULTIES.length) fail(`daily ${day}: expected ${DIFFICULTIES.length} codes`);
@@ -197,6 +216,9 @@ console.log(`Techniques section: ${GUIDE.length} entries checked.`);
       if (!uniqueSolution(values)) fail(`daily ${day}/${g}: no unique solution`);
       const log = logicalSolve(new Grid(values), TECHNIQUES.filter((t) => TEMPLATES[g].includes(t.name)));
       if (!log.solved) fail(`daily ${day}/${g}: not solvable with the ${g} techniques`);
+      // Counted, not failed: dailies made before the move and lock requirements existed.
+      const req = REQUIREMENTS[g];
+      if (req && day >= REQUIRED_FROM && (missingMoves(moveCounts(log.steps), req) || spreadOf(log.steps).locks < (req.locks ?? 0))) short++;
       checked++;
     });
   });
@@ -204,7 +226,33 @@ console.log(`Techniques section: ${GUIDE.length} entries checked.`);
   end.setUTCDate(end.getUTCDate() + DAILY.length - 1);
   const daysLeft = Math.round((end.getTime() - Date.now()) / 86400000);
   console.log(`Daily puzzles: ${checked} checked, available until ${end.toISOString().slice(0, 10)} (${daysLeft} days from now).`);
+  if (short) console.log(`  ${short} Hard/Expert/Extreme dailies from 2026-10-09 don't meet the move and lock requirements yet (run npm run dailies).`);
   if (daysLeft < 60) console.warn("WARNING: fewer than 60 days of daily puzzles left. Run `npm run dailies` with a later START.");
+}
+
+// 7. Puzzle library: every code is a valid puzzle with one solution, listed once, fits its
+//    template; generated ones have all the required moves. Liked codes decode.
+{
+  const seen = new Set<string>();
+  let checked = 0;
+  let short = 0;
+  for (const [g, codes] of Object.entries(LIBRARY)) {
+    const tech = TECHNIQUES.filter((t) => (TEMPLATES as Record<string, string[]>)[g]?.includes(t.name));
+    for (const code of codes) {
+      if (seen.has(code)) fail(`library: ${code} listed twice`);
+      seen.add(code);
+      const values = decodePuzzle(code);
+      if (!uniqueSolution(values)) fail(`library ${g}: ${code} has no unique solution`);
+      const log = logicalSolve(new Grid(values), tech);
+      if (!log.solved) fail(`library ${g}: ${code} not solvable with the ${g} techniques`);
+      const req = REQUIREMENTS[g as keyof typeof REQUIREMENTS];
+      if (req && !LIKES[code] && (missingMoves(moveCounts(log.steps), req) || spreadOf(log.steps).locks < (req.locks ?? 0))) short++;
+      checked++;
+    }
+  }
+  if (short) fail(`library: ${short} generated puzzles miss required moves or locks`);
+  for (const code of Object.keys(LIKES)) decodePuzzle(code);
+  console.log(`Library: ${checked} puzzles checked (${Object.entries(LIBRARY).map(([g, c]) => `${g} ${c.length}`).join(", ") || "empty"}), ${Object.keys(LIKES).length} liked.`);
 }
 
 if (failures) {

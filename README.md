@@ -58,7 +58,8 @@ src/
     guide-view.ts    the Techniques tab
     stats.ts         local stats (solved, best times, dailies)
     daily.ts         today's daily puzzles, hand-crafted overrides
-    likes.ts         liked puzzles (this browser only)
+    likes.ts         liked puzzles
+    played.ts        puzzles played in this browser, browser id for shared likes
     style.css        styles (light and dark theme)
   guide.ts           texts of the Techniques tab
   guide-examples.ts  example positions for each technique (found by search, checked by tests)
@@ -67,7 +68,9 @@ src/
   sw.js              service worker: keeps the game on the device for offline play
   samples.ts         built-in puzzles
   daily-data.ts      generated daily puzzles (do not edit by hand)
-scripts/             make-dailies.ts
+  library.ts         picks an unplayed library puzzle, liked ones first
+  library-data.ts    the puzzle library and like counts (written by scripts)
+scripts/             make-dailies.ts, make-library.ts, add-likes.ts, common.ts (npm run dailies / library / add-likes)
 test/engine.test.ts  validation on the samples + N random puzzles (N=300 by default)
 public/              icons copied into the website
 build.mjs            builds dist/index.html (single file), dist/artifact.html and site/ (website + PWA)
@@ -151,15 +154,60 @@ with the allowed techniques. Too easy: start over. Stuck: give a clue back where
 step outside the profile acts and try again (up to 6 times). It yields after every try,
 so the page stays responsive; the page gives up after 800 tries (rare custom mixes).
 
-**Spreading the hard steps.** A random minimal puzzle tends to be singles, one *lock*
-where the hard technique is needed, then singles to the end. For profiles up to Hard or
-harder, `spreadOut()` then moves clues around (take a clue pair out, put one in elsewhere,
-or just take one out) and keeps a change when the puzzle stays unique, stays within the
-profile, still needs a technique of its hardest group, and gets stuck at least as often.
-`spreadOf(steps)` counts the locks: hard steps (X-Wing level and up) on the easiest-first
-path with at least 4 placements between them count as separate locks. Targets: 2 locks
-for Hard, 3 for Expert and Extreme; it stops at the target or after 1000 moves.
-Typical time: about a second.
+**Enough hard moves.** A random minimal puzzle tends to be singles, one *lock* where the
+hard technique is needed, then singles to the end. So for Hard and up, a puzzle also has to
+need a number of moves of each group on the easiest-first path (`REQUIREMENTS` in
+`targeted.ts`):
+
+| Difficulty | Extreme moves | Expert moves | Hard moves | Separate locks |
+|---|---|---|---|---|
+| Hard | | | 3 | 2 |
+| Expert | | 2 | 3 | 2 |
+| Extreme | 1 | 2 | 5 | 3 |
+
+They cascade: a harder move also counts for an easier group, so an Extreme puzzle with four
+expert moves needs only three hard ones (internally: at least 1 move of Extreme level, 3 of
+Expert level or harder, 8 of Hard level or harder; `missingMoves()`). Hard moves are X-Wing,
+Skyscraper, 2-String Kite and Turbot Fish; expert moves XY-Wing, XYZ-Wing, coloring and
+Swordfish; extreme moves the chains and Jellyfish. *Separate locks* keeps those moves from
+all landing in one spot: hard moves with at least 4 placements between them count as
+separate places where you get stuck (`spreadOf()`).
+
+To get there, `moveClues()` moves clues around (take a clue pair out and put one in
+elsewhere, or just take one out) and keeps a change when the puzzle keeps one solution,
+still fits the profile and misses no more moves than before (ties: more separate locks,
+`spreadOf()`). If a candidate gets stuck, the next one is tried. In the browser this runs
+for at most 5 seconds and then takes the best one found (on a computer that meets all
+requirements for about 8 in 10 Hard, half of Expert and a third of Extreme puzzles; the
+rest are usually one move or lock short). Without a time limit they are always met, in
+about 3 s (Hard), 6 s (Expert) or 15 s (Extreme) per puzzle, which is why the library
+exists.
+
+## Puzzle library
+
+"Generate" first hands out a puzzle from the library (`src/library-data.ts`) that this
+browser hasn't played yet: liked puzzles first (most likes first), then a random one. Only
+when you've played them all (or tap "Make a brand-new one instead") is a new one made. The
+library is made ahead of time with no time limit, so every puzzle in it has all the
+required moves: `npm run library` adds puzzles until each difficulty has
+`COUNTS="Easy=80,Medium=80,Hard=150,Expert=150,Extreme=150"` (existing puzzles and likes
+are kept). Played puzzles are remembered per browser
+(`src/ui/played.ts`), so a phone and a computer each have their own list.
+
+**Likes.** After finishing a puzzle you can like it; liked puzzles are listed in the
+Puzzles tab. "Copy my likes" copies them as text, headed by a random id for that browser:
+
+```
+SudokuG likes k3x9qa
+S2skUeu1uG36qNQ2aSVdOZOK
+...
+```
+
+Players send that text to whoever runs the site, who pastes it (several at once is fine)
+into a file and runs `npm run add-likes -- likes.txt`. Each browser's like counts once per
+puzzle; the counts are stored in `LIKES` in `src/library-data.ts`. A liked puzzle that
+fits a template (solvable with its techniques, rated that difficulty) is added to that
+difficulty's library, so other players get it, most-liked first. Then commit and push.
 
 ## Colours
 
@@ -179,9 +227,8 @@ Everything is stored in the player's own browser (localStorage); nothing is sent
   pairs, colours, undo history, time, hints used) and continue where you left off.
 - **Stats:** solved count, best time (games without hints) and average per difficulty,
   and which daily puzzles are done (`src/ui/stats.ts`).
-- **Likes:** after finishing a puzzle you can like it; liked puzzles are listed in the
-  Puzzles tab to play again (`src/ui/likes.ts`). They stay in this browser: sharing likes
-  between players would need a small server, which the site doesn't have (yet).
+- **Likes and played puzzles:** liked puzzles (`src/ui/likes.ts`) and the puzzles played
+  in this browser (`src/ui/played.ts`); see Puzzle library.
 - **Timer:** counts only while the page is visible and you have clicked or typed in the
   last 2 minutes.
 - **Updates:** the service worker fetches a new version in the background; players keep
@@ -192,11 +239,14 @@ Everything is stored in the player's own browser (localStorage); nothing is sent
 Five puzzles a day (one per template), the same for everyone, by the player's local date.
 They are generated ahead of time by `npm run dailies` (`scripts/make-dailies.ts`) into
 `src/daily-data.ts`, so changes to the generator never change a day's puzzles. Hard,
-Expert and Extreme dailies are the best of up to 3 candidates with a longer spreading
-search (3000 moves). The current file runs until 2027-11-04; the tests warn when fewer
+Expert and Extreme dailies made by the current script have all the required moves and
+locks (`goodPuzzle()` in `scripts/common.ts`, the same search as the library); the ones in
+the file now were made before the requirements existed (spread out, but not counted), and
+the tests report how many miss them until `FROM=2026-10-09 npm run dailies` is run again
+(about 17 s per day on 2 processes). The current file runs until 2027-11-04; the tests warn when fewer
 than 60 days are left. To extend, keep the existing days and add new ones:
 `FROM=2027-11-05 DAYS=765 npm run dailies` (DAYS counts from the start of the file; days
-before FROM are kept as they are). It runs on 2 processes (WORKERS=2), about 7 s per day.
+before FROM are kept as they are).
 Hand-crafted puzzles used with the setter's permission go in `HANDCRAFTED` in
 `src/ui/daily.ts` and are shown with "By <author>".
 
