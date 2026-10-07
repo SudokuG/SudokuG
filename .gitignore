@@ -3,3 +3,5 @@ dist/
 site/
 *.log
 .DS_Store
+scripts/grow-pool.json
+*.tmp

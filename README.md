@@ -70,7 +70,7 @@ src/
   daily-data.ts      generated daily puzzles (do not edit by hand)
   library.ts         picks an unplayed library puzzle, liked ones first
   library-data.ts    the puzzle library and like counts (written by scripts)
-scripts/             make-dailies.ts, make-library.ts, add-likes.ts, common.ts (npm run dailies / library / add-likes)
+scripts/             grow.ts (the generator app), make-dailies.ts, make-library.ts, add-likes.ts, common.ts
 test/engine.test.ts  validation on the samples + N random puzzles (N=300 by default)
 public/              icons copied into the website
 build.mjs            builds dist/index.html (single file), dist/artifact.html and site/ (website + PWA)
@@ -233,6 +233,43 @@ Everything is stored in the player's own browser (localStorage); nothing is sent
   last 2 minutes.
 - **Updates:** the service worker fetches a new version in the background; players keep
   the version they started with and get a small "new version ready" notice.
+
+## Making puzzles on your own computer
+
+Good Hard, Expert and Extreme puzzles take seconds each to find, so there is a small app
+to let your own computer do it while you leave it on: `scripts/grow.ts`.
+
+**Once:**
+1. Install Node.js, the "LTS" version, from https://nodejs.org.
+2. Install GitHub Desktop from https://desktop.github.com and sign in with your GitHub
+   account. Then File > Clone repository > `SudokuG/SudokuG`, into a folder outside
+   OneDrive (OneDrive struggles with the thousands of small files in `node_modules`).
+
+**Each time:**
+1. In GitHub Desktop, click "Fetch origin" (and "Pull" if it offers that), so you start
+   from the latest version.
+2. Double-click **SudokuG Generator.cmd** in that folder. A black window opens (leave it
+   open) and then a page in your browser. The first time it installs the build tools,
+   which takes a minute.
+3. Choose how many cores to use (2 by default; it runs at low priority, so the computer
+   stays usable) and press **Start**. Press **Stop** whenever you like, and
+   **Close the generator** when you're done (or just close the black window).
+4. In GitHub Desktop you'll see `src/daily-data.ts` and `src/library-data.ts` changed.
+   Type a summary like "More puzzles", click "Commit to main", then "Push origin". The
+   site updates about a minute later.
+
+What it does: each good puzzle (all the moves and locks the requirements ask for) is saved
+the moment it's found, alternately
+- to the **daily puzzles**: it replaces a Hard, Expert or Extreme daily that doesn't meet
+  the requirements yet, starting from the day after tomorrow (so nobody's current daily
+  changes); once they all do, it collects one of each and adds a new day at the end
+  (with Easy and Medium made on the spot);
+- to the **library** that "Generate" hands out.
+
+The three difficulties are made in turn, so they grow evenly (Extreme puzzles take longest,
+about 15 s each per core). Stopping loses only the puzzles being worked on at that moment.
+Puzzles waiting for a new day are kept in `scripts/grow-pool.json` (not committed). On a
+Mac or Linux, run `npm install` once and then `npm run grow` in the folder.
 
 ## Daily puzzles
 
