@@ -475,10 +475,10 @@ kbd { font-family: inherit; font-size: 0.8em; border: 1px solid var(--btn-border
 .game-pick button.on { background: var(--ink); border-color: var(--ink); color: var(--surface); }
 .game-pick button:focus-visible { outline: 3px solid var(--pen); outline-offset: 2px; }
 .game-view { display: none; }
-html[data-game="sums"] .layout, html[data-game="sums"] .top .meta { display: none; }
-html[data-game="sums"] #game-sums { display: grid; }
+.game-view.on { display: grid; }
+html[data-game]:not([data-game="sudoku"]) .layout, html[data-game]:not([data-game="sudoku"]) .top .meta { display: none; }
 
-/* ---- Lighter puzzle types (Japanese Sums, …) -------------------------------------- */
+/* ---- Lighter puzzle types (Treasure Map, Futoshiki, …) ---------------------------- */
 .lite { grid-template-columns: minmax(0, 1fr) 316px; gap: 24px; align-items: start; }
 .lite-board-wrap { min-width: 0; display: flex; flex-direction: column; align-items: center; }
 .lite-head { display: flex; align-items: baseline; gap: 4px 14px; flex-wrap: wrap; justify-content: center; margin-bottom: 10px; color: var(--muted); }
@@ -487,43 +487,54 @@ html[data-game="sums"] #game-sums { display: grid; }
 .lite-pad button.x-key { color: var(--ink); }
 .lite-diff { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .lite-diff button small { display: block; font-weight: 400; font-size: 0.72rem; opacity: 0.8; }
-#sums-mode.on { background: var(--m-pencil); border-color: var(--m-pencil); color: var(--surface); }
+.lite-mode.on { background: var(--m-pencil); border-color: var(--m-pencil); color: var(--surface); }
 .rules p { margin: 6px 0 0; }
+.rules .aside { font-style: italic; }
 .code-input { font: 0.85rem ui-monospace, "SF Mono", Menlo, Consolas, monospace; flex: 1; min-width: 0; padding: 7px 8px; border-radius: 8px; border: 1px solid var(--btn-border); background: var(--surface); color: var(--ink); }
 
-/* The Japanese Sums board: clues on the left and on top, then n×n cells. */
-.sums-board {
-  --n: 7;
-  display: grid; grid-template-columns: 1.5fr repeat(var(--n), 1fr);
-  width: min(100%, 600px); container-type: inline-size; outline: none; user-select: none; -webkit-user-select: none; touch-action: manipulation;
-}
-.sums-corner { aspect-ratio: 1.5 / 1.5; }
-.sums-cell {
+.lite-board { display: grid; width: min(100%, 600px); container-type: inline-size; outline: none; user-select: none; -webkit-user-select: none; touch-action: manipulation; --n: 7; }
+.lite-cell {
   aspect-ratio: 1; display: grid; place-items: center; background: var(--surface); color: var(--entry);
-  border-left: 1px solid var(--hair); border-top: 1px solid var(--hair); cursor: pointer; position: relative;
-  font-size: calc(100cqi / (var(--n) + 1.5) * 0.56); font-weight: 400; line-height: 1;
+  cursor: pointer; position: relative; font-size: var(--cell-fs); line-height: 1; min-width: 0;
 }
-.sums-cell.last-col { border-right: 2.5px solid var(--grid); }
-.sums-cell.last-row { border-bottom: 2.5px solid var(--grid); }
-.sums-clue.row + .sums-cell { border-left: 2.5px solid var(--grid); }
-.sums-clue.col { border-bottom: 2.5px solid var(--grid); }
-.sums-cell.given { color: var(--ink); font-weight: 700; }
-.sums-cell.x { color: var(--ink); font-size: calc(100cqi / (var(--n) + 1.5) * 0.48); }
-.sums-cell.x:not(.given) { color: var(--muted); }
-.sums-cell.peer { background: var(--peer-digit); }
-.sums-cell.same { background: var(--same-digit); }
-.sums-cell.sel { background: var(--sel-digit); box-shadow: inset 0 0 0 3px var(--pen); }
-.sums-cell.clash { color: var(--elim); }
-.sums-cell.wrong { background: var(--error-soft); }
-.sums-cands { position: absolute; inset: 4%; display: grid; grid-template-columns: repeat(3, 1fr); color: var(--m-pencil); font-size: calc(100cqi / (var(--n) + 1.5) * 0.22); font-weight: 700; }
-.sums-cands span { display: grid; place-items: center; }
+.lite-cell.given { color: var(--ink); font-weight: 700; }
+.lite-cell.x { color: var(--ink); font-size: calc(var(--cell-fs) * 0.86); }
+.lite-cell.x:not(.given) { color: var(--muted); }
+.lite-cell.peer { background: var(--peer-digit); }
+.lite-cell.same { background: var(--same-digit); }
+.lite-cell.sel { background: var(--sel-digit); box-shadow: inset 0 0 0 3px var(--pen); }
+.lite-cell.clash { color: var(--elim); }
+.lite-cell.wrong { background: var(--error-soft); }
+/* Candidates in the middle of the cell, like pairs in sudoku. */
+.lite-pill {
+  display: inline-flex; align-items: center; padding: 0.22em 0.34em; border: 1.5px solid var(--m-pencil); border-radius: 999px;
+  background: var(--surface); color: var(--m-pencil); font-weight: 700; font-size: calc(var(--cell-fs) * 0.42); letter-spacing: 0.04em; font-variant-numeric: tabular-nums;
+}
+.lite-pill.many { font-size: calc(var(--cell-fs) * 0.32); padding: 0.2em 0.28em; }
+
+/* Treasure Map: clues on the left and on top, then n×n cells. */
+.sums-board { grid-template-columns: 1.5fr repeat(var(--n), 1fr); --cell-fs: calc(100cqi / (var(--n) + 1.5) * 0.56); }
+.sums-board .lite-cell { border-left: 1px solid var(--hair); border-top: 1px solid var(--hair); }
+.sums-board .lite-cell.last-col { border-right: 2.5px solid var(--grid); }
+.sums-board .lite-cell.last-row { border-bottom: 2.5px solid var(--grid); }
+.sums-clue.row + .lite-cell { border-left: 2.5px solid var(--grid); }
+.sums-corner { aspect-ratio: 1.5 / 1.5; }
 .sums-clue { display: flex; color: var(--ink); font-weight: 700; font-variant-numeric: tabular-nums; font-size: calc(100cqi / (var(--n) + 1.5) * 0.3); }
 .sums-clue.row { align-items: center; justify-content: flex-end; gap: 0.55em; padding-right: 0.55em; }
-.sums-clue.col { flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 0.25em; line-height: 1.15; }
+.sums-clue.col { flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 0.25em; line-height: 1.15; border-bottom: 2.5px solid var(--grid); }
 .sums-clue.on { color: var(--pen); }
 .sums-clue.done { color: var(--muted); opacity: 0.5; }
 .sums-clue.bad { color: var(--elim); }
-.sums-board:focus-visible .sums-cell.sel { box-shadow: inset 0 0 0 3px var(--pen), 0 0 0 2px var(--surface); }
+
+/* Futoshiki: cells with gaps for the signs. */
+.futoshiki-board { --gap: 0.42; --cw: calc(100cqi / (var(--n) + (var(--n) - 1) * var(--gap))); --cell-fs: calc(var(--cw) * 0.56); width: min(100%, 560px); }
+.futoshiki-board .lite-cell { border: 2px solid var(--grid); border-radius: 8px; }
+.futoshiki-board .lite-cell.given { border-width: 3px; }
+.futo-sign { display: grid; place-items: center; min-width: 0; }
+.futo-sign.v { aspect-ratio: 1 / 0.42; }
+.futo-sign svg { width: calc(var(--cw) * 0.34); height: calc(var(--cw) * 0.34); overflow: visible; }
+.futo-sign path { fill: none; stroke: var(--ink); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.futo-sign.bad path { stroke: var(--elim); stroke-width: 1.9; }
 
 @media (max-width: 760px) {
   .lite { grid-template-columns: minmax(0, 1fr); gap: 14px; }

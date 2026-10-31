@@ -2,7 +2,7 @@
 // types live in src/games/<type>/ and are made on the spot when you ask for one.
 // The choice is remembered in this browser; a puzzle link opens its own type.
 
-export type GameId = "sudoku" | "sums";
+export type GameId = "sudoku" | "sums" | "futoshiki";
 
 export interface GameInfo {
   id: GameId;
@@ -12,7 +12,8 @@ export interface GameInfo {
 
 export const GAMES: GameInfo[] = [
   { id: "sudoku", title: "Sudoku" },
-  { id: "sums", title: "Japanese Sums" },
+  { id: "sums", title: "Treasure Map" },
+  { id: "futoshiki", title: "Futoshiki" },
 ];
 
 const KEY = "sudokug-puzzle-type"; // ("sudokug-game" was the old sudoku save)

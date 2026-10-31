@@ -32,6 +32,7 @@ import { DAILY, DAILY_START } from "../src/daily-data";
 import { LIBRARY, LIKES, OLD_LIBRARY } from "../src/library-data";
 import { SUMS_SIZES, cluesOf, decodeSums, encodeSums, generateSums, runSums, solveSums } from "../src/games/sums/engine";
 import { puzzleName } from "../src/names";
+import { FUTOSHIKI_SIZES, decodeFutoshiki, encodeFutoshiki, generateFutoshiki, inequalities, solveFutoshiki } from "../src/games/futoshiki/engine";
 
 let failures = 0;
 const fail = (msg: string) => {
@@ -272,7 +273,7 @@ const RECIPE_FROM = Math.round((Date.parse("2026-11-02T12:00:00Z") - Date.parse(
   );
 }
 
-// 8. Japanese Sums: every generated puzzle has exactly one solution (its own), every line
+// 8. Treasure Map (Japanese Sums): every generated puzzle has exactly one solution (its own), every line
 //    holds 1..n-2 once and two X's, the clues follow from the grid, and codes round-trip.
 {
   if (runSums([0, 1, 2, 0, 3, 4, 5]).join() !== "3,12") fail("sums: runSums of X12X345 should be 3,12");
@@ -307,7 +308,41 @@ const RECIPE_FROM = Math.round((Date.parse("2026-11-02T12:00:00Z") - Date.parse(
     bad = true;
   }
   if (!bad) fail("sums: a code without a valid grid should be refused");
-  console.log(`Japanese Sums: ${made} puzzles made and checked (${givens} given cells in total).`);
+  // Codes made before the shared helpers still open (links people already shared).
+  const old = decodeSums("J5-9VMQFh1V-2COG");
+  if (old.rowClues.map((c) => c.join("+")).join(" ") !== "6 4+2 6 2+4 5+1") fail("sums: an older code no longer decodes to the same puzzle");
+  console.log(`Treasure Map: ${made} puzzles made and checked (${givens} given cells in total).`);
+}
+
+// 9. Futoshiki: one solution (its own), a Latin square, signs that agree with it, codes round-trip.
+{
+  let made = 0;
+  let signs = 0;
+  for (const [d, size] of Object.entries(FUTOSHIKI_SIZES)) {
+    for (let seed = 1; seed <= 12; seed++) {
+      const p = generateFutoshiki(size, seededRandom(seed * 53 + size), d === "Easy" ? 6 : 0);
+      made++;
+      signs += p.signs.filter(Boolean).length;
+      for (let i = 0; i < size; i++) {
+        const row = p.solution.slice(i * size, i * size + size);
+        const col = Array.from({ length: size }, (_, r) => p.solution[r * size + i]);
+        for (const line of [row, col]) if (new Set(line).size !== size || line.some((v) => v < 1 || v > size)) fail(`futoshiki ${d}: line ${line.join("")} is not 1..${size}`);
+      }
+      for (const [a, b] of inequalities(p)) if (!(p.solution[a] < p.solution[b])) fail(`futoshiki ${d}: a sign disagrees with the solution`);
+      const r = solveFutoshiki(size, inequalities(p), p.solution.map((v, i) => (p.givens[i] ? v : 0)), 2);
+      if (r.count !== 1 || r.solutions[0].join() !== p.solution.join()) fail(`futoshiki ${d}: ${encodeFutoshiki(p)} doesn't have exactly its own solution (${r.count})`);
+      const back = decodeFutoshiki(encodeFutoshiki(p));
+      if (back.solution.join() !== p.solution.join() || back.givens.join() !== p.givens.join() || back.signs.join() !== p.signs.join()) fail(`futoshiki ${d}: code round trip failed`);
+    }
+  }
+  let refused = false;
+  try {
+    decodeFutoshiki("F5-1-0-0");
+  } catch {
+    refused = true;
+  }
+  if (!refused) fail("futoshiki: a code without a valid grid should be refused");
+  console.log(`Futoshiki: ${made} puzzles made and checked (${(signs / made).toFixed(1)} signs on average).`);
 }
 
 if (failures) {

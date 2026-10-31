@@ -38,7 +38,9 @@ import { findForProfile, pickFromLibrary } from "../library";
 import { puzzleName } from "../names";
 import { isLiked, likedList, toggleLike } from "./likes";
 import { currentGame, initGamePicker, onGameChange } from "./games";
-import { initSums } from "../games/sums/view";
+import { initLite } from "../games/lite";
+import { TREASURE_MAP } from "../games/sums/game";
+import { FUTOSHIKI } from "../games/futoshiki/game";
 import { openPrintDialog, setCurrentPrint, wirePrintDialog } from "./print-dialog";
 import type { PrintPuzzle } from "./print";
 import { browserId, markPlayed, playedSet } from "./played";
@@ -1897,7 +1899,8 @@ function init(): void {
   }
   // The other puzzle types (a link to one of them switches to it).
   initGamePicker();
-  initSums();
+  initLite(TREASURE_MAP, $("game-sums"));
+  initLite(FUTOSHIKI, $("game-futoshiki"));
 }
 
 /**

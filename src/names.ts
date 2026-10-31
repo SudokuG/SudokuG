@@ -62,7 +62,7 @@ const FOOD: NameTheme = {
   ],
 };
 
-/** Japanese Sums: pirates, the romantic kind (sails, islands, bounty, X marks the spot). */
+/** Treasure Map: pirates, the romantic kind (sails, islands, bounty, X marks the spot). */
 const PIRATES: NameTheme = {
   first: {
     Easy: [
@@ -93,8 +93,39 @@ const PIRATES: NameTheme = {
   ],
 };
 
+/** Futoshiki: Arthurian legend (gallantry, knights, princesses and dragons). */
+const ARTHURIAN: NameTheme = {
+  first: {
+    Easy: [
+      "Gentle", "Courteous", "Fair", "Young", "Merry", "Graceful", "Humble", "Kindly",
+      "Noble", "Hopeful", "Cheerful", "Faithful", "Bright-Eyed", "Sunlit", "Modest", "Daydreaming",
+    ],
+    Medium: [
+      "Gallant", "Valiant", "Chivalrous", "Errant", "Questing", "Bold", "Loyal", "Steadfast",
+      "Honourable", "Wandering", "Bannered", "Jousting", "Silver-Clad", "Oath-Bound", "Lionhearted", "Spirited",
+    ],
+    Hard: [
+      "Dragon-Slaying", "Grail-Seeking", "Fearsome", "Legendary", "Enchanted", "Dauntless", "Mighty", "Storm-Riding",
+      "Spellbound", "Fabled", "Unyielding", "Fire-Forged", "Shadow-Hunting", "Thunderous", "Invincible", "Doom-Defying",
+    ],
+    Other: ["Mysterious", "Wandering", "Forgotten", "Hidden", "Ancient", "Secret", "Lost", "Dreaming"],
+  },
+  middle: [
+    "Round-Table", "Camelot", "Avalon", "Silver", "Crimson", "Golden", "Dragon", "Grail",
+    "Unicorn", "Falcon", "Lion", "Oak", "Moonlit", "Misty", "Rose", "Emerald",
+    "Stag", "Griffin", "Lakeside", "Tower", "Thistle", "Ivory", "Starlit", "Highland",
+    "Mistletoe", "Sapphire", "Willow", "Raven", "Bluebell", "Castle", "Forest", "Crystal",
+  ],
+  last: [
+    "Knight", "Princess", "Squire", "Dragon", "Wizard", "Herald", "Archer", "Jouster",
+    "Bard", "Champion", "Sorceress", "Paladin", "King", "Queen", "Steed", "Lance",
+    "Banner", "Tournament", "Quest", "Castle", "Enchantress", "Falconer", "Shieldbearer", "Minstrel",
+    "Prince", "Duchess", "Swordsmith", "Ranger", "Guardian", "Oath", "Crown", "Feast",
+  ],
+};
+
 /** One theme per puzzle type. New puzzle types get a theme of their own. */
-export const NAME_THEMES: Record<string, NameTheme> = { sudoku: FOOD, sums: PIRATES };
+export const NAME_THEMES: Record<string, NameTheme> = { sudoku: FOOD, sums: PIRATES, futoshiki: ARTHURIAN };
 
 /** Capitalise every word, also after a hyphen ("flaming-hot" → "Flaming-Hot"). */
 export const titleCase = (s: string) => s.replace(/(^|[\s-])([a-z])/g, (_, sep: string, ch: string) => sep + ch.toUpperCase());

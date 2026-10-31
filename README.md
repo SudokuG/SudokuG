@@ -7,7 +7,7 @@ technique first), every puzzle gets a difficulty and a "grind" rating, and the g
 makes puzzles of a chosen difficulty where no tedious triple, quad or long chain is ever
 the only way forward: few clues, lots of X-Wings, Skyscrapers, Kites and hidden pairs.
 Every puzzle has a (food) name, and puzzles can be printed or saved as PDF. Next to sudoku
-there are lighter puzzle types, made on the spot: Japanese Sums so far (see below). On a phone or computer you can install it from the browser
+there are lighter puzzle types, made on the spot: Treasure Map and Futoshiki (see below). On a phone or computer you can install it from the browser
 ("Add to home screen" / "Install") and play offline.
 
 ## Getting started
@@ -70,7 +70,10 @@ src/
   guide-step.ts      turns an example position into the step to show
   page.html          page markup; build.mjs inlines fonts, CSS and JS into it
   sw.js              service worker: keeps the game on the device for offline play
-  games/sums/        Japanese Sums: engine.ts (grid, clues, solver, codes) and view.ts (the page)
+  games/lite.ts      the page shared by the lighter puzzle types (pad, candidates, timer, saving, …)
+  games/latin.ts     random Latin squares and base-62 codes; games/draw.ts: print pieces
+  games/sums/        Treasure Map: engine.ts (grid, clues, solver, codes), game.ts (board, printing)
+  games/futoshiki/   Futoshiki: engine.ts (signs, solver, codes), game.ts (board, printing)
   ui/games.ts        the puzzle-type switcher in the header
   ui/print-dialog.ts the print dialog, shared by all puzzle types
   samples.ts         built-in puzzles
@@ -339,33 +342,41 @@ Pressing Ctrl+P prints the current puzzle the same way instead of the whole page
 
 The switcher next to the title chooses the puzzle type; the choice is remembered, and a
 link to a puzzle opens its type. Sudoku keeps the full app (`src/ui/app.ts`); the lighter
-types live in `src/games/<type>/` with an `engine.ts` (no page code, tested in
-`test/engine.test.ts`) and a `view.ts` (board, input, timer, saving, stats, printing).
-They have no generator app and no library: a puzzle is made when you ask for one. Each type
-has its own name theme (`src/names.ts`) and draws its own SVG for printing (the dialog,
-`src/ui/print-dialog.ts`, is shared).
+types share one page (`src/games/lite.ts`: pad, candidates in the middle of the cell, undo,
+Check, Reveal cell, timer, saving, stats, links, loading, printing). Each type is a
+`LiteGame` in `src/games/<type>/game.ts` (board layout, extra marks such as clue or sign
+states, print drawing) with its logic in `engine.ts` (no page code, tested in
+`test/engine.test.ts`). They have no generator app and no library: a puzzle is made when
+you ask for one. Each type has its own name theme (`src/names.ts`). To add a type: write
+its engine and `LiteGame`, add it to `GAMES` in `src/ui/games.ts`, give it a `<main>` in
+`page.html` and an `initLite(...)` line in `app.ts`.
 
-**Japanese Sums** (in Denksport Logisch "Japans vierkant"; theme: pirates). Every row and
-column holds 1 to n-2 once and two X's; the clues are the sums of the runs of digits, in
-order. A puzzle is a random Latin square with two symbols turned into X's; a solver fills
-rows that match their clue and checks the columns as it goes (`solveSums`). When the clues
-alone allow several solutions, a cell where two solutions differ is given, until one is
-left, and givens that aren't needed are taken back. Easy is 6×6 (1-4), Medium 7×7 (1-5,
-the booklet size; tries a few grids so no cell needs to be given), Hard 8×8 (1-6, usually
-one or two given cells). About 1, 20 and 400 ms per puzzle. Codes look like `J7-…-…`
-(size, the solution and the givens in base 62); the clues follow from the solution.
+**Treasure Map** (theme: pirates). Puzzle fans call this kind *Japanese Sums*; Denksport
+Logisch calls it "Japans vierkant". Every row and column holds 1 to n-2 once and two X's;
+the clues are the sums of the runs of digits, in order. A puzzle is a random Latin square
+with two symbols turned into X's; a solver fills rows that match their clue and checks the
+columns as it goes (`solveSums`). When the clues alone allow several solutions, a cell
+where two solutions differ is given, until one is left, and givens that aren't needed are
+taken back. Easy is 6×6 (1-4), Medium 7×7 (1-5, the booklet size; tries a few grids so no
+cell needs to be given), Hard 8×8 (1-6, usually one or two given cells). About 1, 20 and
+400 ms per puzzle. Codes look like `J7-…-…` (size, the solution and the givens in base 62).
 
-**Planned next**, in this order, because each builds on the one before:
-1. **Futoshiki** (theme: Arthurian legends). A Latin square with < and > signs between some
-   cells. Reuses the digit board, pad, checking and the Latin-square generator of Japanese
-   Sums; new are the signs and a solver that uses them. Sizes 5×5 to 7×7.
-2. **Calcudoku** (KenKen-style; theme: overcomplicated engineering terms). A Latin square
-   cut into cages with a target and an operation (+ − × ÷). Reuses the Futoshiki solver
-   shape; new are the cages (random growing regions) and drawing them. Sizes 4×4 to 6×6
-   (more is possible, but slow to check by hand).
-3. **Star Battle** (theme: sci-fi battles and tech). Stars in a grid with irregular regions,
-   one or two per row, column and region, never touching. Different from the others: no
-   digits, a region generator and its own solver, so last.
+**Futoshiki** (theme: Arthurian legend). Every row and column holds 1 to n once; the signs
+between cells point at the smaller digit. A puzzle is a random Latin square with every sign;
+given digits are added where two solutions still differ, then givens and signs are taken
+away in random order (givens first, so the puzzle leans on the signs) while the solution
+stays unique (`solveFutoshiki`: candidate propagation plus backtracking). Minimal puzzles
+can be tough, so Easy (5×5) gets 6 clues back and Medium (6×6) 2; Hard (7×7) stays minimal.
+About 4, 10 and 50 ms per puzzle. Codes look like `F6-…-…-…` (solution, givens, signs).
+
+**Planned next**:
+1. **Calcudoku** (KenKen-style; theme: overcomplicated engineering terms). A Latin square
+   cut into cages with a target and an operation (+ − × ÷). Reuses the Latin square, the
+   page and the Futoshiki solver shape; new are the cages (random growing regions) and
+   drawing them. Sizes 4×4 to 6×6 (more is possible, but slow to check by hand).
+2. **Star Battle** (theme: sci-fi battles and tech). Stars in a grid with irregular regions,
+   one or two per row, column and region, never touching. No digits, a region generator and
+   its own solver, so last.
 
 ## Puzzle codes
 
@@ -384,8 +395,8 @@ opens that puzzle directly (the "Copy link" button under the board makes one).
 6. ~~Generator that keeps only puzzles matching a rating filter~~
 7. ~~Sculpted puzzles: few clues, lots of X-Wing-type moves and hidden pairs, capped hardest moves~~
 8. ~~Names and printing~~
-9. ~~Japanese Sums~~
-10. Next: Futoshiki, Calcudoku, Star Battle (see Other puzzle types); more sudoku techniques
+9. ~~Treasure Map (Japanese Sums), Futoshiki~~
+10. Next: Calcudoku, Star Battle (see Other puzzle types); more sudoku techniques
 
 ## Licence
 

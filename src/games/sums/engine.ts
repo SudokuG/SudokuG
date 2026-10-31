@@ -1,4 +1,5 @@
-// Japanese Sums (in Denksport Logisch: "Japans vierkant"), the strict form:
+// Treasure Map: the strict form of the puzzle known as Japanese Sums (in Denksport Logisch
+// "Japans vierkant"):
 //   - an n×n grid; every row and column holds the digits 1 to n-2 exactly once and two X's;
 //   - the numbers left of each row and above each column are the sums of the runs of
 //     digits in that line, in order (runs are separated by X's), as in a nonogram.
@@ -9,6 +10,8 @@
 // solutions. When the clues alone allow more than one solution, cells are given away
 // where two solutions differ, until only one is left; then givens that turn out not to be
 // needed are taken back.
+
+import { linesHold, packB62, randomLatin, shuffle, unpackB62 } from "../latin";
 
 /** 0 = X, otherwise a digit. */
 export type Cell = number;
@@ -54,34 +57,10 @@ export function cluesOf(n: number, solution: Cell[]): { rowClues: number[][]; co
   return { rowClues, colClues };
 }
 
-const shuffle = <T>(a: T[], rnd: () => number): T[] => {
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(rnd() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-};
-
 /** A random grid: a random Latin square on n symbols, with two of the symbols turned into X's. */
 export function randomGrid(n: number, rnd: () => number): Cell[] {
-  const g = new Array(n * n).fill(-1);
-  const fill = (i: number): boolean => {
-    if (i === n * n) return true;
-    const r = Math.floor(i / n);
-    const c = i % n;
-    for (const s of shuffle([...Array(n).keys()], rnd)) {
-      let ok = true;
-      for (let k = 0; k < n && ok; k++) if (g[r * n + k] === s || g[k * n + c] === s) ok = false;
-      if (!ok) continue;
-      g[i] = s;
-      if (fill(i + 1)) return true;
-    }
-    g[i] = -1;
-    return false;
-  };
-  fill(0);
   // Symbols 0 and 1 become X's; 2..n-1 become the digits 1..n-2.
-  return g.map((s) => (s < 2 ? 0 : s - 1));
+  return randomLatin(n, rnd).map((s) => (s < 2 ? 0 : s - 1));
 }
 
 /** Every possible line: two X's and the digits 1..n-2 once each. */
@@ -212,57 +191,19 @@ export function generateSums(n: number, rnd: () => number): SumsPuzzle {
 // ---------------------------------------------------------------------------
 // Codes: "J7-<solution>-<givens>", both packed into base 62. The clues follow from the solution.
 
-const B62 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-const toB62 = (x: bigint) => {
-  let s = "";
-  do {
-    s = B62[Number(x % 62n)] + s;
-    x /= 62n;
-  } while (x > 0n);
-  return s;
-};
-const fromB62 = (s: string) => [...s].reduce((x, ch) => {
-  const v = B62.indexOf(ch);
-  if (v < 0) throw new Error("Not a Japanese Sums code.");
-  return x * 62n + BigInt(v);
-}, 0n);
-
 export function encodeSums(p: SumsPuzzle): string {
-  const base = BigInt(p.n - 1); // cells are 0..n-2
-  let sol = 0n;
-  for (const v of p.solution) sol = sol * base + BigInt(v);
-  let giv = 0n;
-  for (const g of p.givens) giv = giv * 2n + (g ? 1n : 0n);
-  return `J${p.n}-${toB62(sol)}-${toB62(giv)}`;
+  return `J${p.n}-${packB62(p.solution, p.n - 1)}-${packB62(p.givens.map(Number), 2)}`;
 }
 
 export const isSumsCode = (s: string) => /^J[5-9]-[0-9A-Za-z]+-[0-9A-Za-z]+$/.test(s.trim());
 
 export function decodeSums(code: string): SumsPuzzle {
   const m = /^J([5-9])-([0-9A-Za-z]+)-([0-9A-Za-z]+)$/.exec(code.trim());
-  if (!m) throw new Error("Not a Japanese Sums code.");
+  if (!m) throw new Error("Not a Treasure Map code.");
   const n = Number(m[1]);
-  const base = BigInt(n - 1);
-  let sol = fromB62(m[2]);
-  const solution: Cell[] = new Array(n * n);
-  for (let i = n * n - 1; i >= 0; i--) {
-    solution[i] = Number(sol % base);
-    sol /= base;
-  }
-  let giv = fromB62(m[3]);
-  const givens: boolean[] = new Array(n * n);
-  for (let i = n * n - 1; i >= 0; i--) {
-    givens[i] = giv % 2n === 1n;
-    giv /= 2n;
-  }
-  // Check it is a proper grid: each line has 1..n-2 once and two X's.
-  for (let i = 0; i < n; i++) {
-    const row = solution.slice(i * n, i * n + n);
-    const col = Array.from({ length: n }, (_, r) => solution[r * n + i]);
-    for (const line of [row, col]) {
-      const digits = line.filter(Boolean);
-      if (digits.length !== n - 2 || new Set(digits).size !== n - 2) throw new Error("This code doesn't hold a valid Japanese Sums grid.");
-    }
-  }
+  const solution: Cell[] = unpackB62(m[2], n - 1, n * n);
+  const givens = unpackB62(m[3], 2, n * n).map(Boolean);
+  if (!linesHold(n, (i) => solution[i], Array.from({ length: n - 2 }, (_, k) => k + 1)) || !linesHold(n, (i) => (solution[i] ? 0 : 1), [1, 1]))
+    throw new Error("This code doesn't hold a valid Treasure Map grid.");
   return { n, solution, givens, ...cluesOf(n, solution) };
 }
