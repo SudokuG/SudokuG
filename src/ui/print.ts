@@ -9,7 +9,9 @@
 import { colOf, digitsOf, rowOf } from "../engine";
 
 export interface PrintPuzzle {
-  /** The starting digits (81, 0 = empty). */
+  /** Other puzzle types: their own drawing (an <svg class="pz-grid">), used instead of a sudoku. */
+  svg?: string;
+  /** Sudoku: the starting digits (81, 0 = empty). */
   givens: number[];
   /** With progress: the digits filled in so far (givens included). */
   values?: number[];
@@ -124,7 +126,7 @@ export function renderPrint(root: HTMLElement, puzzles: PrintPuzzle[], layout: P
         (layout.name && p.name) || meta.length
           ? `<figcaption>${layout.name && p.name ? `<span class="pz-name">${esc(p.name)}</span>` : ""}${meta.length ? `<span class="pz-meta">${meta.join(" · ")}</span>` : ""}</figcaption>`
           : "";
-      return `<figure class="pz">${caption}${puzzleSvg(p)}</figure>`;
+      return `<figure class="pz">${caption}${p.svg ?? puzzleSvg(p)}</figure>`;
     });
     pages.push(`<section class="pp pp-${layout.perPage}">${figs.join("")}</section>`);
   }

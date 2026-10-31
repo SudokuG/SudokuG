@@ -468,6 +468,69 @@ kbd { font-family: inherit; font-size: 0.8em; border: 1px solid var(--btn-border
 .pane a { color: var(--pen); }
 @media (min-width: 761px) { #erase.armed { font-size: 0.8rem; } }
 
+/* ---- Puzzle types: the switcher and one game on screen at a time ------------------ */
+.brand { display: flex; align-items: baseline; gap: 6px 16px; flex-wrap: wrap; min-width: 0; }
+.game-pick { display: flex; gap: 4px; flex-wrap: wrap; }
+.game-pick button { font: inherit; font-size: 0.85rem; font-weight: 700; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--btn-border); background: var(--btn); color: var(--muted); cursor: pointer; }
+.game-pick button.on { background: var(--ink); border-color: var(--ink); color: var(--surface); }
+.game-pick button:focus-visible { outline: 3px solid var(--pen); outline-offset: 2px; }
+.game-view { display: none; }
+html[data-game="sums"] .layout, html[data-game="sums"] .top .meta { display: none; }
+html[data-game="sums"] #game-sums { display: grid; }
+
+/* ---- Lighter puzzle types (Japanese Sums, …) -------------------------------------- */
+.lite { grid-template-columns: minmax(0, 1fr) 316px; gap: 24px; align-items: start; }
+.lite-board-wrap { min-width: 0; display: flex; flex-direction: column; align-items: center; }
+.lite-head { display: flex; align-items: baseline; gap: 4px 14px; flex-wrap: wrap; justify-content: center; margin-bottom: 10px; color: var(--muted); }
+.lite-code { margin-top: 12px; }
+.lite-pad { grid-template-columns: repeat(var(--keys, 6), minmax(0, 1fr)); }
+.lite-pad button.x-key { color: var(--ink); }
+.lite-diff { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.lite-diff button small { display: block; font-weight: 400; font-size: 0.72rem; opacity: 0.8; }
+#sums-mode.on { background: var(--m-pencil); border-color: var(--m-pencil); color: var(--surface); }
+.rules p { margin: 6px 0 0; }
+.code-input { font: 0.85rem ui-monospace, "SF Mono", Menlo, Consolas, monospace; flex: 1; min-width: 0; padding: 7px 8px; border-radius: 8px; border: 1px solid var(--btn-border); background: var(--surface); color: var(--ink); }
+
+/* The Japanese Sums board: clues on the left and on top, then n×n cells. */
+.sums-board {
+  --n: 7;
+  display: grid; grid-template-columns: 1.5fr repeat(var(--n), 1fr);
+  width: min(100%, 600px); container-type: inline-size; outline: none; user-select: none; -webkit-user-select: none; touch-action: manipulation;
+}
+.sums-corner { aspect-ratio: 1.5 / 1.5; }
+.sums-cell {
+  aspect-ratio: 1; display: grid; place-items: center; background: var(--surface); color: var(--entry);
+  border-left: 1px solid var(--hair); border-top: 1px solid var(--hair); cursor: pointer; position: relative;
+  font-size: calc(100cqi / (var(--n) + 1.5) * 0.56); font-weight: 400; line-height: 1;
+}
+.sums-cell.last-col { border-right: 2.5px solid var(--grid); }
+.sums-cell.last-row { border-bottom: 2.5px solid var(--grid); }
+.sums-clue.row + .sums-cell { border-left: 2.5px solid var(--grid); }
+.sums-clue.col { border-bottom: 2.5px solid var(--grid); }
+.sums-cell.given { color: var(--ink); font-weight: 700; }
+.sums-cell.x { color: var(--ink); font-size: calc(100cqi / (var(--n) + 1.5) * 0.48); }
+.sums-cell.x:not(.given) { color: var(--muted); }
+.sums-cell.peer { background: var(--peer-digit); }
+.sums-cell.same { background: var(--same-digit); }
+.sums-cell.sel { background: var(--sel-digit); box-shadow: inset 0 0 0 3px var(--pen); }
+.sums-cell.clash { color: var(--elim); }
+.sums-cell.wrong { background: var(--error-soft); }
+.sums-cands { position: absolute; inset: 4%; display: grid; grid-template-columns: repeat(3, 1fr); color: var(--m-pencil); font-size: calc(100cqi / (var(--n) + 1.5) * 0.22); font-weight: 700; }
+.sums-cands span { display: grid; place-items: center; }
+.sums-clue { display: flex; color: var(--ink); font-weight: 700; font-variant-numeric: tabular-nums; font-size: calc(100cqi / (var(--n) + 1.5) * 0.3); }
+.sums-clue.row { align-items: center; justify-content: flex-end; gap: 0.55em; padding-right: 0.55em; }
+.sums-clue.col { flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 0.25em; line-height: 1.15; }
+.sums-clue.on { color: var(--pen); }
+.sums-clue.done { color: var(--muted); opacity: 0.5; }
+.sums-clue.bad { color: var(--elim); }
+.sums-board:focus-visible .sums-cell.sel { box-shadow: inset 0 0 0 3px var(--pen), 0 0 0 2px var(--surface); }
+
+@media (max-width: 760px) {
+  .lite { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .lite-pad { gap: 6px; }
+  .lite-pad button { font-size: 1.6rem; min-height: 54px; padding: 0; }
+}
+
 /* ---- Printing: the dialog ------------------------------------------------------ */
 .print-row { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
 .print-row .small { margin: 0; }

@@ -6,7 +6,8 @@ A sudoku player and generator. Hints show the next move a human would find (easi
 technique first), every puzzle gets a difficulty and a "grind" rating, and the generator
 makes puzzles of a chosen difficulty where no tedious triple, quad or long chain is ever
 the only way forward: few clues, lots of X-Wings, Skyscrapers, Kites and hidden pairs.
-Every puzzle has a (food) name, and puzzles can be printed or saved as PDF. On a phone or computer you can install it from the browser
+Every puzzle has a (food) name, and puzzles can be printed or saved as PDF. Next to sudoku
+there are lighter puzzle types, made on the spot: Japanese Sums so far (see below). On a phone or computer you can install it from the browser
 ("Add to home screen" / "Install") and play offline.
 
 ## Getting started
@@ -69,6 +70,9 @@ src/
   guide-step.ts      turns an example position into the step to show
   page.html          page markup; build.mjs inlines fonts, CSS and JS into it
   sw.js              service worker: keeps the game on the device for offline play
+  games/sums/        Japanese Sums: engine.ts (grid, clues, solver, codes) and view.ts (the page)
+  ui/games.ts        the puzzle-type switcher in the header
+  ui/print-dialog.ts the print dialog, shared by all puzzle types
   samples.ts         built-in puzzles
   daily-data.ts      generated daily puzzles (do not edit by hand)
   library.ts         picks an unplayed pool puzzle (library, missed dailies, old), custom-mix search
@@ -331,6 +335,38 @@ the rest, including "Save as PDF". Pages are built in `#print-root` (`src/ui/pri
 and shown only when printing; puzzles are SVG, always black on white, also in dark mode.
 Pressing Ctrl+P prints the current puzzle the same way instead of the whole page.
 
+## Other puzzle types
+
+The switcher next to the title chooses the puzzle type; the choice is remembered, and a
+link to a puzzle opens its type. Sudoku keeps the full app (`src/ui/app.ts`); the lighter
+types live in `src/games/<type>/` with an `engine.ts` (no page code, tested in
+`test/engine.test.ts`) and a `view.ts` (board, input, timer, saving, stats, printing).
+They have no generator app and no library: a puzzle is made when you ask for one. Each type
+has its own name theme (`src/names.ts`) and draws its own SVG for printing (the dialog,
+`src/ui/print-dialog.ts`, is shared).
+
+**Japanese Sums** (in Denksport Logisch "Japans vierkant"; theme: pirates). Every row and
+column holds 1 to n-2 once and two X's; the clues are the sums of the runs of digits, in
+order. A puzzle is a random Latin square with two symbols turned into X's; a solver fills
+rows that match their clue and checks the columns as it goes (`solveSums`). When the clues
+alone allow several solutions, a cell where two solutions differ is given, until one is
+left, and givens that aren't needed are taken back. Easy is 6×6 (1-4), Medium 7×7 (1-5,
+the booklet size; tries a few grids so no cell needs to be given), Hard 8×8 (1-6, usually
+one or two given cells). About 1, 20 and 400 ms per puzzle. Codes look like `J7-…-…`
+(size, the solution and the givens in base 62); the clues follow from the solution.
+
+**Planned next**, in this order, because each builds on the one before:
+1. **Futoshiki** (theme: Arthurian legends). A Latin square with < and > signs between some
+   cells. Reuses the digit board, pad, checking and the Latin-square generator of Japanese
+   Sums; new are the signs and a solver that uses them. Sizes 5×5 to 7×7.
+2. **Calcudoku** (KenKen-style; theme: overcomplicated engineering terms). A Latin square
+   cut into cages with a target and an operation (+ − × ÷). Reuses the Futoshiki solver
+   shape; new are the cages (random growing regions) and drawing them. Sizes 4×4 to 6×6
+   (more is possible, but slow to check by hand).
+3. **Star Battle** (theme: sci-fi battles and tech). Stars in a grid with irregular regions,
+   one or two per row, column and region, never touching. Different from the others: no
+   digits, a region generator and its own solver, so last.
+
 ## Puzzle codes
 
 `encodePuzzle(values)` gives a 21-26 character code ("S..." for symmetric puzzles, "A..."
@@ -348,7 +384,8 @@ opens that puzzle directly (the "Copy link" button under the board makes one).
 6. ~~Generator that keeps only puzzles matching a rating filter~~
 7. ~~Sculpted puzzles: few clues, lots of X-Wing-type moves and hidden pairs, capped hardest moves~~
 8. ~~Names and printing~~
-9. Next: more techniques (finned fish, W-Wing, uniqueness), other puzzle types
+9. ~~Japanese Sums~~
+10. Next: Futoshiki, Calcudoku, Star Battle (see Other puzzle types); more sudoku techniques
 
 ## Licence
 

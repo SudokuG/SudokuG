@@ -37,8 +37,10 @@ import { initGuide, moveGuide, showGuide } from "./guide-view";
 import { findForProfile, pickFromLibrary } from "../library";
 import { puzzleName } from "../names";
 import { isLiked, likedList, toggleLike } from "./likes";
-import { PER_PAGE, renderPrint } from "./print";
-import type { PerPage, PrintLayout, PrintPuzzle } from "./print";
+import { currentGame, initGamePicker, onGameChange } from "./games";
+import { initSums } from "../games/sums/view";
+import { openPrintDialog, setCurrentPrint, wirePrintDialog } from "./print-dialog";
+import type { PrintPuzzle } from "./print";
 import { browserId, markPlayed, playedSet } from "./played";
 import { addSolve, loadStats, resetStats } from "./stats";
 
@@ -82,8 +84,6 @@ interface Settings {
   stickyToggle: boolean;
   /** Number pad shows how many of each digit are left. */
   padCounts: boolean;
-  /** Printing: puzzles per page (one puzzle / several), and what to show with each. */
-  print: { perPageOne: PerPage; perPageMany: PerPage; name: boolean; difficulty: boolean; code: boolean };
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -99,7 +99,6 @@ const DEFAULT_SETTINGS: Settings = {
   genProfile: TEMPLATES.Hard,
   stickyToggle: false,
   padCounts: true,
-  print: { perPageOne: 1, perPageMany: 4, name: true, difficulty: true, code: true },
 };
 
 /** Fixed: patterns up to Expert level count as an alternative to a triple or quad. */
@@ -125,8 +124,6 @@ function loadSettings(): Settings {
       // Keep only technique names that still exist.
       const known = new Set(TECHNIQUES.map((t) => t.name));
       s.genProfile = Array.isArray(s.genProfile) ? s.genProfile.filter((n: string) => known.has(n)) : DEFAULT_SETTINGS.genProfile;
-      s.print = { ...DEFAULT_SETTINGS.print, ...(typeof s.print === "object" && s.print ? s.print : {}) };
-      for (const k of ["perPageOne", "perPageMany"] as const) if (!PER_PAGE.includes(s.print[k])) s.print[k] = DEFAULT_SETTINGS.print[k];
       return s;
     }
   } catch {
@@ -500,7 +497,7 @@ function startTimer(): void {
     const now = Date.now();
     const dt = Math.min(now - last, 2000);
     last = now;
-    const playing = !!S.puzzle && !S.solved;
+    const playing = !!S.puzzle && !S.solved && currentGame() === "sudoku";
     const active = playing && document.visibilityState === "visible" && now - S.lastInput < IDLE_MS;
     if (active && !S.finishing) S.elapsed += dt;
     const el = $("timer");
@@ -888,13 +885,7 @@ function renderRating(): void {
 }
 
 // ---------------------------------------------------------------------------
-// Printing (layout in print.ts; the browser's print window does the rest)
-
-const printRoot = () => $("print-root");
-/** True while #print-root holds pages we prepared (so Ctrl+P doesn't replace them). */
-let printPrepared = false;
-let printKind: "current" | "batch" = "current";
-let printRun: Run | null = null;
+// Printing (the dialog is print-dialog.ts, the layout print.ts)
 
 /** Whether the player has written anything in the current puzzle. */
 function hasProgress(): boolean {
@@ -915,140 +906,63 @@ function currentPrintPuzzle(progress: boolean): PrintPuzzle {
   return p;
 }
 
-function printLayout(): PrintLayout {
-  const o = S.settings.print;
-  return { perPage: printKind === "current" ? o.perPageOne : o.perPageMany, name: o.name, difficulty: o.difficulty, code: o.code };
-}
-
-function renderPrintDialog(): void {
-  const o = S.settings.print;
-  const per = printLayout().perPage;
-  $("print-per").replaceChildren(
-    ...PER_PAGE.map((n) => {
-      const b = document.createElement("button");
-      b.type = "button";
-      b.textContent = String(n);
-      b.setAttribute("role", "radio");
-      b.setAttribute("aria-checked", String(n === per));
-      b.classList.toggle("on", n === per);
-      b.addEventListener("click", () => {
-        if (printKind === "current") o.perPageOne = n;
-        else o.perPageMany = n;
-        saveSettings();
-        renderPrintDialog();
-      });
-      return b;
-    }),
-  );
-  ($("print-name") as HTMLInputElement).checked = o.name;
-  ($("print-difficulty") as HTMLInputElement).checked = o.difficulty;
-  ($("print-code") as HTMLInputElement).checked = o.code;
-}
-
 function openPrint(kind: "current" | "batch"): void {
-  if (kind === "current" && noPuzzle()) return;
-  printKind = kind;
-  const current = kind === "current";
-  const progress = current && hasProgress();
-  $("print-progress").hidden = !progress;
-  ($("print-progress").querySelector('input[value="empty"]') as HTMLInputElement).checked = true;
-  $("print-count-row").hidden = current;
-  const label = profileName();
-  $("print-title").textContent = current ? "Print this puzzle" : `Print ${label.toLowerCase()} puzzles`;
-  $("print-what").textContent = current
-    ? `${currentName()} · ${S.label}`
-    : `Puzzles you haven't played yet, from the library first; new ones are made when needed (about ${MAKE_MS / 1000} seconds each). Printed puzzles count as played, so Generate won't hand them out again.`;
-  $("print-msg").textContent = "";
-  ($("print-go") as HTMLButtonElement).disabled = false;
-  renderPrintDialog();
-  ($("print-dialog") as HTMLDialogElement).showModal();
-}
-
-/** Hand the prepared pages to the browser's print window. */
-function printNow(puzzles: PrintPuzzle[]): void {
-  renderPrint(printRoot(), puzzles, printLayout());
-  printPrepared = true;
-  ($("print-dialog") as HTMLDialogElement).close();
-  setTimeout(() => window.print(), 60);
-}
-
-function startPrint(): void {
-  const o = S.settings.print;
-  o.name = ($("print-name") as HTMLInputElement).checked;
-  o.difficulty = ($("print-difficulty") as HTMLInputElement).checked;
-  o.code = ($("print-code") as HTMLInputElement).checked;
-  saveSettings();
-  if (printKind === "current") {
-    const progress = !$("print-progress").hidden && ($("print-progress").querySelector('input[value="progress"]') as HTMLInputElement).checked;
-    return printNow([currentPrintPuzzle(progress)]);
+  if (kind === "current") {
+    if (noPuzzle()) return;
+    return openPrintDialog({
+      title: "Print this puzzle",
+      what: `${currentName()} · ${S.label}`,
+      offerProgress: hasProgress(),
+      many: false,
+      collect: (choice, _msg, done) => done([currentPrintPuzzle(choice.progress)]),
+    });
   }
-  // Several puzzles of the chosen difficulty or mix.
-  const n = Math.max(1, Math.min(30, Math.round(Number(($("print-count") as HTMLInputElement).value) || 1)));
-  ($("print-count") as HTMLInputElement).value = String(n);
   const label = profileName();
   const profile = S.settings.genProfile.slice();
-  const run: Run = { cancelled: false };
-  printRun = run;
-  ($("print-go") as HTMLButtonElement).disabled = true;
-  const out: PrintPuzzle[] = [];
-  const taken = new Set<string>();
-  const next = () => {
-    if (run.cancelled) return;
-    if (out.length === n) {
-      printRun = null;
-      for (const p of out) markPlayed(p.code!);
-      return printNow(out);
-    }
-    const head = `Gathering puzzles: ${out.length + 1} of ${n}`;
-    $("print-msg").textContent = `${head}…`;
-    findPuzzle(profile, label, false, taken, run, (msg) => ($("print-msg").textContent = `${head}. ${msg}`), (f) => {
-      if (!f) {
-        printRun = null;
-        ($("print-go") as HTMLButtonElement).disabled = false;
-        $("print-msg").textContent = out.length ? `Only found ${out.length}; this mix of techniques is rare. Print those, or tick a few more techniques.` : "No puzzle found for this mix of techniques; try ticking a few more.";
-        if (out.length) {
-          ($("print-count") as HTMLInputElement).value = String(out.length);
-          ($("print-go") as HTMLButtonElement).disabled = false;
+  openPrintDialog({
+    title: `Print ${label.toLowerCase()} puzzles`,
+    what: `Puzzles you haven't played yet, from the library first; new ones are made when needed (about ${MAKE_MS / 1000} seconds each). Printed puzzles count as played, so Generate won't hand them out again.`,
+    offerProgress: false,
+    many: true,
+    collect: (choice, msg, done, run) => {
+      const out: PrintPuzzle[] = [];
+      const taken = new Set<string>();
+      const next = () => {
+        if (run.cancelled) return;
+        if (out.length === choice.count) {
+          for (const p of out) markPlayed(p.code!);
+          return done(out);
         }
-        return;
-      }
-      const givens = Grid.fromString(f.puzzle).values;
-      const code = encodePuzzle(givens);
-      taken.add(code);
-      out.push({ givens, code, name: puzzleName(Grid.fromString(f.puzzle).toString(), label), difficulty: label });
-      setTimeout(next, 0);
-    });
-  };
-  next();
-}
-
-function cancelPrint(): void {
-  if (printRun) printRun.cancelled = true;
-  printRun = null;
-  ($("print-dialog") as HTMLDialogElement).close();
+        const head = `Gathering puzzles: ${out.length + 1} of ${choice.count}`;
+        msg(`${head}…`);
+        findPuzzle(profile, label, false, taken, run, (m) => msg(`${head}. ${m}`), (f) => {
+          if (!f) {
+            if (out.length) {
+              for (const p of out) markPlayed(p.code!);
+              return done(out);
+            }
+            return done(null, "No puzzle found for this mix of techniques; try ticking a few more.");
+          }
+          const givens = Grid.fromString(f.puzzle).values;
+          const code = encodePuzzle(givens);
+          taken.add(code);
+          out.push({ givens, code, name: puzzleName(Grid.fromString(f.puzzle).toString(), label), difficulty: label });
+          setTimeout(next, 0);
+        });
+      };
+      next();
+    },
+  });
 }
 
 function wirePrinting(): void {
   document.querySelectorAll<HTMLButtonElement>(".print-current").forEach((b) => b.addEventListener("click", () => openPrint("current")));
   $("print-batch").addEventListener("click", () => openPrint("batch"));
-  $("print-go").addEventListener("click", startPrint);
-  $("print-cancel").addEventListener("click", cancelPrint);
-  $("print-dialog").addEventListener("cancel", () => {
-    if (printRun) printRun.cancelled = true;
-    printRun = null;
-  });
-  // Ctrl+P (or the browser menu) prints the current puzzle, not the whole page.
-  window.addEventListener("beforeprint", () => {
-    if (printPrepared) return;
-    printKind = "current";
-    if (S.puzzle) renderPrint(printRoot(), [currentPrintPuzzle(false)], printLayout());
-    else printRoot().innerHTML = `<p style="font: 12pt sans-serif">Open a puzzle in SudokuG to print it.</p>`;
-  });
-  window.addEventListener("afterprint", () => {
-    printPrepared = false;
-    printRoot().innerHTML = "";
-  });
+  wirePrintDialog();
+  if (currentGame() === "sudoku") setCurrentPrint(sudokuPrint);
+  onGameChange((g) => g === "sudoku" && setCurrentPrint(sudokuPrint));
 }
+const sudokuPrint = () => (S.puzzle ? { puzzle: currentPrintPuzzle(false) } : null);
 
 // ---------------------------------------------------------------------------
 // Actions
@@ -1608,8 +1522,8 @@ function render(): void {
   $("puzzle-author").hidden = !S.puzzle || !S.author;
   $("puzzle-author").textContent = S.author ? `By ${S.author}` : "";
   renderSolved();
-  document.querySelectorAll<HTMLElement>(".puzzle-code").forEach((el) => (el.textContent = S.code));
-  document.querySelectorAll<HTMLElement>(".code-row").forEach((el) => (el.hidden = !S.puzzle));
+  document.querySelectorAll<HTMLElement>(".layout .puzzle-code").forEach((el) => (el.textContent = S.code));
+  document.querySelectorAll<HTMLElement>(".layout .code-row").forEach((el) => (el.hidden = !S.puzzle));
   $("timer").hidden = !set.timer || !S.puzzle;
 
   // Options
@@ -1708,6 +1622,7 @@ function move(dr: number, dc: number, extend: boolean): void {
 }
 
 function onKey(e: KeyboardEvent): void {
+  if (currentGame() !== "sudoku") return;
   const t = e.target as HTMLElement;
   if (e.key === "Shift" && !S.shift) {
     S.shift = true;
@@ -1980,6 +1895,9 @@ function init(): void {
     clearPuzzle();
     setTab("puzzles");
   }
+  // The other puzzle types (a link to one of them switches to it).
+  initGamePicker();
+  initSums();
 }
 
 /**

@@ -30,6 +30,8 @@ import { GUIDE } from "../src/guide";
 import { exampleStep } from "../src/guide-step";
 import { DAILY, DAILY_START } from "../src/daily-data";
 import { LIBRARY, LIKES, OLD_LIBRARY } from "../src/library-data";
+import { SUMS_SIZES, cluesOf, decodeSums, encodeSums, generateSums, runSums, solveSums } from "../src/games/sums/engine";
+import { puzzleName } from "../src/names";
 
 let failures = 0;
 const fail = (msg: string) => {
@@ -268,6 +270,44 @@ const RECIPE_FROM = Math.round((Date.parse("2026-11-02T12:00:00Z") - Date.parse(
   console.log(
     `Library: ${checked} puzzles checked; new ${Object.entries(LIBRARY).map(([g, c]) => `${g} ${c.length}`).join(", ")}; old ${Object.entries(OLD_LIBRARY).map(([g, c]) => `${g} ${c.length}`).join(", ")}; ${Object.keys(LIKES).length} liked.`,
   );
+}
+
+// 8. Japanese Sums: every generated puzzle has exactly one solution (its own), every line
+//    holds 1..n-2 once and two X's, the clues follow from the grid, and codes round-trip.
+{
+  if (runSums([0, 1, 2, 0, 3, 4, 5]).join() !== "3,12") fail("sums: runSums of X12X345 should be 3,12");
+  if (runSums([1, 2, 3, 4, 5, 0, 0]).join() !== "15") fail("sums: runSums of 12345XX should be 15");
+  let made = 0;
+  let givens = 0;
+  for (const [d, size] of Object.entries(SUMS_SIZES)) {
+    for (let seed = 1; seed <= (size >= 8 ? 4 : 15); seed++) {
+      const p = generateSums(size, seededRandom(seed * 101 + size));
+      made++;
+      givens += p.givens.filter(Boolean).length;
+      for (let i = 0; i < size; i++) {
+        const lines = [p.solution.slice(i * size, i * size + size), Array.from({ length: size }, (_, r) => p.solution[r * size + i])];
+        for (const line of lines) {
+          const digits = line.filter(Boolean);
+          if (digits.length !== size - 2 || new Set(digits).size !== size - 2) fail(`sums ${d}: line ${line.join("")} is not 1..${size - 2} and two X's`);
+        }
+      }
+      const clues = cluesOf(size, p.solution);
+      if (JSON.stringify(clues.rowClues) !== JSON.stringify(p.rowClues) || JSON.stringify(clues.colClues) !== JSON.stringify(p.colClues)) fail(`sums ${d}: clues don't match the grid`);
+      const r = solveSums(size, p.rowClues, p.colClues, p.solution.map((v, i) => (p.givens[i] ? v : -1)), 2);
+      if (r.count !== 1 || r.solutions[0].join() !== p.solution.join()) fail(`sums ${d}: puzzle ${encodeSums(p)} doesn't have exactly its own solution (${r.count})`);
+      const back = decodeSums(encodeSums(p));
+      if (back.solution.join() !== p.solution.join() || back.givens.join() !== p.givens.join()) fail(`sums ${d}: code round trip failed for ${encodeSums(p)}`);
+      if (!/^[A-Z]/.test(puzzleName(encodeSums(p), d, "sums"))) fail("sums: names start with a capital");
+    }
+  }
+  let bad = false;
+  try {
+    decodeSums("J7-1-0");
+  } catch {
+    bad = true;
+  }
+  if (!bad) fail("sums: a code without a valid grid should be refused");
+  console.log(`Japanese Sums: ${made} puzzles made and checked (${givens} given cells in total).`);
 }
 
 if (failures) {

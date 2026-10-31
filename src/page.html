@@ -4,7 +4,10 @@
 
 <div class="app">
   <header class="top">
-    <h1>SudokuG</h1>
+    <div class="brand">
+      <h1>SudokuG</h1>
+      <nav id="game-pick" class="game-pick" aria-label="Puzzle type"></nav>
+    </div>
     <div class="meta">
       <span id="puzzle-name" class="puzzle-name" hidden></span>
       <span id="puzzle-label" class="puzzle-label">Easy</span>
@@ -248,6 +251,73 @@
       <button class="link-btn copy-link" type="button" hidden>Copy link</button>
       <button class="link-btn print-current" type="button">Print</button>
     </div>
+  </main>
+
+
+  <!-- Japanese Sums (src/games/sums/view.ts) -->
+  <main id="game-sums" class="game-view lite" aria-label="Japanese Sums">
+    <section class="lite-board-wrap">
+      <div class="lite-head">
+        <span id="sums-name" class="puzzle-name"></span>
+        <span id="sums-label" class="puzzle-label"></span>
+        <span id="sums-timer" class="timer" aria-label="Time">0:00</span>
+      </div>
+      <div id="sums-board" class="sums-board" role="grid" tabindex="0" aria-label="Japanese Sums grid. Arrow keys move, digits enter, X marks a blocked cell."></div>
+      <div class="code-row lite-code">
+        <span class="code-label">Puzzle code</span>
+        <code id="sums-code" class="puzzle-code"></code>
+        <button id="sums-copy" class="link-btn" type="button">Copy link</button>
+        <button id="sums-print" class="link-btn" type="button">Print</button>
+      </div>
+      <p id="sums-status" class="status" aria-live="polite"></p>
+    </section>
+    <aside class="panel lite-panel">
+      <div id="sums-solved" class="solved-card" hidden>
+        <div class="solved-head"><span class="solved-title">Solved</span><span id="sums-solved-time" class="solved-time"></span></div>
+        <p id="sums-solved-text" class="small"></p>
+        <div class="hint-actions"><button id="sums-solved-new" class="btn primary" type="button">New puzzle</button></div>
+      </div>
+      <div id="sums-pad" class="pad lite-pad" aria-label="Number pad"></div>
+      <div class="actions">
+        <button id="sums-undo" class="btn" type="button" title="Undo (Ctrl+Z)">Undo</button>
+        <button id="sums-erase" class="btn" type="button" title="Erase (Backspace)">Erase</button>
+        <button id="sums-mode" class="btn" type="button" aria-pressed="false" title="Candidates (Space, or hold Shift)">Candidates</button>
+      </div>
+      <div class="actions">
+        <button id="sums-check" class="btn" type="button">Check</button>
+        <button id="sums-reveal" class="btn" type="button" title="Fill in the selected cell">Reveal cell</button>
+      </div>
+
+      <h2 class="pane-title">New puzzle</h2>
+      <div id="sums-diff" class="diff-pick lite-diff" role="radiogroup" aria-label="Size"></div>
+      <div class="row">
+        <button id="sums-new" class="btn primary" type="button">New puzzle</button>
+        <button id="sums-restart" class="btn" type="button">Restart</button>
+      </div>
+      <div class="print-row">
+        <button id="sums-print-many" class="link-btn" type="button">Print puzzles</button>
+        <span class="small">to solve on paper, or save them as a PDF</span>
+      </div>
+
+      <details class="info" id="sums-rules" open>
+        <summary>How to play</summary>
+        <div class="rules small">
+          <p>Every row and column holds the digits <b id="sums-range">1 to 5</b> once each, and two <b>X</b>'s.</p>
+          <p>The numbers left of a row and above a column are the sums of its groups of digits, in order from left to right or top to bottom. The X's split the groups. A single number equal to the sum of all digits means the X's are at the ends or next to each other.</p>
+          <p>Tap a cell, then a digit or ✕. <kbd>X</kbd> or <kbd>0</kbd> places an X; hold <kbd>Shift</kbd> or switch on Candidates for small notes. A clue turns grey when its line adds up, red when it can't.</p>
+        </div>
+      </details>
+      <details class="info">
+        <summary>Load a puzzle</summary>
+        <label for="sums-import" class="small-label">Paste a Japanese Sums code (it starts with J)</label>
+        <div class="row"><input id="sums-import" class="code-input" type="text" spellcheck="false" placeholder="J7-…"><button id="sums-load" class="btn" type="button">Load</button></div>
+        <p id="sums-load-msg" class="small"></p>
+      </details>
+      <details class="info">
+        <summary>Your stats</summary>
+        <div id="sums-stats" class="stats"></div>
+      </details>
+    </aside>
   </main>
 
   <div id="update-toast" class="toast" role="status" hidden>

@@ -62,8 +62,39 @@ const FOOD: NameTheme = {
   ],
 };
 
+/** Japanese Sums: pirates, the romantic kind (sails, islands, bounty, X marks the spot). */
+const PIRATES: NameTheme = {
+  first: {
+    Easy: [
+      "Breezy", "Sunny", "Lazy", "Merry", "Jolly", "Calm-Water", "Golden", "Sandy",
+      "Bright", "Easygoing", "Sun-Kissed", "Gentle", "Lucky", "Turquoise", "Friendly", "Sleepy",
+    ],
+    Medium: [
+      "Salty", "Daring", "Swashbuckling", "Rollicking", "Bold", "Roguish", "Plundering", "Dashing",
+      "Rum-Soaked", "Wind-Swept", "Free-Spirited", "Spyglass", "Seafaring", "Swaggering", "Clever", "Silver-Tongued",
+    ],
+    Hard: [
+      "Stormy", "Cursed", "Dread", "Thundering", "Black-Sailed", "Fearless", "Notorious", "Haunted",
+      "Wild", "Mutinous", "Moonless", "Ghostly", "Reckless", "Infamous", "Kraken-Bitten", "Storm-Tossed",
+    ],
+    Other: ["Lost", "Uncharted", "Secret", "Forgotten", "Hidden", "Mysterious", "Legendary", "Sunken"],
+  },
+  middle: [
+    "Parrot", "Cutlass", "Compass", "Doubloon", "Lagoon", "Kraken", "Rum", "Barnacle",
+    "Corsair", "Galleon", "Lantern", "Cannon", "Anchor", "Coral", "Seagull", "Spyglass",
+    "Treasure", "Buccaneer", "Mermaid", "Coconut", "Hook", "Plank", "Crow's-Nest", "Gold",
+    "Skull", "Pearl", "Driftwood", "Shipwreck", "Monkey", "Starboard", "Tide", "Sea Shanty",
+  ],
+  last: [
+    "Cove", "Bounty", "Voyage", "Isle", "Treasure", "Mutiny", "Shanty", "Escapade",
+    "Hideout", "Map", "Plunder", "Reef", "Harbour", "Raid", "Expedition", "Fortune",
+    "Adventure", "Getaway", "Caper", "Lagoon", "Chest", "Crossing", "Horizon", "Legend",
+    "Tavern", "Armada", "Quest", "Jamboree", "Skirmish", "Landing", "Promise", "Freedom",
+  ],
+};
+
 /** One theme per puzzle type. New puzzle types get a theme of their own. */
-export const NAME_THEMES: Record<string, NameTheme> = { sudoku: FOOD };
+export const NAME_THEMES: Record<string, NameTheme> = { sudoku: FOOD, sums: PIRATES };
 
 /** Capitalise every word, also after a hyphen ("flaming-hot" → "Flaming-Hot"). */
 export const titleCase = (s: string) => s.replace(/(^|[\s-])([a-z])/g, (_, sep: string, ch: string) => sep + ch.toUpperCase());
@@ -93,7 +124,8 @@ export function puzzleName(puzzle: string, difficulty: string, type = "sudoku"):
   let middle = take(theme.middle);
   // No echo: "Honey-Mustard Honey Waffles" becomes "Honey-Mustard Lemon Waffles".
   for (let k = 0; first.toLowerCase().includes(middle.toLowerCase()) && k < 5; k++) middle = take(theme.middle);
-  const last = take(theme.last);
+  let last = take(theme.last);
+  for (let k = 0; last === middle && k < 5; k++) last = take(theme.last);
   const short = h % 4 === 0; // about one name in four has two parts
   return titleCase(short ? `${first} ${last}` : `${first} ${middle} ${last}`);
 }
