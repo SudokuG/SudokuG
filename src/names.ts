@@ -77,6 +77,10 @@ const PIRATES: NameTheme = {
       "Stormy", "Cursed", "Dread", "Thundering", "Black-Sailed", "Fearless", "Notorious", "Haunted",
       "Wild", "Mutinous", "Moonless", "Ghostly", "Reckless", "Infamous", "Kraken-Bitten", "Storm-Tossed",
     ],
+    Expert: [
+      "Hurricane", "Maelstrom", "Thunderstruck", "Skull-and-Crossbones", "Fog-Bound", "Shipwrecked", "Whirlpool", "Blood-Moon",
+      "Cannon-Roaring", "Lightning-Struck", "Ghost-Ship", "Fearsome", "Davy-Jones", "Typhoon", "Sea-Serpent", "Midnight-Black",
+    ],
     Other: ["Lost", "Uncharted", "Secret", "Forgotten", "Hidden", "Mysterious", "Legendary", "Sunken"],
   },
   middle: [
@@ -107,6 +111,10 @@ const ARTHURIAN: NameTheme = {
     Hard: [
       "Dragon-Slaying", "Grail-Seeking", "Fearsome", "Legendary", "Enchanted", "Dauntless", "Mighty", "Storm-Riding",
       "Spellbound", "Fabled", "Unyielding", "Fire-Forged", "Shadow-Hunting", "Thunderous", "Invincible", "Doom-Defying",
+    ],
+    Expert: [
+      "Dragonfire", "Sword-in-the-Stone", "Wyrm-Slaying", "Prophesied", "Moon-Cursed", "Sorcery-Bound", "Giant-Felling", "Thrice-Blessed",
+      "Battle-Scarred", "Starfall", "Ever-Burning", "Shadow-Crowned", "Storm-Summoning", "Lightning-Forged", "Last-Stand", "Fate-Defying",
     ],
     Other: ["Mysterious", "Wandering", "Forgotten", "Hidden", "Ancient", "Secret", "Lost", "Dreaming"],
   },

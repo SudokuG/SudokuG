@@ -26,7 +26,7 @@ export interface SumsPuzzle {
   colClues: number[][];
 }
 
-export const SUMS_SIZES: Record<string, number> = { Easy: 6, Medium: 7, Hard: 8 };
+export const SUMS_SIZES = [6, 7, 8];
 
 /** Sums of the runs of digits in a line (0 = X). */
 export function runSums(line: Cell[]): number[] {

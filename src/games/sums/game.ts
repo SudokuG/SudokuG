@@ -4,15 +4,18 @@
 
 import { FONT, svgCell } from "../draw";
 import type { LiteGame } from "../lite";
-import { SUMS_SIZES, decodeSums, encodeSums, generateSums, isSumsCode, runSums } from "./engine";
+import { liteHint } from "../logic";
+import { SUMS_SIZES, decodeSums, encodeSums, isSumsCode, runSums } from "./engine";
 import type { SumsPuzzle } from "./engine";
+import { SUMS_LEVELS, applyStep, makeSums, nextStep, place, rateSumsPuzzle, startState } from "./logic";
+import type { SumsLevel } from "./logic";
 
 /** "done" when a complete line adds up, "bad" when it can't, "" otherwise. */
 function lineState(cells: number[], clue: number[]): "" | "done" | "bad" {
   const digits = cells.filter((v) => v > 0);
   const xs = cells.filter((v) => v === 0).length;
   if (new Set(digits).size !== digits.length || xs > 2) return "bad";
-  if (cells.includes(-1)) return "";
+  if (cells.some((v) => v < 0)) return "";
   const sums = runSums(cells);
   return sums.length === clue.length && sums.every((x, k) => x === clue[k]) ? "done" : "bad";
 }
@@ -46,27 +49,31 @@ export const TREASURE_MAP: LiteGame<SumsPuzzle> = {
   title: "Treasure Map",
   noun: "map",
   sizes: SUMS_SIZES,
+  defaultSize: 7,
+  levels: SUMS_LEVELS,
   maxDigit: (n) => n - 2,
   xPerLine: 2,
   codeHint: "J7-…",
   rules: `
     <p>Every row and column holds the digits <b>1 to n−2</b> once each (1 to 5 on a 7×7 map), and two <b>X</b>'s.</p>
     <p>The numbers left of a row and above a column are the sums of its groups of digits, in order from left to right or top to bottom. The X's split the groups. A single number equal to the sum of all digits means the X's are at the ends or next to each other.</p>
-    <p>Tap a cell, then a digit or ✕. <kbd>X</kbd> or <kbd>0</kbd> places an X; hold <kbd>Shift</kbd> or switch on Candidates for small notes. A clue turns grey when its line adds up, red when it can't.</p>
+    <p>Much of the work is finding where the X's can and can't be. Mark a cell with a dot (•) when you know it holds a digit. A clue turns grey when its line adds up, red when it can't.</p>
+    <p>Every map has exactly one solution and can be solved by reasoning alone; the difficulty comes from how much has to be worked out, not from the size.</p>
     <p class="aside">Puzzle fans know this kind as <i>Japanese Sums</i>; Denksport Logisch calls it “Japans vierkant”.</p>`,
-  /** Medium tries a few grids for one whose clues alone are enough (no given cells, as in the booklets). */
-  make(difficulty, rnd) {
-    const size = SUMS_SIZES[difficulty] ?? 7;
-    let best: SumsPuzzle | null = null;
-    for (let k = 0; k < (difficulty === "Medium" ? 12 : 1); k++) {
-      const p = generateSums(size, rnd);
-      const g = p.givens.filter(Boolean).length;
-      if (!best || g < best.givens.filter(Boolean).length) best = p;
-      if (!g) break;
-    }
-    return best!;
-  },
-  makingText: (d) => (SUMS_SIZES[d] >= 8 ? "Drawing a new map…" : ""),
+  make: (n, level, rnd) => makeSums(n, level as SumsLevel, rnd),
+  levelOf: (p) => rateSumsPuzzle(p)?.level ?? "Unrated",
+  hint: (p, cells, cands) =>
+    liteHint({
+      n: p.n,
+      solution: p.solution,
+      givens: p.givens,
+      cells,
+      cands,
+      start: () => startState(p),
+      place: (s, i, v) => place(p, s, i, v),
+      next: (s) => nextStep(p, s),
+      apply: (s, st) => applyStep(p, s, st),
+    }),
   encode: encodeSums,
   decode: decodeSums,
   isCode: isSumsCode,

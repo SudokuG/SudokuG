@@ -16,7 +16,7 @@ export interface FutoshikiPuzzle {
   signs: boolean[];
 }
 
-export const FUTOSHIKI_SIZES: Record<string, number> = { Easy: 5, Medium: 6, Hard: 7 };
+export const FUTOSHIKI_SIZES = [5, 6, 7];
 
 /** Neighbour pairs: first the horizontal ones (left, right), then the vertical ones (top, bottom). */
 const pairCache = new Map<number, [number, number][]>();

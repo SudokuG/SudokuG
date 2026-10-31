@@ -3,14 +3,14 @@
 
 import { FONT, svgCell } from "../draw";
 import type { LiteGame } from "../lite";
-import { FUTOSHIKI_SIZES, decodeFutoshiki, encodeFutoshiki, generateFutoshiki, isFutoshikiCode, pairsOf } from "./engine";
+import { liteHint } from "../logic";
+import { FUTOSHIKI_SIZES, decodeFutoshiki, encodeFutoshiki, isFutoshikiCode, pairsOf } from "./engine";
 import type { FutoshikiPuzzle } from "./engine";
+import { FUTO_LEVELS, applyStep, makeFutoshiki, nextStep, place, rateFutoshiki, startState } from "./logic";
+import type { FutoLevel } from "./logic";
 
 /** Gap between cells, as a fraction of a cell. */
 const GAP = 0.42;
-
-/** Extra clues given back per difficulty (minimal puzzles can be tough). */
-const EXTRA: Record<string, number> = { Easy: 6, Medium: 2, Hard: 0 };
 
 /**
  * The chevron for a sign between cells a and b, pointing at the smaller one: in a gap
@@ -57,14 +57,29 @@ export const FUTOSHIKI: LiteGame<FutoshikiPuzzle> = {
   title: "Futoshiki",
   noun: "puzzle",
   sizes: FUTOSHIKI_SIZES,
+  defaultSize: 6,
+  levels: FUTO_LEVELS,
   maxDigit: (n) => n,
   xPerLine: 0,
   codeHint: "F6-…",
   rules: `
     <p>Every row and column holds the digits <b>1 to n</b> once each (1 to 6 on a 6×6 board).</p>
     <p>The signs between cells must hold: the point of a sign faces the smaller digit, so in 3 ‹ 5 the left cell is smaller, and a ∧ between two cells means the upper one is smaller.</p>
-    <p>Tap a cell, then a digit. Hold <kbd>Shift</kbd> or switch on Candidates for small notes in the middle of the cell. A sign turns red when the digits next to it break it.</p>`,
-  make: (difficulty, rnd) => generateFutoshiki(FUTOSHIKI_SIZES[difficulty] ?? 6, rnd, EXTRA[difficulty] ?? 0),
+    <p>A sign turns red when the digits next to it break it. Easy and Medium need singles and signs; Hard adds pairs and triples; Expert may need you to try a digit and see where it leads.</p>`,
+  make: (n, level, rnd) => makeFutoshiki(n, level as FutoLevel, rnd),
+  levelOf: (p) => rateFutoshiki(p)?.level ?? "Unrated",
+  hint: (p, cells, cands) =>
+    liteHint({
+      n: p.n,
+      solution: p.solution,
+      givens: p.givens,
+      cells,
+      cands,
+      start: () => startState(p),
+      place: (s, i, v) => place(p, s, i, v),
+      next: (s) => nextStep(p, s),
+      apply: (s, st) => applyStep(p, s, st),
+    }),
   encode: encodeFutoshiki,
   decode: decodeFutoshiki,
   isCode: isFutoshikiCode,

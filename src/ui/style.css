@@ -478,21 +478,22 @@ kbd { font-family: inherit; font-size: 0.8em; border: 1px solid var(--btn-border
 .game-view.on { display: grid; }
 html[data-game]:not([data-game="sudoku"]) .layout, html[data-game]:not([data-game="sudoku"]) .top .meta { display: none; }
 
-/* ---- Lighter puzzle types (Treasure Map, Futoshiki, …) ---------------------------- */
+/* ---- Lighter puzzle types (Treasure Map, Futoshiki, …): laid out like the sudoku page -- */
 .lite { grid-template-columns: minmax(0, 1fr) 316px; gap: 24px; align-items: start; }
-.lite-board-wrap { min-width: 0; display: flex; flex-direction: column; align-items: center; }
+.lite-board-wrap { min-width: 0; display: flex; flex-direction: column; align-items: center; grid-row: 1 / span 2; }
 .lite-head { display: flex; align-items: baseline; gap: 4px 14px; flex-wrap: wrap; justify-content: center; margin-bottom: 10px; color: var(--muted); }
-.lite-code { margin-top: 12px; }
+.lite .code-row-desktop { margin-top: 12px; }
 .lite-pad { grid-template-columns: repeat(var(--keys, 6), minmax(0, 1fr)); }
-.lite-pad button.x-key { color: var(--ink); }
-.lite-diff { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.lite-diff button small { display: block; font-weight: 400; font-size: 0.72rem; opacity: 0.8; }
+.lite-pad button.x-key, .lite-pad button.dot-key { color: var(--ink); }
+.lite-sizes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.lite-levels { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.lite-panel .small-label { margin: 8px 0 4px; }
 .lite-mode.on { background: var(--m-pencil); border-color: var(--m-pencil); color: var(--surface); }
 .rules p { margin: 6px 0 0; }
 .rules .aside { font-style: italic; }
 .code-input { font: 0.85rem ui-monospace, "SF Mono", Menlo, Consolas, monospace; flex: 1; min-width: 0; padding: 7px 8px; border-radius: 8px; border: 1px solid var(--btn-border); background: var(--surface); color: var(--ink); }
 
-.lite-board { display: grid; width: min(100%, 600px); container-type: inline-size; outline: none; user-select: none; -webkit-user-select: none; touch-action: manipulation; --n: 7; }
+.lite-board { display: grid; width: min(100%, 600px); container-type: inline-size; outline: none; user-select: none; -webkit-user-select: none; touch-action: none; --n: 7; }
 .lite-cell {
   aspect-ratio: 1; display: grid; place-items: center; background: var(--surface); color: var(--entry);
   cursor: pointer; position: relative; font-size: var(--cell-fs); line-height: 1; min-width: 0;
@@ -502,15 +503,35 @@ html[data-game]:not([data-game="sudoku"]) .layout, html[data-game]:not([data-gam
 .lite-cell.x:not(.given) { color: var(--muted); }
 .lite-cell.peer { background: var(--peer-digit); }
 .lite-cell.same { background: var(--same-digit); }
-.lite-cell.sel { background: var(--sel-digit); box-shadow: inset 0 0 0 3px var(--pen); }
-.lite-cell.clash { color: var(--elim); }
-.lite-cell.wrong { background: var(--error-soft); }
-/* Candidates in the middle of the cell, like pairs in sudoku. */
+.lite-cell.region { background: var(--hint-soft); }
+.lite-cell.target { background: var(--place-soft); }
+.lite-cell.elim { background: var(--error-soft); }
+.lite-cell.sel { background: var(--sel-digit); }
+.lite-cell.primary { box-shadow: inset 0 0 0 3px var(--pen); }
+.lite-cell.clash, .lite-cell.mistake { color: var(--elim); }
+.lite-cell.wrong, .lite-cell.mistake { background: var(--error-soft); }
+/* Candidates in the middle of the cell, small and framed, in the colour of entered digits. */
 .lite-pill {
-  display: inline-flex; align-items: center; padding: 0.22em 0.34em; border: 1.5px solid var(--m-pencil); border-radius: 999px;
-  background: var(--surface); color: var(--m-pencil); font-weight: 700; font-size: calc(var(--cell-fs) * 0.42); letter-spacing: 0.04em; font-variant-numeric: tabular-nums;
+  display: inline-flex; align-items: center; padding: 0.22em 0.34em; border: 1.5px solid var(--entry); border-radius: 999px;
+  background: var(--surface); color: var(--entry); font-weight: 700; font-size: calc(var(--cell-fs) * 0.42); letter-spacing: 0.04em; font-variant-numeric: tabular-nums;
 }
 .lite-pill.many { font-size: calc(var(--cell-fs) * 0.32); padding: 0.2em 0.28em; }
+/* A dot: "a digit goes here" (not an X). */
+.lite-dot { width: calc(var(--cell-fs) * 0.24); height: calc(var(--cell-fs) * 0.24); border-radius: 50%; background: var(--entry); }
+.lite-dot.small { position: absolute; bottom: 9%; left: 50%; width: calc(var(--cell-fs) * 0.13); height: calc(var(--cell-fs) * 0.13); transform: translateX(-50%); }
+
+@media (max-width: 760px) {
+  .lite { grid-template-columns: minmax(0, 1fr); grid-template-areas: "tabs" "board" "pane" "code"; gap: 12px; }
+  .lite-board-wrap { grid-area: board; grid-row: auto; }
+  .lite .pane [data-r="hint-card"] { order: 1; }
+  .lite .pane [data-r="pad"] { order: 2; }
+  .lite .pane .act-edit { order: 3; }
+  .lite .pane .act-hint { order: 4; }
+  .lite .pane [data-r="solved"] { order: 0; }
+  .lite-pad { grid-template-columns: repeat(var(--keys-phone, 6), minmax(0, 1fr)); gap: 6px; }
+  .lite-pad button { font-size: 1.6rem; min-height: 54px; padding: 0; }
+  .lite-pad .pad-sticky { font-size: 1.4rem; }
+}
 
 /* Treasure Map: clues on the left and on top, then n×n cells. */
 .sums-board { grid-template-columns: 1.5fr repeat(var(--n), 1fr); --cell-fs: calc(100cqi / (var(--n) + 1.5) * 0.56); }
@@ -536,11 +557,6 @@ html[data-game]:not([data-game="sudoku"]) .layout, html[data-game]:not([data-gam
 .futo-sign path { fill: none; stroke: var(--ink); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .futo-sign.bad path { stroke: var(--elim); stroke-width: 1.9; }
 
-@media (max-width: 760px) {
-  .lite { grid-template-columns: minmax(0, 1fr); gap: 14px; }
-  .lite-pad { gap: 6px; }
-  .lite-pad button { font-size: 1.6rem; min-height: 54px; padding: 0; }
-}
 
 /* ---- Printing: the dialog ------------------------------------------------------ */
 .print-row { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-top: 4px; }

@@ -33,6 +33,11 @@ import { LIBRARY, LIKES, OLD_LIBRARY } from "../src/library-data";
 import { SUMS_SIZES, cluesOf, decodeSums, encodeSums, generateSums, runSums, solveSums } from "../src/games/sums/engine";
 import { puzzleName } from "../src/names";
 import { FUTOSHIKI_SIZES, decodeFutoshiki, encodeFutoshiki, generateFutoshiki, inequalities, solveFutoshiki } from "../src/games/futoshiki/engine";
+import { SUMS_LEVELS, logicSolveSums, makeSums, rateSumsPuzzle } from "../src/games/sums/logic";
+import { FUTO_LEVELS, logicSolveFutoshiki, makeFutoshiki, rateFutoshiki } from "../src/games/futoshiki/logic";
+import { TREASURE_MAP } from "../src/games/sums/game";
+import { FUTOSHIKI } from "../src/games/futoshiki/game";
+import type { LiteStep } from "../src/games/logic";
 
 let failures = 0;
 const fail = (msg: string) => {
@@ -280,7 +285,8 @@ const RECIPE_FROM = Math.round((Date.parse("2026-11-02T12:00:00Z") - Date.parse(
   if (runSums([1, 2, 3, 4, 5, 0, 0]).join() !== "15") fail("sums: runSums of 12345XX should be 15");
   let made = 0;
   let givens = 0;
-  for (const [d, size] of Object.entries(SUMS_SIZES)) {
+  for (const size of SUMS_SIZES) {
+    const d = `${size}×${size}`;
     for (let seed = 1; seed <= (size >= 8 ? 4 : 15); seed++) {
       const p = generateSums(size, seededRandom(seed * 101 + size));
       made++;
@@ -318,9 +324,10 @@ const RECIPE_FROM = Math.round((Date.parse("2026-11-02T12:00:00Z") - Date.parse(
 {
   let made = 0;
   let signs = 0;
-  for (const [d, size] of Object.entries(FUTOSHIKI_SIZES)) {
+  for (const size of FUTOSHIKI_SIZES) {
+    const d = `${size}×${size}`;
     for (let seed = 1; seed <= 12; seed++) {
-      const p = generateFutoshiki(size, seededRandom(seed * 53 + size), d === "Easy" ? 6 : 0);
+      const p = generateFutoshiki(size, seededRandom(seed * 53 + size), seed % 3 === 0 ? 6 : 0);
       made++;
       signs += p.signs.filter(Boolean).length;
       for (let i = 0; i < size; i++) {
@@ -343,6 +350,65 @@ const RECIPE_FROM = Math.round((Date.parse("2026-11-02T12:00:00Z") - Date.parse(
   }
   if (!refused) fail("futoshiki: a code without a valid grid should be refused");
   console.log(`Futoshiki: ${made} puzzles made and checked (${(signs / made).toFixed(1)} signs on average).`);
+}
+
+// 10. The step-by-step solvers of the lighter puzzles: no step ever rules out the true value
+//     or places a wrong one; generated puzzles have the level asked for (and Treasure Maps no
+//     given cells); hints work from the start and point out a wrong entry.
+{
+  const sound = (label: string, solution: number[], steps: LiteStep[]) => {
+    for (const st of steps) {
+      for (const pl of st.placements) if (solution[pl.cell] !== pl.value) fail(`${label}: ${st.technique} placed ${pl.value} at ${pl.cell}, the solution has ${solution[pl.cell]}`);
+      for (const e of st.eliminations) if (solution[e.cell] === e.value) fail(`${label}: ${st.technique} ruled out the right value ${e.value} at ${e.cell}`);
+    }
+  };
+  let maps = 0;
+  const seenTech: Record<string, number> = {};
+  for (const size of SUMS_SIZES)
+    for (const level of SUMS_LEVELS)
+      for (let seed = 1; seed <= 3; seed++) {
+        const it = makeSums(size, level, seededRandom(seed * 1009 + size * 7 + level.length), 6000);
+        let r = it.next();
+        while (!r.done) r = it.next();
+        const p = r.value;
+        maps++;
+        if (p.givens.some(Boolean)) fail(`treasure map ${size}×${size} ${level}: has given cells`);
+        const rt = rateSumsPuzzle(p);
+        if (rt?.level !== level) fail(`treasure map ${size}×${size} ${level}: rated ${rt?.level ?? "unsolvable"}`);
+        const log = logicSolveSums(p);
+        if (!log.solved) fail(`treasure map ${size}×${size} ${level}: the steps don't solve it`);
+        sound(`treasure map ${encodeSums(p)}`, p.solution, log.steps);
+        for (const st of log.steps) seenTech[st.technique] = (seenTech[st.technique] ?? 0) + 1;
+        if (seed === 1 && level === "Hard") {
+          const empty = p.solution.map(() => -1);
+          const h = TREASURE_MAP.hint(p, empty, empty.map(() => 0));
+          if (h.kind !== "step") fail(`treasure map: no hint from the start (${h.kind})`);
+          const wrong = empty.slice();
+          wrong[0] = p.solution[0] === 1 ? 2 : 1;
+          if (TREASURE_MAP.hint(p, wrong, empty.map(() => 0)).kind !== "error") fail("treasure map: a wrong entry isn't pointed out");
+        }
+      }
+  let futos = 0;
+  for (const size of FUTOSHIKI_SIZES)
+    for (const level of FUTO_LEVELS)
+      for (let seed = 1; seed <= 3; seed++) {
+        const it = makeFutoshiki(size, level, seededRandom(seed * 2003 + size * 11 + level.length), 6000);
+        let r = it.next();
+        while (!r.done) r = it.next();
+        const p = r.value;
+        futos++;
+        const rt = rateFutoshiki(p);
+        if (rt?.level !== level) fail(`futoshiki ${size}×${size} ${level}: rated ${rt?.level ?? "too hard"}`);
+        const log = logicSolveFutoshiki(p);
+        if (!log.solved) fail(`futoshiki ${size}×${size} ${level}: the steps don't solve it`);
+        sound(`futoshiki ${encodeFutoshiki(p)}`, p.solution, log.steps);
+        for (const st of log.steps) seenTech["F " + st.technique] = (seenTech["F " + st.technique] ?? 0) + 1;
+        if (seed === 1 && level === "Medium") {
+          const empty = p.solution.map((v, i) => (p.givens[i] ? v : -1));
+          if (FUTOSHIKI.hint(p, empty, empty.map(() => 0)).kind !== "step") fail("futoshiki: no hint from the start");
+        }
+      }
+  console.log(`Step-by-step solvers: ${maps} treasure maps and ${futos} futoshikis checked. Steps used: ${JSON.stringify(seenTech)}`);
 }
 
 if (failures) {

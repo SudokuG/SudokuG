@@ -70,10 +70,12 @@ src/
   guide-step.ts      turns an example position into the step to show
   page.html          page markup; build.mjs inlines fonts, CSS and JS into it
   sw.js              service worker: keeps the game on the device for offline play
-  games/lite.ts      the page shared by the lighter puzzle types (pad, candidates, timer, saving, …)
+  games/lite.ts      the page shared by the lighter puzzle types (tabs, pad, hints, timer, saving, …)
+  games/lite-options.ts  their options; games/logic.ts: steps and hints shared by their solvers
   games/latin.ts     random Latin squares and base-62 codes; games/draw.ts: print pieces
-  games/sums/        Treasure Map: engine.ts (grid, clues, solver, codes), game.ts (board, printing)
-  games/futoshiki/   Futoshiki: engine.ts (signs, solver, codes), game.ts (board, printing)
+  games/sums/        Treasure Map: engine.ts (grid, clues, brute-force solver, codes),
+                     logic.ts (step-by-step solver, rating, levels), game.ts (board, printing)
+  games/futoshiki/   Futoshiki: the same three files
   ui/games.ts        the puzzle-type switcher in the header
   ui/print-dialog.ts the print dialog, shared by all puzzle types
   samples.ts         built-in puzzles
@@ -342,32 +344,53 @@ Pressing Ctrl+P prints the current puzzle the same way instead of the whole page
 
 The switcher next to the title chooses the puzzle type; the choice is remembered, and a
 link to a puzzle opens its type. Sudoku keeps the full app (`src/ui/app.ts`); the lighter
-types share one page (`src/games/lite.ts`: pad, candidates in the middle of the cell, undo,
-Check, Reveal cell, timer, saving, stats, links, loading, printing). Each type is a
-`LiteGame` in `src/games/<type>/game.ts` (board layout, extra marks such as clue or sign
-states, print drawing) with its logic in `engine.ts` (no page code, tested in
-`test/engine.test.ts`). They have no generator app and no library: a puzzle is made when
-you ask for one. Each type has its own name theme (`src/names.ts`). To add a type: write
-its engine and `LiteGame`, add it to `GAMES` in `src/ui/games.ts`, give it a `<main>` in
-`page.html` and an `initLite(...)` line in `app.ts`.
+types share one page laid out like sudoku's (`src/games/lite.ts`): Play, Puzzles, Options
+and How to play tabs; the code row under the board (at the bottom on a phone). Play has the
+pad, Undo, Erase, Candidates (shown small and framed in the middle of the cell), Hint, Check
+and Reveal. Drag over the grid to move the selection; hold S (a pad key on phones, as in
+sudoku), Shift or Ctrl to add cells instead. Their options (`src/games/lite-options.ts`) are
+shared by all light types; the theme is the site-wide one.
+
+Each type is a `LiteGame` in `src/games/<type>/game.ts` (board layout, extra marks such as
+clue or sign states, print drawing, hints) with its logic in `engine.ts` and `logic.ts` (no
+page code, tested in `test/engine.test.ts`). A puzzle is made when you ask for one (no
+generator app, no library). Each type has its own name theme (`src/names.ts`). To add a
+type: write its engine, logic and `LiteGame`, add it to `GAMES` in `src/ui/games.ts`, give
+it a `<main>` in `page.html` and an `initLite(...)` line in `app.ts`.
+
+**Step-by-step solvers.** Both types have one (`logic.ts`), like the sudoku engine: it
+solves the way a person does, easiest step first. It gives the hints (first click: where to
+look; second: the whole step; Apply carries it out) and rates puzzles, so every size comes in
+Easy, Medium, Hard and Expert. Hints first point out wrong entries, and candidates that
+leave out the right digit. A puzzle the steps solve completely has exactly one solution,
+which is also how the generators check uniqueness (much faster than brute force).
 
 **Treasure Map** (theme: pirates). Puzzle fans call this kind *Japanese Sums*; Denksport
 Logisch calls it "Japans vierkant". Every row and column holds 1 to n-2 once and two X's;
-the clues are the sums of the runs of digits, in order. A puzzle is a random Latin square
-with two symbols turned into X's; a solver fills rows that match their clue and checks the
-columns as it goes (`solveSums`). When the clues alone allow several solutions, a cell
-where two solutions differ is given, until one is left, and givens that aren't needed are
-taken back. Easy is 6×6 (1-4), Medium 7×7 (1-5, the booklet size; tries a few grids so no
-cell needs to be given), Hard 8×8 (1-6, usually one or two given cells). About 1, 20 and
-400 ms per puzzle. Codes look like `J7-…-…` (size, the solution and the givens in base 62).
+the clues are the sums of the runs of digits, in order. 6×6, 7×7 or 8×8. Much of the work is
+finding where the X's can and can't be, so there is a dot mark (•, the full stop key) for "a
+digit goes here". The solver's steps, by what you need to keep track of:
+- with what you can see (placed digits, X's and dots): Single, Hidden Single, Last X's;
+  Clue X's: one line's clue (every way to put its X's and split the digits into groups that
+  add up to the clue) shows where an X must or can't be, or fixes a cell;
+- with candidates written down: Candidate Single, Clue Groups (the same line reasoning on
+  the candidates), Line Arrangements (with the order inside the groups);
+- Trial (assume a value, find a contradiction), for hints only.
+
+Rating: each step weighs what it asks (line steps: the ways still open plus how many the
+clue allows at all); the difficulty is the total plus 4 per step of the longest stretch of X
+reasoning before a digit is placed. Expert also means needing candidates. Cut-offs per size
+(`SUMS_CUTS`) come from the spread of random grids (Easy: the lower 35%, Medium up to 75%,
+Hard up to 95%, Expert the top 5%). A puzzle is a random grid kept when the steps solve it
+from the clues alone, so no cells are ever given; about 10-100 ms. Codes look like `J7-…-…`.
 
 **Futoshiki** (theme: Arthurian legend). Every row and column holds 1 to n once; the signs
-between cells point at the smaller digit. A puzzle is a random Latin square with every sign;
-given digits are added where two solutions still differ, then givens and signs are taken
-away in random order (givens first, so the puzzle leans on the signs) while the solution
-stays unique (`solveFutoshiki`: candidate propagation plus backtracking). Minimal puzzles
-can be tough, so Easy (5×5) gets 6 clues back and Medium (6×6) 2; Hard (7×7) stays minimal.
-About 4, 10 and 50 ms per puzzle. Codes look like `F6-…-…-…` (solution, givens, signs).
+between cells point at the smaller digit. 5×5, 6×6 or 7×7. Steps: Single, Hidden Single,
+Sign (one sign narrows its two cells), Naked and Hidden Pair and Triple, Trial. Easy and
+Medium need singles and signs (by total effort, `FUTO_CUTS`), Hard pairs or triples or more
+effort, Expert up to 3 trial steps. A puzzle is a minimal one (as few clues as keep one
+solution), with clues given back while it rates harder than asked; about 10-200 ms. Codes
+look like `F6-…-…-…`.
 
 **Planned next**:
 1. **Calcudoku** (KenKen-style; theme: overcomplicated engineering terms). A Latin square

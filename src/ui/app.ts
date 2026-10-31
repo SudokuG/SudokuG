@@ -1899,8 +1899,18 @@ function init(): void {
   }
   // The other puzzle types (a link to one of them switches to it).
   initGamePicker();
-  initLite(TREASURE_MAP, $("game-sums"));
-  initLite(FUTOSHIKI, $("game-futoshiki"));
+  // They share the site-wide theme, which lives with the sudoku settings.
+  const theme = {
+    get: () => S.settings.theme,
+    set: (t: string) => {
+      S.settings.theme = t as Settings["theme"];
+      saveSettings();
+      applyTheme();
+      render();
+    },
+  };
+  initLite(TREASURE_MAP, $("game-sums"), theme);
+  initLite(FUTOSHIKI, $("game-futoshiki"), theme);
 }
 
 /**
