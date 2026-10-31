@@ -322,6 +322,7 @@ const PAGE = `<!doctype html>
   .state.on { color: var(--good); }
   table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
   th, td { text-align: right; padding: 5px 8px; border-bottom: 1px solid var(--line); }
+  td { white-space: nowrap; }
   th:first-child, td:first-child { text-align: left; }
   thead th { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
   .small { color: var(--muted); font-size: 0.88rem; margin: 6px 0 0; }

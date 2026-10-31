@@ -501,12 +501,12 @@ kbd { font-family: inherit; font-size: 0.8em; border: 1px solid var(--btn-border
   .pp-1 { --g: 160mm; padding-top: 10mm; }
   .pp-2 { --g: 104mm; }
   .pp-4 { --g: 84mm; gap: 14mm 12mm; padding-top: 4mm; }
-  .pp-6 { --g: 66mm; gap: 8mm 14mm; }
+  .pp-6 { --g: 63mm; gap: 7mm 14mm; }
   .pp-4, .pp-6 { grid-template-columns: repeat(2, auto); }
-  .pz { margin: 0; width: var(--g); display: flex; flex-direction: column; gap: 2mm; break-inside: avoid; page-break-inside: avoid; }
+  .pz { margin: 0; width: var(--g); display: flex; flex-direction: column; justify-content: flex-end; gap: 2mm; break-inside: avoid; page-break-inside: avoid; }
   .pz figcaption { display: flex; flex-direction: column; gap: 0.6mm; min-width: 0; }
   .pp-1 .pz figcaption { flex-direction: row; align-items: baseline; justify-content: space-between; gap: 4mm; }
-  .pz-name { font-family: var(--font-display); font-weight: 800; font-size: 11pt; color: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pz-name { font-family: var(--font-display); font-weight: 800; font-size: 11pt; line-height: 1.15; color: #000; }
   .pz-meta { font-size: 8pt; color: #555; letter-spacing: 0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .pp-1 .pz-name { font-size: 17pt; }
   .pp-1 .pz-meta { font-size: 10pt; }
