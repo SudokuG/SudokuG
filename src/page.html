@@ -6,6 +6,7 @@
   <header class="top">
     <h1>SudokuG</h1>
     <div class="meta">
+      <span id="puzzle-name" class="puzzle-name" hidden></span>
       <span id="puzzle-label" class="puzzle-label">Easy</span>
       <span id="puzzle-author" class="puzzle-author" hidden></span>
       <span id="timer" class="timer" aria-label="Time">0:00</span>
@@ -21,6 +22,7 @@
         <code class="puzzle-code"></code>
         <button class="link-btn copy-code" type="button">Copy</button>
         <button class="link-btn copy-link" type="button" hidden>Copy link</button>
+        <button class="link-btn print-current" type="button">Print</button>
       </div>
       <p id="status" class="status" aria-live="polite"></p>
     </section>
@@ -126,6 +128,10 @@
         <h2 class="pane-title">New puzzle</h2>
         <div id="diff-pick" class="diff-pick" role="radiogroup" aria-label="Difficulty template"></div>
         <p id="diff-desc" class="small"></p>
+        <div class="print-row">
+          <button id="print-batch" class="link-btn" type="button">Print puzzles</button>
+          <span class="small">to solve on paper, or save them as a PDF</span>
+        </div>
         <details id="tech-pick" class="tech-pick">
           <summary>Techniques <span id="tech-count" class="tech-count"></span></summary>
           <p class="small">Puzzles only need the ticked techniques, and at least one from the hardest ticked group. A template sets the ticks; change any of them to make your own mix.</p>
@@ -240,6 +246,7 @@
       <code class="puzzle-code"></code>
       <button class="link-btn copy-code" type="button">Copy</button>
       <button class="link-btn copy-link" type="button" hidden>Copy link</button>
+      <button class="link-btn print-current" type="button">Print</button>
     </div>
   </main>
 
@@ -248,5 +255,39 @@
     <button id="update-reload" class="btn primary" type="button">Load it</button>
     <button id="update-later" class="btn" type="button">Later</button>
   </div>
+
+  <dialog id="print-dialog" class="dialog" aria-labelledby="print-title">
+    <form method="dialog" class="dialog-body">
+      <h2 id="print-title" class="pane-title">Print</h2>
+      <p id="print-what" class="small"></p>
+      <div id="print-progress" class="print-choice" role="radiogroup" aria-label="What to print">
+        <label class="opt compact"><input type="radio" name="print-progress" value="empty" checked> <span><b>Empty puzzle</b><small>Only the starting digits.</small></span></label>
+        <label class="opt compact"><input type="radio" name="print-progress" value="progress"> <span><b>With what I filled in</b><small>Your digits, candidates, pairs and colours.</small></span></label>
+      </div>
+      <div id="print-count-row" class="print-field">
+        <label for="print-count"><b>How many puzzles</b></label>
+        <input id="print-count" type="number" min="1" max="30" value="4" inputmode="numeric">
+      </div>
+      <div class="print-field">
+        <span id="print-per-label"><b>Puzzles per page</b></span>
+        <div id="print-per" class="seg" role="radiogroup" aria-labelledby="print-per-label"></div>
+      </div>
+      <div class="print-field">
+        <span><b>Show with each puzzle</b></span>
+        <div class="print-checks">
+          <label class="opt compact"><input id="print-name" type="checkbox"> <span>Name</span></label>
+          <label class="opt compact"><input id="print-difficulty" type="checkbox"> <span>Difficulty</span></label>
+          <label class="opt compact"><input id="print-code" type="checkbox"> <span>Puzzle code</span></label>
+        </div>
+      </div>
+      <p class="small">The print window opens next; choose “Save as PDF” as the printer to get a file. Printouts are always black on white, also in dark mode.</p>
+      <p id="print-msg" class="small" aria-live="polite"></p>
+      <div class="row dialog-actions">
+        <button id="print-go" class="btn primary" type="button">Print</button>
+        <button id="print-cancel" class="btn" type="button">Cancel</button>
+      </div>
+    </form>
+  </dialog>
 </div>
+<div id="print-root" aria-hidden="true"></div>
 <script>/*SCRIPT*/</script>

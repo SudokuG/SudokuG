@@ -6,13 +6,13 @@
 // difficulty) is also added to the library for that difficulty.
 import { readFileSync } from "node:fs";
 import { DIFFICULTIES, Grid, TECHNIQUES, TEMPLATES, decodePuzzle, logicalSolve, ratePuzzle, uniqueSolution } from "../src/engine";
-import { LIBRARY, LIKES } from "../src/library-data";
-import { writeLibrary } from "./common";
+import { readLibrary, writeLibrary } from "./common";
 
 const file = process.argv[2];
 if (!file) throw new Error("Usage: npm run add-likes -- <file with copied likes>");
-const library: Record<string, string[]> = Object.fromEntries(DIFFICULTIES.map((g) => [g, [...(LIBRARY[g] ?? [])]]));
-const likes: Record<string, string[]> = Object.fromEntries(Object.entries(LIKES).map(([c, ids]) => [c, [...ids]]));
+const lib = readLibrary();
+const { library, likes } = lib;
+for (const g of DIFFICULTIES) library[g] ??= [];
 const inLibrary = new Set(Object.values(library).flat());
 
 let id = "unknown";
@@ -43,6 +43,15 @@ for (const raw of readFileSync(file, "utf8").split(/\r?\n/)) {
     newLikes++;
   }
   if (inLibrary.has(line)) continue;
+  // A liked old puzzle moves up front.
+  for (const g of Object.keys(lib.old))
+    if (lib.old[g].includes(line)) {
+      lib.old[g] = lib.old[g].filter((c) => c !== line);
+      library[g].unshift(line);
+      inLibrary.add(line);
+      console.log(`Moved liked ${line} to the front of the ${g} library.`);
+    }
+  if (inLibrary.has(line)) continue;
   const g = ratePuzzle(new Grid(values)).difficulty;
   const tech = TECHNIQUES.filter((t) => (TEMPLATES as Record<string, string[]>)[g]?.includes(t.name));
   if (tech.length && logicalSolve(new Grid(values), tech).solved) {
@@ -52,5 +61,5 @@ for (const raw of readFileSync(file, "utf8").split(/\r?\n/)) {
     console.log(`Added ${line} to the ${g} library.`);
   } else console.log(`${line} (${g}) doesn't fit a template: like recorded, not in the library.`);
 }
-writeLibrary(library, likes);
+writeLibrary(lib);
 console.log(`${newLikes} new like${newLikes === 1 ? "" : "s"}, ${added} puzzle${added === 1 ? "" : "s"} added to the library.`);

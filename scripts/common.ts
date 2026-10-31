@@ -1,20 +1,7 @@
 // Shared by the scripts that make puzzles ahead of time (dailies and the library).
 import { fork } from "node:child_process";
 import { readFileSync, renameSync, writeFileSync } from "node:fs";
-import {
-  DIFFICULTIES,
-  Grid,
-  REQUIREMENTS,
-  TECHNIQUES,
-  TEMPLATES,
-  decodePuzzle,
-  encodePuzzle,
-  generateRatedSync,
-  logicalSolve,
-  missingMoves,
-  moveCounts,
-  spreadOf,
-} from "../src/engine";
+import { DIFFICULTIES, TEMPLATES, decodePuzzle, encodePuzzle, generateRatedSync, meetsRecipe, recipeFor } from "../src/engine";
 import type { Group } from "../src/engine";
 
 export const DAILY_FILE = "src/daily-data.ts";
@@ -26,14 +13,8 @@ export function writeSafely(path: string, text: string): void {
   renameSync(`${path}.tmp`, path);
 }
 
-/** Whether a puzzle fits its template and has every move and lock REQUIREMENTS asks for. */
-export function meetsRequirements(code: string, g: Group): boolean {
-  const tech = TECHNIQUES.filter((t) => TEMPLATES[g].includes(t.name));
-  const log = logicalSolve(new Grid(decodePuzzle(code)), tech);
-  if (!log.solved) return false;
-  const req = REQUIREMENTS[g];
-  return !req || (!missingMoves(moveCounts(log.steps), req) && spreadOf(log.steps).locks >= (req.locks ?? 0));
-}
+/** Whether a puzzle fits its template and meets the template's recipe (RECIPES in sculpt.ts). */
+export const meetsRequirements = (code: string, g: Group): boolean => meetsRecipe(decodePuzzle(code), g);
 
 /** The daily puzzles as they are on disk now (read at run time, so always up to date). */
 export function readDailies(): { start: string; rows: string[][] } {
@@ -51,6 +32,29 @@ export function dayOf(start: string, i: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+/**
+ * Move days beyond `keep` days out of the daily list into the library: Easy and Medium to
+ * LIBRARY (their generator didn't change), harder ones to OLD_LIBRARY (made before the
+ * current recipes). Returns how many days were moved.
+ */
+export function trimDailies(dailies: { start: string; rows: string[][] }, keep: number): number {
+  if (dailies.rows.length <= keep) return 0;
+  const extra = dailies.rows.splice(keep);
+  const lib = readLibrary();
+  const seen = new Set([...Object.values(lib.library).flat(), ...Object.values(lib.old).flat()]);
+  for (const row of extra)
+    row.forEach((code, k) => {
+      const g = DIFFICULTIES[k];
+      if (seen.has(code)) return;
+      seen.add(code);
+      const target = recipeFor(g) ? lib.old : lib.library;
+      (target[g] ??= []).push(code);
+    });
+  writeLibrary(lib);
+  writeDailies(dailies.start, dailies.rows);
+  return extra.length;
+}
+
 export function writeDailies(start: string, rows: string[][]): void {
   writeSafely(
     DAILY_FILE,
@@ -64,37 +68,47 @@ ${rows.map((r, i) => `  "${r.join(" ")}", // ${dayOf(start, i)}`).join("\n")}
   );
 }
 
+export interface LibraryFile {
+  /** Puzzle codes per difficulty, handed out first. */
+  library: Record<string, string[]>;
+  /** Puzzles made before the current recipes: handed out last, retired one by one as new ones come in. */
+  old: Record<string, string[]>;
+  /** Puzzle code -> ids of the browsers that liked it. */
+  likes: Record<string, string[]>;
+}
+
 /** The library as it is on disk now. */
-export function readLibrary(): { library: Record<string, string[]>; likes: Record<string, string[]> } {
+export function readLibrary(): LibraryFile {
   const text = readFileSync(LIBRARY_FILE, "utf8");
-  const [libPart, likePart = ""] = text.split("export const LIKES");
-  const library: Record<string, string[]> = Object.fromEntries(DIFFICULTIES.map((g) => [g, []]));
-  let cur: string | null = null;
-  for (const line of libPart.split(/\r?\n/)) {
-    const head = /^\s+(\w+): \[/.exec(line);
-    if (head) cur = head[1];
-    const code = /^\s+"([^"]+)",/.exec(line);
-    if (code && cur) (library[cur] ??= []).push(code[1]);
-  }
+  const section = (name: string) => {
+    const m = new RegExp(`export const ${name}\\b[^=]*= \\{([\\s\\S]*?)\\n\\};`).exec(text);
+    return m ? m[1] : "";
+  };
+  const lists = (body: string) => {
+    const out: Record<string, string[]> = Object.fromEntries(DIFFICULTIES.map((g) => [g, []]));
+    let cur: string | null = null;
+    for (const line of body.split(/\r?\n/)) {
+      const head = /^\s+(\w+): \[/.exec(line);
+      if (head) cur = head[1];
+      const code = /^\s+"([^"]+)",/.exec(line);
+      if (code && cur) (out[cur] ??= []).push(code[1]);
+    }
+    return out;
+  };
   const likes: Record<string, string[]> = {};
-  for (const m of likePart.matchAll(/^\s+(\w+): \[([^\]]*)\]/gm)) likes[m[1]] = [...m[2].matchAll(/"([^"]*)"/g)].map((x) => x[1]);
-  return { library, likes };
+  for (const m of section("LIKES").matchAll(/^\s+(\w+): \[([^\]]*)\]/gm)) likes[m[1]] = [...m[2].matchAll(/"([^"]*)"/g)].map((x) => x[1]);
+  return { library: lists(section("LIBRARY")), old: lists(section("OLD_LIBRARY")), likes };
 }
 
 /**
- * A puzzle of a template that has all the moves REQUIREMENTS asks for, searched without
- * a time limit (up to 3 rounds of 20 candidates; the best one if none gets there).
+ * A puzzle of a template that meets its recipe, searched without a time limit (gives up
+ * after `maxMs` and returns the best one found, with what it still misses).
  */
-export function goodPuzzle(g: Group, rnd: () => number): { code: string; missing: number } {
+export function goodPuzzle(g: Group, rnd: () => number, maxMs = 10 * 60 * 1000): { code: string; missing: number } {
   const allowed = TEMPLATES[g];
-  if (!REQUIREMENTS[g]) return { code: encodePuzzle(generateRatedSync({ allowed }, rnd).puzzle), missing: 0 };
-  let best: { code: string; missing: number } | null = null;
-  for (let round = 0; round < 3; round++) {
-    const r = generateRatedSync({ allowed, maxCandidates: 20, triesPerCandidate: 3000 }, rnd);
-    if (!best || r.missing < best.missing) best = { code: encodePuzzle(r.puzzle), missing: r.missing };
-    if (!best.missing) break;
-  }
-  return best!;
+  if (!recipeFor(g)) return { code: encodePuzzle(generateRatedSync({ allowed }, rnd).puzzle), missing: 0 };
+  const r = generateRatedSync({ allowed, timeBudgetMs: maxMs }, rnd);
+  return { code: encodePuzzle(r.puzzle), missing: r.missing };
 }
 
 /**
@@ -128,20 +142,26 @@ export function parallel<T>(n: number, make: (i: number) => T, workers: number, 
 }
 
 /** Write src/library-data.ts. */
-export function writeLibrary(library: Record<string, string[]>, likes: Record<string, string[]>): void {
-  const lists = Object.entries(library)
-    .map(([g, codes]) => `  ${g}: [\n${codes.map((c) => `    "${c}",`).join("\n")}\n  ],`)
-    .join("\n");
-  const liked = Object.entries(likes)
+export function writeLibrary(lib: LibraryFile): void {
+  const lists = (rec: Record<string, string[]>) =>
+    Object.entries(rec)
+      .map(([g, codes]) => `  ${g}: [\n${codes.map((c) => `    "${c}",`).join("\n")}${codes.length ? "\n" : ""}  ],`)
+      .join("\n");
+  const liked = Object.entries(lib.likes)
     .sort((a, b) => b[1].length - a[1].length)
     .map(([c, ids]) => `  ${c}: [${ids.map((id) => JSON.stringify(id)).join(", ")}],`)
     .join("\n");
   writeSafely(
     LIBRARY_FILE,
-    `// Puzzle library, written by scripts/make-library.ts and scripts/add-likes.ts. Do not edit by hand.
-// LIBRARY: puzzle codes per difficulty. LIKES: puzzle code -> ids of the browsers that liked it.
+    `// Puzzle library, written by scripts/grow.ts, make-library.ts and add-likes.ts. Do not edit by hand.
+// LIBRARY: puzzle codes per difficulty, handed out first.
+// OLD_LIBRARY: puzzles made before the current recipes; handed out last and retired one by one
+// as the generator adds new ones. LIKES: puzzle code -> ids of the browsers that liked it.
 export const LIBRARY: Record<string, string[]> = {
-${lists}
+${lists(lib.library)}
+};
+export const OLD_LIBRARY: Record<string, string[]> = {
+${lists(lib.old)}
 };
 export const LIKES: Record<string, string[]> = {
 ${liked}

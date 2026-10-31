@@ -7,8 +7,9 @@
 //   DAYS=400         days from START in total
 //   START            first day of the list (only when starting a new list)
 //   WORKERS=2        processes to run in parallel
-// Hard, Expert and Extreme dailies have all the moves REQUIREMENTS asks for (see
-// goodPuzzle in scripts/common.ts).
+// Hard, Expert and Extreme dailies meet their recipe (RECIPES in src/engine/sculpt.ts; see
+// goodPuzzle in scripts/common.ts). Making them takes about half a minute each per worker,
+// so the generator app (npm run grow) is usually the easier way to fill or replace days.
 import { writeFileSync } from "node:fs";
 import { DIFFICULTIES, seededRandom } from "../src/engine";
 import { DAILY, DAILY_START } from "../src/daily-data";

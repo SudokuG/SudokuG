@@ -29,13 +29,16 @@ import {
   hardestGroup,
   templateOf,
 } from "../engine";
-import type { Generated, GenerateProgress, Step } from "../engine";
+import type { Generated, ShapeSummary, Step } from "../engine";
 import { SAMPLES } from "../samples";
 import { BoardView, PALETTES, paintBackground, paletteBit, stepDecor, stripes } from "./board";
 import { dailyPuzzle, formatDay, today } from "./daily";
 import { initGuide, moveGuide, showGuide } from "./guide-view";
-import { pickFromLibrary } from "../library";
+import { findForProfile, pickFromLibrary } from "../library";
+import { puzzleName } from "../names";
 import { isLiked, likedList, toggleLike } from "./likes";
+import { PER_PAGE, renderPrint } from "./print";
+import type { PerPage, PrintLayout, PrintPuzzle } from "./print";
 import { browserId, markPlayed, playedSet } from "./played";
 import { addSolve, loadStats, resetStats } from "./stats";
 
@@ -79,6 +82,8 @@ interface Settings {
   stickyToggle: boolean;
   /** Number pad shows how many of each digit are left. */
   padCounts: boolean;
+  /** Printing: puzzles per page (one puzzle / several), and what to show with each. */
+  print: { perPageOne: PerPage; perPageMany: PerPage; name: boolean; difficulty: boolean; code: boolean };
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -94,6 +99,7 @@ const DEFAULT_SETTINGS: Settings = {
   genProfile: TEMPLATES.Hard,
   stickyToggle: false,
   padCounts: true,
+  print: { perPageOne: 1, perPageMany: 4, name: true, difficulty: true, code: true },
 };
 
 /** Fixed: patterns up to Expert level count as an alternative to a triple or quad. */
@@ -119,6 +125,8 @@ function loadSettings(): Settings {
       // Keep only technique names that still exist.
       const known = new Set(TECHNIQUES.map((t) => t.name));
       s.genProfile = Array.isArray(s.genProfile) ? s.genProfile.filter((n: string) => known.has(n)) : DEFAULT_SETTINGS.genProfile;
+      s.print = { ...DEFAULT_SETTINGS.print, ...(typeof s.print === "object" && s.print ? s.print : {}) };
+      for (const k of ["perPageOne", "perPageMany"] as const) if (!PER_PAGE.includes(s.print[k])) s.print[k] = DEFAULT_SETTINGS.print[k];
       return s;
     }
   } catch {
@@ -328,6 +336,21 @@ function noPuzzle(): boolean {
   setStatus("Generate or load a puzzle in the Puzzles tab first.");
   return true;
 }
+
+/** The difficulty a label stands for ("Daily Hard" → "Hard"), or "" when it doesn't say. */
+function difficultyOfLabel(label: string): string {
+  const d = label.replace(/^Daily /, "");
+  return (DIFFICULTIES as readonly string[]).includes(d) || d === "Custom" ? d : "";
+}
+
+/** The name of a puzzle (81 characters), by its label or else its rating. */
+function nameOf(puzzle: string, label: string, rating?: Rating | null): string {
+  const d = difficultyOfLabel(label) || (rating?.solved ? rating.difficulty : "Other");
+  return puzzleName(puzzle, d);
+}
+
+/** The name of the puzzle being played. */
+const currentName = () => (S.puzzle ? nameOf(S.puzzle, S.daily ? S.daily.difficulty : S.label, S.rating) : "");
 
 // ---------------------------------------------------------------------------
 // Saving the game, so a reload or a later visit picks up where you left off
@@ -557,9 +580,9 @@ function renderLikes(): void {
       const when = new Date(l.at).toLocaleDateString(undefined, { day: "numeric", month: "short" });
       const name = document.createElement("span");
       name.className = "liked-name";
-      name.textContent = `♥ ${l.label}`;
+      name.textContent = `♥ ${nameOf(l.puzzle, l.label)}`;
       const meta = document.createElement("small");
-      meta.textContent = `${l.time !== null ? `${fmtTime(l.time)} · ` : ""}liked ${when}`;
+      meta.textContent = `${l.label} · ${l.time !== null ? `${fmtTime(l.time)} · ` : ""}liked ${when}`;
       b.append(name, meta);
       b.addEventListener("click", () => {
         const err = openPuzzle(l.code, l.label);
@@ -617,18 +640,20 @@ function openDaily(difficulty: string): void {
 // ---------------------------------------------------------------------------
 // Generating
 
-let genRun: { it: Generator<GenerateProgress, Generated | null>; cancelled: boolean } | null = null;
+let genRun: Run | null = null;
 
 /** Name for the current profile: a template name, or "Custom". */
 const profileName = () => templateOf(S.settings.genProfile) ?? "Custom";
 
-/** "5 hard, 2 expert and 1 extreme move" */
-function movesText(m: { Hard: number; Expert: number; Extreme: number }): string {
-  const parts = (["Hard", "Expert", "Extreme"] as const).filter((g) => m[g]).map((g) => `${m[g]} ${g.toLowerCase()}`);
+/** "6 X-Wing-type moves, 2 hidden pairs and 1 expert move" */
+function movesText(m: ShapeSummary): string {
+  const parts: string[] = [];
+  if (m.hard) parts.push(`${m.hard} X-Wing-type move${m.hard === 1 ? "" : "s"}`);
+  if (m.hiddenPairs) parts.push(`${m.hiddenPairs} hidden pair${m.hiddenPairs === 1 ? "" : "s"}`);
+  if (m.expert) parts.push(`${m.expert} expert move${m.expert === 1 ? "" : "s"}`);
+  if (m.extreme) parts.push(`${m.extreme} extreme move${m.extreme === 1 ? "" : "s"}`);
   if (!parts.length) return "";
-  const total = m.Hard + m.Expert + m.Extreme;
-  const list = parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}` : parts[0];
-  return `${list} move${total === 1 ? "" : "s"}`;
+  return parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}` : parts[0];
 }
 
 /** Message under Generate, optionally with a "make a brand-new one" link. */
@@ -644,62 +669,104 @@ function genMessage(text: string, offerFresh = false): void {
   el.append(" ", b);
 }
 
+/** A search that runs in small slices so the page stays responsive; `cancelled` stops it. */
+interface Run {
+  cancelled: boolean;
+}
+
+/** Step a generator in ~30 ms slices; `tick` sees each yielded value, `done` the result. */
+function runSliced<Y, R>(it: Generator<Y, R>, run: Run, tick: (y: Y) => void, done: (r: R) => void): void {
+  const step = () => {
+    if (run.cancelled) return;
+    const t0 = performance.now();
+    let r = it.next();
+    while (!r.done && performance.now() - t0 < 30) r = it.next();
+    if (r.done) return done(r.value);
+    tick(r.value);
+    setTimeout(step, 0);
+  };
+  setTimeout(step, 0);
+}
+
+/** How long the page spends making one new puzzle before it takes the best one found. */
+const MAKE_MS = 5000;
+
+interface Found {
+  /** 81 characters. */
+  puzzle: string;
+  /** Set when the generator made it (skips the solution search and rating). */
+  known?: Generated;
+  /** What to tell the player about it. */
+  note: string;
+}
+
 /**
- * "Generate": for a template, first an unplayed puzzle from the library (instant, liked
- * ones first); otherwise, or with `fresh`, a new one. Making one takes up to about 5
- * seconds: the generator keeps moving clues until the puzzle has the hard moves its
- * difficulty asks for, and takes the best one found when time is up.
+ * One puzzle for a profile: an unplayed one from the pool (library, missed dailies; for a
+ * custom mix, any pool puzzle that fits), or with `fresh` (or none left) a new one.
+ * `skip` holds codes already taken (when printing several).
+ */
+function findPuzzle(profile: string[], label: string, fresh: boolean, skip: Set<string>, run: Run, progress: (msg: string) => void, done: (f: Found | null) => void): void {
+  const played = new Set([...playedSet(), ...skip]);
+  const make = () => {
+    const it = generateRated({ allowed: profile, timeBudgetMs: MAKE_MS, maxAttempts: MAX_TRIES });
+    progress("Making a new puzzle…");
+    runSliced(
+      it,
+      run,
+      (p) => progress(p.candidates ? `Making a new puzzle: shaping it${Number.isFinite(p.missing) && p.missing > 0 ? ` (${p.missing} pattern move${p.missing === 1 ? "" : "s"} to go)` : ""}…` : `Making a new puzzle… ${p.attempts} tried so far.`),
+      (g) => {
+        if (!g) return done(null);
+        const moves = movesText(g.shape);
+        const what = `New ${label.toLowerCase()} puzzle${moves ? ` with ${moves}` : ""}`;
+        done({
+          puzzle: g.puzzle.join(""),
+          known: g,
+          note: g.missing ? `${what}: the best one found in ${MAKE_MS / 1000} seconds, ${g.missing} short of the usual recipe.` : `${what}.`,
+        });
+      },
+    );
+  };
+  if (fresh) return make();
+  if (label !== "Custom") {
+    const pick = pickFromLibrary(label, played, today());
+    if (!pick) return make();
+    const liked = pick.likes ? ` Liked by ${pick.likes} player${pick.likes === 1 ? "" : "s"}.` : "";
+    const an = /^[AEIOU]/.test(label) ? "An" : "A";
+    const from = pick.source === "daily" ? "a daily puzzle you missed" : `${an.toLowerCase()} ${label.toLowerCase()} puzzle from the library`;
+    const left = pick.left ? `${pick.left} more you haven't played.` : "That was the last one you hadn't played; next time a new one is made.";
+    return done({ puzzle: Grid.fromString(decodePuzzle(pick.code).join("")).toString(), note: `${from[0].toUpperCase()}${from.slice(1)}.${liked} ${left}` });
+  }
+  progress("Looking through the puzzle library for one that fits your mix…");
+  runSliced(
+    findForProfile(profile, played, today()),
+    run,
+    () => {},
+    (code) => {
+      if (!code) return make();
+      done({ puzzle: Grid.fromString(decodePuzzle(code).join("")).toString(), note: "A puzzle from the library that fits your mix of techniques." });
+    },
+  );
+}
+
+/**
+ * "Generate": first an unplayed puzzle from the pool (instant for a template, a short search
+ * for a custom mix); otherwise, or with `fresh`, a new one, made in up to about 5 seconds.
  */
 function startGenerate(fresh = false): void {
   if (genRun) return;
   const label = profileName();
-  if (!fresh && label !== "Custom") {
-    const pick = pickFromLibrary(label, playedSet());
-    if (pick) {
-      loadPuzzle(pick.code, label);
-      const liked = pick.likes ? ` Liked by ${pick.likes} player${pick.likes === 1 ? "" : "s"}.` : "";
-      const an = /^[AEIOU]/.test(label) ? "An" : "A";
-      const left = pick.left ? `${pick.left} more you haven't played.` : "That was the last one you hadn't played; next time a new one is made.";
-      genMessage(`${an} ${label.toLowerCase()} puzzle from the library.${liked} ${left}`, true);
-      setTab("play");
-      return;
-    }
-  }
-  const it = generateRated({ allowed: S.settings.genProfile, timeBudgetMs: 5000, maxAttempts: MAX_TRIES });
-  const run = { it, cancelled: false };
+  const run: Run = { cancelled: false };
   genRun = run;
   genMessage("Looking for a puzzle…");
   renderGen();
-  const step = () => {
-    if (run.cancelled) return;
-    // Work for up to ~30 ms, then let the page breathe.
-    const t0 = performance.now();
-    let r = it.next();
-    while (!r.done && performance.now() - t0 < 30) r = it.next();
-    if (r.done) {
-      genRun = null;
-      const g = r.value;
-      renderGen();
-      if (!g) return genMessage(`No puzzle found in ${MAX_TRIES} tries. This mix of techniques is rare on its own; try ticking a few more.`);
-      loadPuzzle(g.puzzle.join(""), label, g);
-      const moves = movesText(g.moves);
-      genMessage(
-        g.missing
-          ? `New ${label.toLowerCase()} puzzle${moves ? ` with ${moves}` : ""}: the best one found in 5 seconds, ${g.missing} move${g.missing === 1 ? "" : "s"} short of the usual mix.`
-          : `New ${label.toLowerCase()} puzzle${moves ? ` with ${moves}` : ""}.`,
-      );
-      setTab("play");
-    } else {
-      const p = r.value;
-      genMessage(
-        p.candidates
-          ? `Found ${p.candidates === 1 ? "a candidate" : `${p.candidates} candidates`}; moving clues to get enough hard moves${Number.isFinite(p.missing) && p.missing > 0 ? ` (${p.missing} more needed)` : ""}…`
-          : `Looking for a puzzle… ${p.attempts} tried so far.`,
-      );
-      setTimeout(step, 0);
-    }
-  };
-  setTimeout(step, 0);
+  findPuzzle(S.settings.genProfile, label, fresh, new Set(), run, (msg) => genMessage(msg), (f) => {
+    genRun = null;
+    renderGen();
+    if (!f) return genMessage(`No puzzle found in ${MAX_TRIES} tries. This mix of techniques is rare on its own; try ticking a few more.`);
+    loadPuzzle(f.puzzle, label, f.known);
+    genMessage(f.note, !f.known);
+    setTab("play");
+  });
 }
 
 function cancelGenerate(): void {
@@ -754,6 +821,7 @@ function renderGen(): void {
   const name = profileName();
   ($("generate") as HTMLButtonElement).disabled = busy;
   $("generate").textContent = busy ? "Generating…" : `Generate ${name.toLowerCase()} puzzle`;
+  $("print-batch").textContent = `Print ${name.toLowerCase()} puzzles`;
   $("gen-cancel").hidden = !busy;
   document.querySelectorAll<HTMLButtonElement>("#diff-pick button").forEach((b) => {
     const on = b.dataset.d === name;
@@ -773,6 +841,7 @@ function renderGen(): void {
 function rate(g: Grid): void {
   S.rating = ratePuzzle(g, MAX_ALT);
   renderRating();
+  $("puzzle-name").textContent = currentName(); // a loaded puzzle's name follows its rating
 }
 
 const GRIND_TEXT = {
@@ -816,6 +885,169 @@ function renderRating(): void {
   const used = r.used.map((u) => `${u.technique} ×${u.count}`);
   rows.push(`<dt>Solve path</dt><dd>${r.steps} steps, easiest move first: ${esc(used.join(", ") || "none")}.</dd>`);
   el.innerHTML = `<dl class="rating-list">${rows.join("")}</dl>`;
+}
+
+// ---------------------------------------------------------------------------
+// Printing (layout in print.ts; the browser's print window does the rest)
+
+const printRoot = () => $("print-root");
+/** True while #print-root holds pages we prepared (so Ctrl+P doesn't replace them). */
+let printPrepared = false;
+let printKind: "current" | "batch" = "current";
+let printRun: Run | null = null;
+
+/** Whether the player has written anything in the current puzzle. */
+function hasProgress(): boolean {
+  const { values, pencil, removed, centre, colors } = S.cur;
+  return values.some((v, i) => v && !S.givens[i]) || centre.some(Boolean) || colors.some(Boolean) || (S.settings.auto ? removed.some(Boolean) : pencil.some(Boolean));
+}
+
+/** The current puzzle for printing, empty or with progress. */
+function currentPrintPuzzle(progress: boolean): PrintPuzzle {
+  const givens = S.cur.values.map((v, i) => (S.givens[i] ? v : 0));
+  const p: PrintPuzzle = { givens, name: currentName(), difficulty: S.label, code: S.code };
+  if (progress) {
+    p.values = S.cur.values.slice();
+    p.cands = S.cur.values.map((_, i) => shownCands(i));
+    p.centre = S.cur.centre.slice();
+    p.colors = S.cur.colors.map((m) => m & ~S.colorHidden.reduce((h, hidden, k) => (hidden ? h | (511 << (k * 9)) : h), 0));
+  }
+  return p;
+}
+
+function printLayout(): PrintLayout {
+  const o = S.settings.print;
+  return { perPage: printKind === "current" ? o.perPageOne : o.perPageMany, name: o.name, difficulty: o.difficulty, code: o.code };
+}
+
+function renderPrintDialog(): void {
+  const o = S.settings.print;
+  const per = printLayout().perPage;
+  $("print-per").replaceChildren(
+    ...PER_PAGE.map((n) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = String(n);
+      b.setAttribute("role", "radio");
+      b.setAttribute("aria-checked", String(n === per));
+      b.classList.toggle("on", n === per);
+      b.addEventListener("click", () => {
+        if (printKind === "current") o.perPageOne = n;
+        else o.perPageMany = n;
+        saveSettings();
+        renderPrintDialog();
+      });
+      return b;
+    }),
+  );
+  ($("print-name") as HTMLInputElement).checked = o.name;
+  ($("print-difficulty") as HTMLInputElement).checked = o.difficulty;
+  ($("print-code") as HTMLInputElement).checked = o.code;
+}
+
+function openPrint(kind: "current" | "batch"): void {
+  if (kind === "current" && noPuzzle()) return;
+  printKind = kind;
+  const current = kind === "current";
+  const progress = current && hasProgress();
+  $("print-progress").hidden = !progress;
+  ($("print-progress").querySelector('input[value="empty"]') as HTMLInputElement).checked = true;
+  $("print-count-row").hidden = current;
+  const label = profileName();
+  $("print-title").textContent = current ? "Print this puzzle" : `Print ${label.toLowerCase()} puzzles`;
+  $("print-what").textContent = current
+    ? `${currentName()} · ${S.label}`
+    : `Puzzles you haven't played yet, from the library first; new ones are made when needed (about ${MAKE_MS / 1000} seconds each). Printed puzzles count as played, so Generate won't hand them out again.`;
+  $("print-msg").textContent = "";
+  ($("print-go") as HTMLButtonElement).disabled = false;
+  renderPrintDialog();
+  ($("print-dialog") as HTMLDialogElement).showModal();
+}
+
+/** Hand the prepared pages to the browser's print window. */
+function printNow(puzzles: PrintPuzzle[]): void {
+  renderPrint(printRoot(), puzzles, printLayout());
+  printPrepared = true;
+  ($("print-dialog") as HTMLDialogElement).close();
+  setTimeout(() => window.print(), 60);
+}
+
+function startPrint(): void {
+  const o = S.settings.print;
+  o.name = ($("print-name") as HTMLInputElement).checked;
+  o.difficulty = ($("print-difficulty") as HTMLInputElement).checked;
+  o.code = ($("print-code") as HTMLInputElement).checked;
+  saveSettings();
+  if (printKind === "current") {
+    const progress = !$("print-progress").hidden && ($("print-progress").querySelector('input[value="progress"]') as HTMLInputElement).checked;
+    return printNow([currentPrintPuzzle(progress)]);
+  }
+  // Several puzzles of the chosen difficulty or mix.
+  const n = Math.max(1, Math.min(30, Math.round(Number(($("print-count") as HTMLInputElement).value) || 1)));
+  ($("print-count") as HTMLInputElement).value = String(n);
+  const label = profileName();
+  const profile = S.settings.genProfile.slice();
+  const run: Run = { cancelled: false };
+  printRun = run;
+  ($("print-go") as HTMLButtonElement).disabled = true;
+  const out: PrintPuzzle[] = [];
+  const taken = new Set<string>();
+  const next = () => {
+    if (run.cancelled) return;
+    if (out.length === n) {
+      printRun = null;
+      for (const p of out) markPlayed(p.code!);
+      return printNow(out);
+    }
+    const head = `Gathering puzzles: ${out.length + 1} of ${n}`;
+    $("print-msg").textContent = `${head}…`;
+    findPuzzle(profile, label, false, taken, run, (msg) => ($("print-msg").textContent = `${head}. ${msg}`), (f) => {
+      if (!f) {
+        printRun = null;
+        ($("print-go") as HTMLButtonElement).disabled = false;
+        $("print-msg").textContent = out.length ? `Only found ${out.length}; this mix of techniques is rare. Print those, or tick a few more techniques.` : "No puzzle found for this mix of techniques; try ticking a few more.";
+        if (out.length) {
+          ($("print-count") as HTMLInputElement).value = String(out.length);
+          ($("print-go") as HTMLButtonElement).disabled = false;
+        }
+        return;
+      }
+      const givens = Grid.fromString(f.puzzle).values;
+      const code = encodePuzzle(givens);
+      taken.add(code);
+      out.push({ givens, code, name: puzzleName(Grid.fromString(f.puzzle).toString(), label), difficulty: label });
+      setTimeout(next, 0);
+    });
+  };
+  next();
+}
+
+function cancelPrint(): void {
+  if (printRun) printRun.cancelled = true;
+  printRun = null;
+  ($("print-dialog") as HTMLDialogElement).close();
+}
+
+function wirePrinting(): void {
+  document.querySelectorAll<HTMLButtonElement>(".print-current").forEach((b) => b.addEventListener("click", () => openPrint("current")));
+  $("print-batch").addEventListener("click", () => openPrint("batch"));
+  $("print-go").addEventListener("click", startPrint);
+  $("print-cancel").addEventListener("click", cancelPrint);
+  $("print-dialog").addEventListener("cancel", () => {
+    if (printRun) printRun.cancelled = true;
+    printRun = null;
+  });
+  // Ctrl+P (or the browser menu) prints the current puzzle, not the whole page.
+  window.addEventListener("beforeprint", () => {
+    if (printPrepared) return;
+    printKind = "current";
+    if (S.puzzle) renderPrint(printRoot(), [currentPrintPuzzle(false)], printLayout());
+    else printRoot().innerHTML = `<p style="font: 12pt sans-serif">Open a puzzle in SudokuG to print it.</p>`;
+  });
+  window.addEventListener("afterprint", () => {
+    printPrepared = false;
+    printRoot().innerHTML = "";
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -1371,6 +1603,8 @@ function render(): void {
   ($("redo") as HTMLButtonElement).disabled = !S.redo.length;
   $("fill-cands").hidden = set.auto;
   $("puzzle-label").textContent = S.puzzle ? S.label : "No puzzle yet";
+  $("puzzle-name").textContent = currentName();
+  $("puzzle-name").hidden = !S.puzzle;
   $("puzzle-author").hidden = !S.puzzle || !S.author;
   $("puzzle-author").textContent = S.author ? `By ${S.author}` : "";
   renderSolved();
@@ -1569,6 +1803,7 @@ function init(): void {
   buildBoard();
   buildPad();
   initGuide();
+  wirePrinting();
 
   const samples = $("samples");
   for (const s of SAMPLES) {

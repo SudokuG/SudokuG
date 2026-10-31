@@ -34,30 +34,62 @@ interface LinkRules {
   weakUnit: boolean; // same digit in cells that see each other
 }
 
-/** Candidates-graph of the grid. Only digits in `digitMask` take part. */
-function buildGraph(g: Grid, rules: LinkRules, digitMask = ALL) {
+/** Peers of each cell in ascending order (the order the links are listed in). */
+const PEERS_SORTED: number[][] = Array.from({ length: 81 }, (_, c) => {
+  const out: number[] = [];
+  for (let p = 0; p < 81; p++) if (sees(c, p)) out.push(p);
+  return out;
+});
+
+interface Graph {
+  strong: number[][];
+  weak: number[][];
+}
+
+/** Candidates-graph of the grid (all digits; findChain filters by digit). */
+function buildGraph(g: Grid, rules: LinkRules): Graph {
   const strong: number[][] = Array.from({ length: 729 }, () => []);
   const weak: number[][] = Array.from({ length: 729 }, () => []);
+  // Places of each digit in each unit, worked out once.
+  const unitPos: number[][][] = rules.strongUnit ? [ROWS, COLS, BOXES].flat().map((u) => Array.from({ length: 10 }, (_, d) => (d ? positions(g, u, d) : []))) : [];
+  const unitIndex = (u: Unit) => (u.kind === "row" ? u.index : u.kind === "column" ? 9 + u.index : 18 + u.index);
   for (let c = 0; c < 81; c++) {
     if (g.values[c]) continue;
+    const bivalue = popcount(g.cands[c]) === 2;
     for (let d = 1; d <= 9; d++) {
-      if (!hasCand(g, c, d) || !(digitMask & bit(d))) continue;
+      if (!hasCand(g, c, d)) continue;
       const n = nodeOf(c, d);
-      if (rules.strongCell && popcount(g.cands[c]) === 2)
-        for (let e = 1; e <= 9; e++) if (e !== d && hasCand(g, c, e) && digitMask & bit(e)) strong[n].push(nodeOf(c, e));
+      if (rules.strongCell && bivalue) for (let e = 1; e <= 9; e++) if (e !== d && hasCand(g, c, e)) strong[n].push(nodeOf(c, e));
       if (rules.strongUnit)
         for (const u of CELL_UNITS[c]) {
-          const pos = positions(g, u, d);
+          const pos = unitPos[unitIndex(u)][d];
           if (pos.length !== 2) continue;
           const other = nodeOf(pos[0] === c ? pos[1] : pos[0], d);
           if (!strong[n].includes(other)) strong[n].push(other);
         }
-      if (rules.weakCell)
-        for (let e = 1; e <= 9; e++) if (e !== d && hasCand(g, c, e) && digitMask & bit(e)) weak[n].push(nodeOf(c, e));
-      if (rules.weakUnit) for (let p = 0; p < 81; p++) if (sees(c, p) && hasCand(g, p, d)) weak[n].push(nodeOf(p, d));
+      if (rules.weakCell) for (let e = 1; e <= 9; e++) if (e !== d && hasCand(g, c, e)) weak[n].push(nodeOf(c, e));
+      if (rules.weakUnit) for (const p of PEERS_SORTED[c]) if (hasCand(g, p, d)) weak[n].push(nodeOf(p, d));
     }
   }
   return { strong, weak };
+}
+
+/**
+ * The graph is the same for every technique that asks with the same rules in the same
+ * position (Skyscraper, Kite and Turbot one after the other, the 36 digit pairs of a
+ * Two-Digit Chain), so the last one per rule set is kept.
+ */
+const graphCache = new Map<LinkRules, { cands: Int16Array; values: Int8Array; graph: Graph }>();
+function graphFor(g: Grid, rules: LinkRules): Graph {
+  const hit = graphCache.get(rules);
+  if (hit) {
+    let same = true;
+    for (let i = 0; i < 81 && same; i++) same = hit.cands[i] === g.cands[i] && hit.values[i] === g.values[i];
+    if (same) return hit.graph;
+  }
+  const graph = buildGraph(g, rules);
+  graphCache.set(rules, { cands: Int16Array.from(g.cands), values: Int8Array.from(g.values), graph });
+  return graph;
 }
 
 /** What can be removed when we know: candidate a OR candidate b is true. */
@@ -85,6 +117,13 @@ interface Found {
  * Chains always start with a strong link and end with a strong link, so they have an even
  * number of candidates, between minNodes and maxNodes.
  */
+// Search state, reused between searches: state = node*2 + parity.
+const seen = new Int32Array(1458);
+const prevOf = new Int32Array(1458);
+const depthOf = new Int32Array(1458);
+const queue = new Int32Array(1458);
+let stamp = 0;
+
 function findChain(
   g: Grid,
   rules: LinkRules,
@@ -93,36 +132,45 @@ function findChain(
   accept?: (path: number[]) => boolean,
   digitMask = ALL,
 ): Found | null {
-  const { strong, weak } = buildGraph(g, rules, digitMask);
+  const full = graphFor(g, rules);
+  // Only digits in digitMask take part: leave out links to other digits (keeping the order).
+  const inMask = (n: number) => (digitMask & (1 << n % 9)) !== 0;
+  const masked = digitMask !== ALL;
+  // A bivalue cell only links its two digits when both are in the mask (as when the graph is built for those digits alone).
+  const strongOf = (n: number) => (masked ? full.strong[n].filter(inMask) : full.strong[n]);
+  const weakOf = (n: number) => (masked ? full.weak[n].filter(inMask) : full.weak[n]);
   let best: Found | null = null;
   for (let s = 0; s < 729; s++) {
-    if (!strong[s].length) continue;
+    if (masked && !inMask(s)) continue;
+    if (!full.strong[s].length || !strongOf(s).length) continue;
     if (best && best.path.length <= minNodes) break;
-    // state = node*2 + parity; parity 1 = reached through a strong link
-    const prev = new Map<number, number>();
-    const depth = new Map<number, number>();
+    // parity 1 = reached through a strong link
+    stamp++;
     const startState = s * 2;
-    prev.set(startState, -1);
-    depth.set(startState, 0);
-    const queue = [startState];
+    seen[startState] = stamp;
+    prevOf[startState] = -1;
+    depthOf[startState] = 0;
+    let qn = 0;
+    queue[qn++] = startState;
     let found = false;
-    for (let qi = 0; qi < queue.length && !found; qi++) {
+    for (let qi = 0; qi < qn && !found; qi++) {
       const st = queue[qi];
       const node = st >> 1;
       const par = st & 1;
-      const dep = depth.get(st)!;
+      const dep = depthOf[st];
       const count = dep + 2; // candidates in the chain after one more link
       if (count > maxNodes) break;
       if (best && count >= best.path.length) break;
-      const next = par === 0 ? strong[node] : weak[node];
+      const next = par === 0 ? strongOf(node) : weakOf(node);
       for (const nx of next) {
         const nst = nx * 2 + (1 - par);
-        if (prev.has(nst)) continue;
-        prev.set(nst, st);
-        depth.set(nst, dep + 1);
+        if (seen[nst] === stamp) continue;
+        seen[nst] = stamp;
+        prevOf[nst] = st;
+        depthOf[nst] = dep + 1;
         if (par === 0 && count >= minNodes && nx !== s) {
           const path: number[] = [];
-          for (let x = nst; x !== -1; x = prev.get(x)!) path.push(x >> 1);
+          for (let x = nst; x !== -1; x = prevOf[x]) path.push(x >> 1);
           path.reverse();
           if (new Set(path).size === path.length && (!accept || accept(path))) {
             const elims = eliminationsFor(g, s, nx);
@@ -133,7 +181,7 @@ function findChain(
             }
           }
         }
-        queue.push(nst);
+        queue[qn++] = nst;
       }
     }
   }

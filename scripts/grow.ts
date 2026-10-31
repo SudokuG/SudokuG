@@ -1,12 +1,14 @@
 // SudokuG puzzle generator: a small app for your own computer that makes good puzzles
-// (all the moves and locks REQUIREMENTS asks for) for as long as you let it run.
+// (meeting the recipe of their difficulty, RECIPES in src/engine/sculpt.ts) for as long as
+// you let it run.
 //
 // Start it with "SudokuG Generator.cmd" (Windows) or `npm run grow`. It opens a page in your
-// browser with Start and Stop. Each good puzzle is saved straight away, alternately:
-//   - to the daily puzzles: it replaces a Hard/Expert/Extreme daily that doesn't meet the
-//     requirements yet (from the day after tomorrow on, so nobody's current daily changes),
-//     and once they all do, new days are added at the end;
-//   - to the library that "Generate" hands out.
+// browser with Start and Stop. Each good puzzle is saved straight away, in this order:
+//   1. it replaces a Hard/Expert/Extreme daily that doesn't meet the recipe (soonest first,
+//      from the day after tomorrow on, so nobody's current daily changes);
+//   2. once all dailies do, new days are added until the dailies run a year ahead;
+//   3. after that it goes to the library that "Generate" hands out, and one puzzle of
+//      OLD_LIBRARY (made before the current recipes) is retired for it.
 // Stopping (or closing the window) loses at most the puzzles being worked on. To publish,
 // commit and push src/daily-data.ts and src/library-data.ts (GitHub Desktop: Commit, Push).
 
@@ -17,9 +19,11 @@ import os from "node:os";
 import { Worker, isMainThread, parentPort } from "node:worker_threads";
 import { DIFFICULTIES, seededRandom } from "../src/engine";
 import type { Group } from "../src/engine";
-import { dayOf, goodPuzzle, meetsRequirements, readDailies, readLibrary, writeDailies, writeLibrary } from "./common";
+import { dayOf, goodPuzzle, meetsRequirements, readDailies, readLibrary, trimDailies, writeDailies, writeLibrary } from "./common";
 
 const HARD: Group[] = ["Hard", "Expert", "Extreme"];
+/** The dailies are kept this many days ahead of today; puzzles beyond that go to the library. */
+const DAYS_AHEAD = 365;
 
 if (!isMainThread) {
   // Worker: make one good puzzle per request.
@@ -68,7 +72,6 @@ function main(): void {
   const toDaily: Record<string, number> = { Hard: 0, Expert: 0, Extreme: 0 };
   const toLibrary: Record<string, number> = { Hard: 0, Expert: 0, Extreme: 0 };
   const assigned: Record<string, number> = { Hard: 0, Expert: 0, Extreme: 0 };
-  const route: Record<string, number> = { Hard: 0, Expert: 0, Extreme: 0 };
   let workerCount = Math.min(2, cores);
   let running = false;
   let runningSince = 0;
@@ -88,11 +91,17 @@ function main(): void {
     return -1;
   };
 
+  /** Days the daily list should have: up to DAYS_AHEAD days after today. */
+  const wantedDays = () => dayIndex(localToday()) + DAYS_AHEAD + 1;
+
   /** Check every daily against the requirements, a few days at a time so the page stays responsive. */
   let pendingStart = 0;
   function checkDailies(): void {
-    say("Checking the daily puzzles against the requirements…");
     dailies = readDailies();
+    // Days more than a year ahead go to the library (they were made by an older version).
+    const moved = trimDailies(dailies, wantedDays());
+    if (moved) say(`Moved ${moved} days beyond ${dayOf(dailies.start, dailies.rows.length - 1)} from the dailies to the library.`);
+    say("Checking the daily puzzles against the recipes…");
     ok = Object.fromEntries(HARD.map((g) => [g, []]));
     let i = 0;
     const chunk = () => {
@@ -123,28 +132,31 @@ function main(): void {
 
   function store(g: Group, code: string): void {
     found[g]++;
-    if (route[g]++ % 2 === 0) {
-      // To the dailies.
-      const i = firstShort(g);
-      if (i >= 0) {
-        dailies.rows[i][DIFFICULTIES.indexOf(g)] = code;
-        ok[g][i] = true;
-        writeDailies(dailies.start, dailies.rows);
-        say(`${g}: daily for ${dayOf(dailies.start, i)}.`);
-      } else {
-        pool[g].push(code);
-        say(`${g}: kept for a new day at the end of the dailies.`);
-        appendDays();
-        writeDailies(dailies.start, dailies.rows);
-      }
+    const i = firstShort(g);
+    if (i >= 0) {
+      // 1. Replace a daily that doesn't meet the recipe.
+      dailies.rows[i][DIFFICULTIES.indexOf(g)] = code;
+      ok[g][i] = true;
+      writeDailies(dailies.start, dailies.rows);
       toDaily[g]++;
+      say(`${g}: daily for ${dayOf(dailies.start, i)}.`);
+    } else if (dailies.rows.length + pool[g].length < wantedDays()) {
+      // 2. Keep it for a new day at the end (a day needs one of each hard difficulty).
+      pool[g].push(code);
+      toDaily[g]++;
+      say(`${g}: kept for a new day at the end of the dailies.`);
+      appendDays();
+      writeDailies(dailies.start, dailies.rows);
     } else {
-      // To the library (read fresh, so likes added meanwhile are kept).
+      // 3. To the library (read fresh, so likes added meanwhile are kept), retiring an old one.
       const lib = readLibrary();
-      if (!lib.library[g].includes(code)) lib.library[g].push(code);
-      writeLibrary(lib.library, lib.likes);
+      if (!lib.library[g].includes(code)) {
+        lib.library[g].push(code);
+        lib.old[g]?.shift();
+      }
+      writeLibrary(lib);
       toLibrary[g]++;
-      say(`${g}: added to the library (${lib.library[g].length} now).`);
+      say(`${g}: added to the library (${lib.library[g].length} new, ${lib.old[g]?.length ?? 0} old left).`);
     }
   }
 
@@ -204,9 +216,9 @@ function main(): void {
   function status() {
     const lib = (() => {
       try {
-        return readLibrary().library;
+        return readLibrary();
       } catch {
-        return {};
+        return { library: {}, old: {} } as { library: Record<string, string[]>; old: Record<string, string[]> };
       }
     })();
     return {
@@ -219,10 +231,12 @@ function main(): void {
       toDaily,
       toLibrary,
       pool: Object.fromEntries(HARD.map((g) => [g, pool[g].length])),
-      library: Object.fromEntries(DIFFICULTIES.map((g) => [g, (lib as Record<string, string[]>)[g]?.length ?? 0])),
+      library: Object.fromEntries(DIFFICULTIES.map((g) => [g, lib.library[g]?.length ?? 0])),
+      old: Object.fromEntries(DIFFICULTIES.map((g) => [g, lib.old[g]?.length ?? 0])),
       dailies: checked
         ? {
             until: dayOf(dailies.start, dailies.rows.length - 1),
+            target: dayOf(dailies.start, wantedDays() - 1),
             short: Object.fromEntries(HARD.map((g) => [g, ok[g].slice(firstChangeable()).filter((x) => !x).length])),
             next: Object.fromEntries(HARD.map((g) => [g, firstShort(g) >= 0 ? dayOf(dailies.start, firstShort(g)) : null])),
           }
@@ -326,11 +340,11 @@ const PAGE = `<!doctype html>
   </div>
   <div class="card">
     <table>
-      <thead><tr><th></th><th>Found now</th><th>To dailies</th><th>To library</th><th>Library total</th><th>Dailies still short</th><th>Next daily to fill</th></tr></thead>
+      <thead><tr><th></th><th>Found now</th><th>To dailies</th><th>To library</th><th>Library new</th><th>Old left</th><th>Dailies to replace</th><th>Next daily</th></tr></thead>
       <tbody id="rows"></tbody>
     </table>
     <p id="daily" class="small"></p>
-    <p class="small">Each good puzzle goes alternately to the daily puzzles (replacing one that doesn't meet the requirements, from the day after tomorrow on, then new days at the end) and to the library. Everything is saved as soon as it is found. To publish: commit and push in GitHub Desktop.</p>
+    <p class="small">Each good puzzle first replaces a daily that doesn't meet the recipe (soonest first, from the day after tomorrow on), then adds new days until the dailies run a year ahead, and after that goes to the library, retiring one old puzzle. Everything is saved as soon as it is found. To publish: commit and push in GitHub Desktop.</p>
   </div>
   <div class="card"><pre id="log"></pre></div>
   <div><button id="quit" type="button">Close the generator</button></div>
@@ -351,9 +365,9 @@ function show(s) {
   $("start").disabled = s.running || s.starting; $("stop").disabled = !s.running && !s.starting; $("workers").disabled = s.running;
   const t = s.seconds; $("time").textContent = t ? (Math.floor(t / 3600) + "h " + String(Math.floor(t / 60) % 60).padStart(2, "0") + "m " + String(t % 60).padStart(2, "0") + "s running in total") : "";
   $("rows").innerHTML = ["Hard", "Expert", "Extreme"].map((g) =>
-    "<tr><td>" + g + "</td><td>" + s.found[g] + "</td><td>" + s.toDaily[g] + "</td><td>" + s.toLibrary[g] + "</td><td>" + s.library[g] +
-    "</td><td>" + (s.dailies ? s.dailies.short[g] : "…") + "</td><td>" + (s.dailies ? (s.dailies.next[g] || "new day at the end") : "…") + "</td></tr>").join("");
-  $("daily").textContent = s.dailies ? "Daily puzzles run until " + s.dailies.until + "." : "Checking the daily puzzles…";
+    "<tr><td>" + g + "</td><td>" + s.found[g] + "</td><td>" + s.toDaily[g] + "</td><td>" + s.toLibrary[g] + "</td><td>" + s.library[g] + "</td><td>" + s.old[g] +
+    "</td><td>" + (s.dailies ? s.dailies.short[g] : "…") + "</td><td>" + (s.dailies ? (s.dailies.next[g] || (s.dailies.until < s.dailies.target ? "new day" : "library")) : "…") + "</td></tr>").join("");
+  $("daily").textContent = s.dailies ? "Daily puzzles run until " + s.dailies.until + " (aiming for " + s.dailies.target + ", a year ahead)." : "Checking the daily puzzles…";
   $("log").textContent = s.log.join("\\n");
 }
 async function tick() { try { show(await call("/status")); } catch { $("state").textContent = "Generator closed"; $("state").classList.remove("on"); } }

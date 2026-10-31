@@ -10,10 +10,11 @@ import {
   encodePuzzle,
   generatePuzzle,
   generateRatedSync,
-  spreadOf,
-  missingMoves,
-  moveCounts,
-  REQUIREMENTS,
+  judgeTemplate,
+  RECIPES,
+  missingOf,
+  shapeOf,
+  shapeOfSlow,
   logicalSolve,
   ratePuzzle,
   seededRandom,
@@ -28,7 +29,7 @@ import { SAMPLES } from "../src/samples";
 import { GUIDE } from "../src/guide";
 import { exampleStep } from "../src/guide-step";
 import { DAILY, DAILY_START } from "../src/daily-data";
-import { LIBRARY, LIKES } from "../src/library-data";
+import { LIBRARY, LIKES, OLD_LIBRARY } from "../src/library-data";
 
 let failures = 0;
 const fail = (msg: string) => {
@@ -138,48 +139,54 @@ console.log(`\nPuzzle codes: ${Math.min(...sampleCodes)}-${Math.max(...sampleCod
 
 // 4. Generator: each template gives a puzzle that the template's techniques solve,
 //    that needs a technique from the template's hardest group, and that has one solution.
+//    (Hard and up get a few seconds each here; meeting the full recipe takes longer.)
 for (const g of DIFFICULTIES) {
   const must = new Set(hardestGroup(TEMPLATES[g]).names);
   const allowed = TECHNIQUES.filter((t) => TEMPLATES[g].includes(t.name));
-  for (let k = 1; k <= 3; k++) {
+  for (let k = 1; k <= (RECIPES[g as keyof typeof RECIPES] ? 1 : 3); k++) {
     const t0 = Date.now();
-    const r = generateRatedSync({ allowed: TEMPLATES[g], maxCandidates: 3 }, seededRandom(1000 * k + g.length));
+    const r = generateRatedSync({ allowed: TEMPLATES[g], timeBudgetMs: 4000 }, seededRandom(1000 * k + g.length));
     const log = logicalSolve(new Grid(r.puzzle), allowed);
     if (!log.solved) fail(`generator: ${g} puzzle not solvable with the ${g} techniques`);
     if (!log.steps.some((s) => must.has(s.technique))) fail(`generator: ${g} puzzle doesn't need a ${g} technique`);
     if (!uniqueSolution(r.puzzle)) fail(`generator: ${g} puzzle has no unique solution`);
     if (r.rating.difficulty !== g) fail(`generator: ${g} puzzle rated ${r.rating.difficulty}`);
+    const j = judgeTemplate(r.puzzle, g);
+    if (j && (j.shape.expert > (RECIPES[g as keyof typeof RECIPES].expertMax ?? Infinity) || j.shape.top > RECIPES[g as keyof typeof RECIPES].top[1]))
+      fail(`generator: ${g} puzzle has more of the hardest moves than its recipe allows`);
     if (k === 1)
       console.log(
-        `Generated ${g.padEnd(8)} in ${String(Date.now() - t0).padStart(4)} ms after ${String(r.attempts).padStart(3)} tries: ${encodePuzzle(r.puzzle)}  rated ${r.rating.difficulty}, ${r.rating.grind}, ${spreadOf(log.steps).locks} lock(s), moves ${JSON.stringify(r.moves)} (${r.missing} missing)`,
+        `Generated ${g.padEnd(8)} in ${String(Date.now() - t0).padStart(4)} ms after ${String(r.attempts).padStart(4)} tries: ${encodePuzzle(r.puzzle)}  rated ${r.rating.difficulty}, ${r.rating.grind}, ${JSON.stringify(r.shape)} (${r.missing} missing)`,
       );
   }
 }
-// Spread: separate locks need a few placements between the hard steps.
+// The fast shape (all singles in one pass) must match the step-by-step solver exactly.
 {
-  const st = (level: number, placed: number) => ({ level, placements: new Array(placed).fill({ cell: 0, digit: 1 }) }) as unknown as Step;
-  const one = spreadOf([st(1, 5), st(5, 0), st(5.5, 0), st(1, 3), st(6, 0), st(1, 20)]);
-  const two = spreadOf([st(1, 5), st(5, 0), st(1, 4), st(6, 0), st(1, 20)]);
-  if (one.locks !== 1 || one.hardSteps !== 3) fail(`spread: expected 1 lock and 3 hard steps, got ${JSON.stringify(one)}`);
-  if (two.locks !== 2) fail(`spread: expected 2 locks, got ${JSON.stringify(two)}`);
+  let compared = 0;
+  for (const g of ["Hard", "Expert", "Extreme"] as const) {
+    const allowed = TECHNIQUES.filter((t) => TEMPLATES[g].includes(t.name));
+    for (let seed = 1; seed <= 40; seed++) {
+      const p = generatePuzzle(seededRandom(seed * 31 + g.length)).puzzle;
+      const a = shapeOf(p, allowed, g);
+      const b = shapeOfSlow(p, allowed, g);
+      const key = (s: typeof a) => [s.solved, s.hard, s.hiddenPairs, s.nakedPairs, s.top, s.expert, s.extreme, s.locks, s.opening, s.steps.map((x) => x.technique + JSON.stringify(x.eliminations)).join()].join("|");
+      if (key(a) !== key(b)) fail(`shape: fast and step-by-step solves differ for ${encodePuzzle(p)} (${g})`);
+      compared++;
+    }
+  }
+  console.log(`Shapes: fast and step-by-step solves agree on ${compared} puzzles.`);
 }
-// Requirements cascade: harder moves count toward easier needs.
+// Recipe arithmetic.
 {
-  const req = REQUIREMENTS.Extreme!; // 1 extreme, 2 expert, 5 hard
-  const cases: [Record<"Hard" | "Expert" | "Extreme", number>, number][] = [
-    [{ Extreme: 1, Expert: 2, Hard: 5 }, 0],
-    [{ Extreme: 1, Expert: 4, Hard: 3 }, 0], // two extra expert moves stand in for two hard ones
-    [{ Extreme: 0, Expert: 2, Hard: 5 }, 1],
-    [{ Extreme: 3, Expert: 0, Hard: 2 }, 3],
-    [{ Extreme: 0, Expert: 0, Hard: 9 }, 3],
-  ];
-  if (REQUIREMENTS.Extreme?.locks !== 3) fail("requirements: Extreme should ask for 3 separate locks");
-  for (const [c, want] of cases) if (missingMoves(c, req) !== want) fail(`requirements: ${JSON.stringify(c)} should miss ${want}, got ${missingMoves(c, req)}`);
+  const base = { solved: true, clues: 25, hard: 3, hiddenPairs: 2, nakedPairs: 0, top: 1, expert: 1, extreme: 0, locks: 2, opening: 0, steps: [], final: [] };
+  if (missingOf(base, RECIPES.Expert) !== 0) fail("recipe: a puzzle with everything should miss nothing");
+  if (missingOf({ ...base, hiddenPairs: 0 }, RECIPES.Expert) !== 3) fail("recipe: no hidden pairs should miss 2 pattern moves and 1 hidden pair");
+  if (missingOf({ ...base, clues: 28 }, RECIPES.Expert) !== 2) fail("recipe: 2 clues too many should miss 2");
 }
 // A custom profile: Hard template without X-Wing but with XY-Wing.
 {
   const allowed = [...TEMPLATES.Hard.filter((n) => n !== "X-Wing"), "XY-Wing"];
-  const r = generateRatedSync({ allowed }, seededRandom(77));
+  const r = generateRatedSync({ allowed, timeBudgetMs: 3000 }, seededRandom(77));
   const log = logicalSolve(new Grid(r.puzzle), TECHNIQUES.filter((t) => allowed.includes(t.name) || t.level <= 1));
   if (!log.solved || !log.steps.some((s) => s.technique === "XY-Wing")) fail("generator: custom profile not respected");
   console.log(`Custom profile (Hard − X-Wing + XY-Wing): ${r.attempts} tries, template ${templateOf(allowed) ?? "none"}`);
@@ -203,7 +210,7 @@ for (const entry of GUIDE) {
 console.log(`Techniques section: ${GUIDE.length} entries checked.`);
 
 // 6. Daily puzzles: every code decodes, has one solution and fits its template.
-const REQUIRED_FROM = Math.round((Date.parse("2026-10-09T12:00:00Z") - Date.parse(`${DAILY_START}T12:00:00Z`)) / 86400000);
+const RECIPE_FROM = Math.round((Date.parse("2026-11-02T12:00:00Z") - Date.parse(`${DAILY_START}T12:00:00Z`)) / 86400000);
 {
   let checked = 0;
   let short = 0;
@@ -216,9 +223,9 @@ const REQUIRED_FROM = Math.round((Date.parse("2026-10-09T12:00:00Z") - Date.pars
       if (!uniqueSolution(values)) fail(`daily ${day}/${g}: no unique solution`);
       const log = logicalSolve(new Grid(values), TECHNIQUES.filter((t) => TEMPLATES[g].includes(t.name)));
       if (!log.solved) fail(`daily ${day}/${g}: not solvable with the ${g} techniques`);
-      // Counted, not failed: dailies made before the move and lock requirements existed.
-      const req = REQUIREMENTS[g];
-      if (req && day >= REQUIRED_FROM && (missingMoves(moveCounts(log.steps), req) || spreadOf(log.steps).locks < (req.locks ?? 0))) short++;
+      // Counted, not failed: dailies the generator hasn't replaced with recipe puzzles yet.
+      const j = day >= RECIPE_FROM ? judgeTemplate(values, g) : null;
+      if (j && !j.fits) short++;
       checked++;
     });
   });
@@ -226,7 +233,7 @@ const REQUIRED_FROM = Math.round((Date.parse("2026-10-09T12:00:00Z") - Date.pars
   end.setUTCDate(end.getUTCDate() + DAILY.length - 1);
   const daysLeft = Math.round((end.getTime() - Date.now()) / 86400000);
   console.log(`Daily puzzles: ${checked} checked, available until ${end.toISOString().slice(0, 10)} (${daysLeft} days from now).`);
-  if (short) console.log(`  ${short} Hard/Expert/Extreme dailies from 2026-10-09 don't meet the move and lock requirements yet (run npm run dailies).`);
+  if (short) console.log(`  ${short} Hard/Expert/Extreme dailies from 2026-11-02 don't meet their recipe yet (the generator app replaces them).`);
   if (daysLeft < 60) console.warn("WARNING: fewer than 60 days of daily puzzles left. Run `npm run dailies` with a later START.");
 }
 
@@ -236,23 +243,31 @@ const REQUIRED_FROM = Math.round((Date.parse("2026-10-09T12:00:00Z") - Date.pars
   const seen = new Set<string>();
   let checked = 0;
   let short = 0;
-  for (const [g, codes] of Object.entries(LIBRARY)) {
+  const lists: [string, string, string[]][] = [...Object.entries(LIBRARY).map(([g, c]) => ["new", g, c] as [string, string, string[]]), ...Object.entries(OLD_LIBRARY).map(([g, c]) => ["old", g, c] as [string, string, string[]])];
+  // Old puzzles are many: check a sample of them (all with FULL=1).
+  const full = !!process.env.FULL;
+  for (const [kind, g, all] of lists) {
     const tech = TECHNIQUES.filter((t) => (TEMPLATES as Record<string, string[]>)[g]?.includes(t.name));
+    for (const c of all) {
+      if (seen.has(c)) fail(`library: ${c} listed twice`);
+      seen.add(c);
+    }
+    const codes = kind === "old" && !full ? all.filter((_, i) => i % 50 === 0) : all;
     for (const code of codes) {
-      if (seen.has(code)) fail(`library: ${code} listed twice`);
-      seen.add(code);
       const values = decodePuzzle(code);
       if (!uniqueSolution(values)) fail(`library ${g}: ${code} has no unique solution`);
       const log = logicalSolve(new Grid(values), tech);
       if (!log.solved) fail(`library ${g}: ${code} not solvable with the ${g} techniques`);
-      const req = REQUIREMENTS[g as keyof typeof REQUIREMENTS];
-      if (req && !LIKES[code] && (missingMoves(moveCounts(log.steps), req) || spreadOf(log.steps).locks < (req.locks ?? 0))) short++;
+      const j = kind === "new" && !LIKES[code] ? judgeTemplate(values, g as (typeof DIFFICULTIES)[number]) : null;
+      if (j && !j.fits) short++;
       checked++;
     }
   }
-  if (short) fail(`library: ${short} generated puzzles miss required moves or locks`);
+  if (short) fail(`library: ${short} new puzzles don't meet their recipe`);
   for (const code of Object.keys(LIKES)) decodePuzzle(code);
-  console.log(`Library: ${checked} puzzles checked (${Object.entries(LIBRARY).map(([g, c]) => `${g} ${c.length}`).join(", ") || "empty"}), ${Object.keys(LIKES).length} liked.`);
+  console.log(
+    `Library: ${checked} puzzles checked; new ${Object.entries(LIBRARY).map(([g, c]) => `${g} ${c.length}`).join(", ")}; old ${Object.entries(OLD_LIBRARY).map(([g, c]) => `${g} ${c.length}`).join(", ")}; ${Object.keys(LIKES).length} liked.`,
+  );
 }
 
 if (failures) {
