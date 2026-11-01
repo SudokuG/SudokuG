@@ -34,7 +34,7 @@ export interface LiteGame<P extends LitePuzzle> {
   levels: readonly string[];
   /** Digits used on an n×n board (1..maxDigit). */
   maxDigit(n: number): number;
-  /** X's per row and column (0: the type has no X's; types with X's also get the dot mark). */
+  /** X's per row and column (0: the type has no X's; types with X's also get the ring mark). Star Battle sets 1: its dots are its X's, and its own clash check counts them. */
   xPerLine: number;
   /** Rules, as HTML for the "How to play" tab. */
   rules: string;
@@ -63,6 +63,20 @@ export interface LiteGame<P extends LitePuzzle> {
    * name ("12× cage at r1c1"), and regions that get no notes (a given cell).
    */
   notes?: { regionOf(p: P, cell: number): number; name(p: P, k: number): string; skip(p: P, k: number): boolean };
+  /** False: no candidates and no ring (Star Battle); the pad and keys only place values. */
+  candidates?: boolean;
+  /** HTML for a placed value (default: the digit, or ✕ for 0). */
+  glyph?(v: number): string;
+  /** A value in words, for screen readers and tooltips (default: the digit, or "X"). */
+  valueName?(v: number): string;
+  /** Extra keys for values ("*" for a star). */
+  keyAliases?: Record<string, number>;
+  /** Cells to show as clashing (default: a digit twice in a line, too many X's in a line). */
+  clashes?(p: P, cells: number[]): Set<number>;
+  /** The size as shown on the size buttons (default "8×8"). */
+  sizeLabel?(n: number): string;
+  /** The "Mouse, keyboard and touch" list items (HTML), instead of the default for digits. */
+  controls?: string;
   /** The Techniques tab: rules, then one entry per technique with a worked example. */
   techniques: LiteTechnique[];
   /** Worked examples: technique name -> a puzzle code and the step number (0-based) on its solve. */
@@ -117,12 +131,15 @@ export function pillHtml(cands: number, max: number, gone = 0): string {
 
 /** The rules and the controls, for the Rules entry of the Techniques tab. */
 function rulesHtml<P extends LitePuzzle>(g: LiteGame<P>): string {
+  const controls =
+    g.controls ??
+    `<li>Tap or click a cell; drag over cells to select them all. On a phone, hold <b>S</b> and tap or drag to add more cells (the selection and its digit highlight stay); tap a selected cell again to drop it; while S is held, digits go in as candidates. On a computer, <kbd>Shift</kbd> adds cells and <kbd>Ctrl</kbd> toggles them.</li>
+      <li>Digits enter digits; with <kbd>Shift</kbd>, <b>S</b> or Candidates on, they toggle small candidates in the middle of the cell. The number pad can always enter candidates (an option).${g.xPerLine ? " <kbd>X</kbd> or <kbd>0</kbd> places an X (or right-click the cell); <kbd>.</kbd> or <kbd>O</kbd> an empty ring (a digit goes here); hold the ring key or <kbd>O</kbd> for 2 seconds to clear all rings. Candidates without ✕ also mean “not an X”; add ✕ to them while it still might be one." : ""}</li>
+      <li><kbd>H</kbd> hint, <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo, <kbd>Backspace</kbd> erase, <kbd>Space</kbd> switches candidates on or off, arrow keys move.</li>`;
   return `${g.rules}
     <h3>Mouse, keyboard and touch</h3>
     <ul class="keys small">
-      <li>Tap or click a cell; drag to move the selection. On a phone, hold <b>S</b> and tap cells to select a new group (it keeps a selection that started on a digit, so its highlight stays); tap a selected cell again to drop it; while S is held, digits go in as candidates. On a computer, <kbd>Shift</kbd> adds cells and <kbd>Ctrl</kbd> toggles them.</li>
-      <li>Digits enter digits; with <kbd>Shift</kbd>, <b>S</b> or Candidates on, they toggle small candidates in the middle of the cell.${g.xPerLine ? " <kbd>X</kbd> or <kbd>0</kbd> places an X; <kbd>.</kbd> or <kbd>O</kbd> an empty ring (a digit goes here). Candidates without ✕ also mean “not an X”; add ✕ to them while it still might be one." : ""}</li>
-      <li><kbd>H</kbd> hint, <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo, <kbd>Backspace</kbd> erase, <kbd>Space</kbd> switches candidates on or off, arrow keys move.</li>
+      ${controls}
     </ul>`;
 }
 
@@ -163,7 +180,7 @@ function markup<P extends LitePuzzle>(g: LiteGame<P>, theme: boolean): string {
         <span data-r="label" class="puzzle-label"></span>
         <span data-r="timer" class="timer" aria-label="Time">0:00</span>
       </div>
-      <div data-r="board" class="lite-board ${id}-board" role="grid" tabindex="0" aria-label="${esc(g.title)} grid. Arrow keys move, digits enter${g.xPerLine ? ", X places an X, full stop a dot" : ""}."></div>
+      <div data-r="board" class="lite-board ${id}-board" role="grid" tabindex="0" aria-label="${esc(g.title)} grid. Arrow keys move, ${g.candidates === false ? "1 places a star, 0 or X an empty cell" : `digits enter${g.xPerLine ? ", X places an X, O a ring" : ""}`}."></div>
       ${codeRow("code-row-desktop")}
       <p data-r="status" class="status" aria-live="polite"></p>
     </section>
@@ -192,7 +209,7 @@ function markup<P extends LitePuzzle>(g: LiteGame<P>, theme: boolean): string {
         <div class="actions act-edit">
           <button data-r="undo" class="btn" type="button" title="Undo (Ctrl+Z)">Undo</button>
           <button data-r="erase" class="btn" type="button" title="Erase (Backspace)">Erase</button>
-          <button data-r="mode" class="btn lite-mode" type="button" aria-pressed="false" title="Candidates (Space, or hold Shift)">Candidates</button>
+          ${g.candidates === false ? "" : `<button data-r="mode" class="btn lite-mode" type="button" aria-pressed="false" title="Candidates (Space, or hold Shift)">Candidates</button>`}
         </div>
         <div class="actions act-hint">
           <button data-r="hint" class="btn primary wide" type="button" title="Hint (H)">Hint</button>
@@ -233,7 +250,7 @@ function markup<P extends LitePuzzle>(g: LiteGame<P>, theme: boolean): string {
           <select id="${id}-finish" data-r="finish">${AUTO_FINISH_CHOICES.map((k) => `<option value="${k}">${k ? `Last ${k} cells` : "Off"}</option>`).join("")}</select>
           <small>When only this many cells are left, everything you filled in is right, and the rest follows from singles, the puzzle fills itself in.</small>
         </div>
-        <p class="small">These options are shared by Treasure Map and Futoshiki; sudoku has its own.</p>
+        <p class="small">These options are shared by all puzzle types except sudoku, which has its own.</p>
       </div>
       <div data-pane="techniques" class="pane" role="tabpanel" hidden>
         <div data-r="guide-list" class="guide-list" role="tablist" aria-orientation="vertical" aria-label="Techniques"></div>
@@ -286,6 +303,10 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
     noteFocus: null as number | null,
   };
   let cellEls: HTMLElement[] = [];
+  const noCands = g.candidates === false;
+  /** A placed value as HTML (a digit, ✕, or the type's own glyph). */
+  const show = (v: number) => (g.glyph ? g.glyph(v) : v ? String(v) : "✕");
+  const valueName = (v: number) => (g.valueName ? g.valueName(v) : v ? String(v) : "X");
   const n = () => S.p!.n;
   const maxDigit = () => g.maxDigit(n());
   const nameOf = (code: string, level: string) => puzzleName(code, level, g.id);
@@ -512,7 +533,7 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
       }
   };
 
-  const pencilOn = () => S.pencil || S.shift || S.sticky;
+  const pencilOn = () => !noCands && (S.pencil || S.shift || S.sticky);
 
   /**
    * A digit or X (0) in the selected cells, or a candidate in candidate mode. RING marks the
@@ -521,6 +542,7 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
   function enter(v: number, asCandidate = false): void {
     if (!S.p) return;
     if ((v === 0 || v === RING) && !g.xPerLine) return;
+    if (v === RING && noCands) return;
     const cells = editable();
     if (!cells.length) return;
     if (v === RING) {
@@ -535,7 +557,7 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
         }
       });
     }
-    if (pencilOn() || asCandidate) {
+    if (pencilOn() || (asCandidate && !noCands)) {
       // Candidates (✕ is a note): remove from all if all have it, otherwise add to all.
       const b = 1 << v;
       const open = cells.filter((i) => S.cur.cells[i] < 0);
@@ -768,7 +790,7 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
 
   function buildPad(): void {
     const pad = el("pad");
-    const keys: (number | "S")[] = [...Array.from({ length: maxDigit() }, (_, k) => k + 1), ...(g.xPerLine ? [0, RING] : []), "S"];
+    const keys: (number | "S")[] = [...Array.from({ length: maxDigit() }, (_, k) => k + 1), ...(g.xPerLine ? (noCands ? [0] : [0, RING]) : []), "S"];
     const visible = keys.length - 1; // the S key only shows on phones
     pad.style.setProperty("--keys", String(Math.min(visible, 8)));
     pad.style.setProperty("--keys-phone", String(Math.min(keys.length, 8)));
@@ -779,8 +801,8 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
         if (v === "S") {
           b.textContent = "S";
           b.className = "pad-sticky";
-          b.title = "Hold to select several cells and enter candidates";
-          b.setAttribute("aria-label", "S: select several cells, enter candidates");
+          b.title = noCands ? "Hold to select several cells" : "Hold to select several cells and enter candidates";
+          b.setAttribute("aria-label", noCands ? "S: select several cells" : "S: select several cells, enter candidates");
           // Held: on while the finger is down. With "S key stays on": tap on, tap off.
           b.addEventListener("pointerdown", (e) => {
             e.preventDefault();
@@ -806,8 +828,9 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
           b.title = "Ring: a digit goes here, not an X (O or full stop). Hold 2 seconds to clear all rings";
           b.classList.add("dot-key");
         } else {
-          b.textContent = v === 0 ? "✕" : String(v);
-          b.title = v === 0 ? "X: a cell without a digit (X or 0)" : String(v);
+          b.innerHTML = show(v);
+          b.title = g.valueName ? `${valueName(v)} (${v ? "1" : "0 or X"})` : v === 0 ? "X: a cell without a digit (X or 0)" : String(v);
+          if (g.valueName) b.setAttribute("aria-label", valueName(v));
           if (v === 0) b.classList.add("x-key");
         }
         // While S is held with one finger, another finger taps the keys: act on pointerdown
@@ -842,9 +865,10 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
     const { cells, cands } = S.cur;
     const sr = Math.floor(S.sel / N);
     const sc = S.sel % N;
-    // Repeated digits (or too many X's) in a line.
-    const clash = new Set<number>();
-    for (let k = 0; k < N; k++)
+    // Repeated digits (or too many X's) in a line; or the type's own rule.
+    const clash = g.clashes ? g.clashes(S.p, cells) : new Set<number>();
+    if (!g.clashes)
+      for (let k = 0; k < N; k++)
       for (const idx of [Array.from({ length: N }, (_, c) => k * N + c), Array.from({ length: N }, (_, r) => r * N + k)]) {
         const seen = new Map<number, number[]>();
         for (const i of idx) if (cells[i] >= 0) seen.set(cells[i], [...(seen.get(cells[i]) ?? []), i]);
@@ -869,7 +893,7 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
       c.classList.toggle("sel", S.selection.has(i));
       c.classList.toggle("primary", i === S.sel && S.selection.has(i));
       c.classList.toggle("peer", opt.peers && !multi && i !== S.sel && (r === sr || col === sc));
-      c.classList.toggle("same", opt.same && hlVal > 0 && v === hlVal && i !== hl);
+      c.classList.toggle("same", opt.same && !noCands && hlVal > 0 && v === hlVal && i !== hl);
       c.classList.toggle("x", v === 0);
       c.classList.toggle("wrong", S.wrong.has(i));
       c.classList.toggle("clash", clash.has(i));
@@ -878,10 +902,9 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
       c.classList.toggle("region", region.has(i));
       c.classList.toggle("target", targets.has(i));
       c.classList.toggle("elim", elims.has(i));
-      if (v > 0) c.textContent = String(v);
-      else if (v === 0) c.textContent = "✕";
+      if (v >= 0) c.innerHTML = show(v);
       else c.innerHTML = pillHtml(cands[i], maxDigit());
-      c.setAttribute("aria-label", `Row ${r + 1}, column ${col + 1}: ${v > 0 ? v : v === 0 ? "X" : cands[i] === RING ? "a digit" : "empty"}`);
+      c.setAttribute("aria-label", `Row ${r + 1}, column ${col + 1}: ${v >= 0 ? valueName(v) : cands[i] === RING ? "a digit" : "open"}`);
       c.setAttribute("aria-selected", String(S.selection.has(i)));
     }
     if (g.notes) {
@@ -895,9 +918,9 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
     all("code").forEach((x) => (x.textContent = S.code));
     el("timer").hidden = !opt.timer;
     btn("undo").disabled = !S.undo.length || S.solved;
-    const mode = el("mode");
-    mode.classList.toggle("on", S.pencil);
-    mode.setAttribute("aria-pressed", String(S.pencil));
+    const mode = root.querySelector<HTMLElement>('[data-r="mode"]');
+    mode?.classList.toggle("on", S.pencil);
+    mode?.setAttribute("aria-pressed", String(S.pencil));
     const pad = el("pad");
     pad.classList.toggle("pad-pencil", pencilOn());
     pad.querySelector(".pad-sticky")?.classList.toggle("on", S.sticky);
@@ -1086,18 +1109,18 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
       if (placed.has(i)) {
         const pv = placed.get(i)!;
         c.classList.add("target");
-        c.textContent = pv ? String(pv) : "✕";
+        c.innerHTML = show(pv);
         if (!pv) c.classList.add("x");
-      } else if (v > 0) c.textContent = String(v);
+      } else if (v > 0) c.innerHTML = show(v);
       else if (v === 0) {
-        c.textContent = "✕";
+        c.innerHTML = show(0);
         c.classList.add("x");
       } else if (t.candidates && region.has(i)) {
         // What is still possible, with what the step rules out struck through.
         const dom = s.dom[i] & (digits | (g.xPerLine ? 1 : 0));
         c.innerHTML = pillHtml(dom, max, gone.get(i) ?? 0);
         if (gone.has(i)) c.classList.add("elim");
-      } else if (g.xPerLine) {
+      } else if (g.xPerLine && !noCands) {
         // On paper: a ring where it's known there's no X; the step's new rings in green.
         if (gone.has(i) && gone.get(i)! & 1) {
           c.innerHTML = pillHtml(RING, max);
@@ -1183,6 +1206,10 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
     // without shiftKey (as "End", "ArrowDown", …): that counts as Shift too (so this comes
     // before the arrow keys, as in sudoku). With the option, the number pad always enters
     // candidates.
+    if (g.keyAliases && k in g.keyAliases) {
+      e.preventDefault();
+      return enter(g.keyAliases[k]);
+    }
     const code = /^(Digit|Numpad)([0-9])$/.exec(e.code);
     if (code) {
       const d = Number(code[2]);
@@ -1202,7 +1229,7 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
       e.preventDefault();
       return enter(0);
     }
-    if (g.xPerLine && (k === "." || k === "o" || k === "O" || e.code === "NumpadDecimal")) {
+    if (g.xPerLine && !noCands && (k === "." || k === "o" || k === "O" || e.code === "NumpadDecimal")) {
       e.preventDefault();
       if (e.repeat) return;
       startRingHold();
@@ -1220,7 +1247,7 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
       S.hint = null;
       return render();
     }
-    if (k === " ") {
+    if (k === " " && !noCands) {
       e.preventDefault();
       S.pencil = !S.pencil;
       return render();
@@ -1267,7 +1294,7 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
         return b;
       }),
     );
-  picker("sizes", g.sizes.map(String), (v) => `${v}×${v}`, (v) => (S.pickSize = Number(v)));
+  picker("sizes", g.sizes.map(String), (v) => (g.sizeLabel ? g.sizeLabel(Number(v)) : `${v}×${v}`), (v) => (S.pickSize = Number(v)));
   picker("levels", [...g.levels], (v) => v, (v) => (S.pickLevel = v));
   root.querySelectorAll<HTMLButtonElement>("[data-tab]").forEach((b) => b.addEventListener("click", () => setTab(b.dataset.tab as Tab)));
   root.querySelectorAll<HTMLInputElement>("[data-opt]").forEach((box) =>
@@ -1289,7 +1316,7 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
   });
   el("undo").addEventListener("click", undo);
   el("erase").addEventListener("click", erase);
-  el("mode").addEventListener("click", () => {
+  root.querySelector('[data-r="mode"]')?.addEventListener("click", () => {
     S.pencil = !S.pencil;
     render();
   });
@@ -1333,7 +1360,7 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
   setTab("play");
 
   const printCurrent = () => (S.p ? { puzzle: printPuzzle(S.p, S.level, false) } : null);
-  const show = () => {
+  const showPage = () => {
     root.classList.add("on");
     setCurrentPrint(printCurrent);
     renderOptions();
@@ -1341,7 +1368,7 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
     else if (S.p) render();
   };
   onGameChange((id) => {
-    if (id === g.id) show();
+    if (id === g.id) showPage();
     else root.classList.remove("on");
   });
 
@@ -1357,5 +1384,5 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
       /* not a valid code: ignore it */
     }
   }
-  if (active()) show();
+  if (active()) showPage();
 }

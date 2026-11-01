@@ -7,7 +7,8 @@ technique first), every puzzle gets a difficulty and a "grind" rating, and the g
 makes puzzles of a chosen difficulty where no tedious triple, quad or long chain is ever
 the only way forward: few clues, lots of X-Wings, Skyscrapers, Kites and hidden pairs.
 Every puzzle has a (food) name, and puzzles can be printed or saved as PDF. Next to sudoku
-there are lighter puzzle types, made on the spot: Treasure Map, Futoshiki and Calcudoku (see
+there are lighter puzzle types, made on the spot: Treasure Map, Futoshiki, Calcudoku and
+Star Battle (see
 below). On a phone or computer you can install it from the browser
 ("Add to home screen" / "Install") and play offline.
 
@@ -79,6 +80,7 @@ src/
   games/futoshiki/   Futoshiki: the same three files; all also have techniques.ts (the
                      Techniques tab) and examples.ts (worked examples, npm run lite-examples)
   games/calcudoku/   Calcudoku: the same
+  games/starbattle/  Star Battle: the same (engine.ts also grows the regions)
   games/latin-steps.ts  steps shared by the Latin-square puzzles (singles, pairs, triples)
   ui/games.ts        the puzzle-type switcher in the header
   ui/print-dialog.ts the print dialog, shared by all puzzle types
@@ -392,7 +394,7 @@ ask for one (no generator app, no library). Each type has its own name theme
 to `GAMES` in `src/ui/games.ts`, give it a `<main>` in `page.html`, an `initLite(...)` line in
 `app.ts`, and run `npm run lite-examples`.
 
-**Step-by-step solvers.** Both types have one (`logic.ts`), like the sudoku engine: it
+**Step-by-step solvers.** Every type has one (`logic.ts`), like the sudoku engine: it
 solves the way a person does, easiest step first. It rates puzzles, so every size comes in
 Easy, Medium, Hard and Expert, and it gives the hints (first click: where to look; second:
 the reasoning; Apply carries it out). Hints first point out wrong entries, rings on X's and
@@ -454,9 +456,35 @@ the asked level; most random cagings have more than one solution and are dropped
 and Expert use their own cage mix, which hits those levels more often). About 20 ms to 1 s. Codes look like `K6-…-…-…` (solution, cage of each cell, the
 operation of each cage; the targets follow).
 
-**Planned next**: **Star Battle** (theme: sci-fi battles and tech). Stars in a grid with
-irregular regions, one or two per row, column and region, never touching. No digits, a
-region generator and its own solver.
+**Star Battle** (theme: sci-fi battles and tech). Place stars so that every row, column and
+region (the areas inside the thick lines) holds one, never touching, not even diagonally.
+6×6 and 8×8 have one star per unit, 10×10 two (the classic size). No digits and no
+candidates: the pad has a star and a dot (an empty cell); `1` or `*` places a star, `0`, `X`
+or `.` a dot, right-click a dot, and dragging over cells then pressing the dot empties a
+whole stretch. Stars that break a rule and dots that leave a unit without room turn red.
+The shared page takes this from a few optional `LiteGame` hooks (`candidates: false`,
+`glyph`, `valueName`, `keyAliases`, `clashes`, `sizeLabel`, `controls`); stars are the
+value 1, dots the X (0).
+
+Making one (`engine.ts`): random stars first (k per row and column, none touching), then
+regions grown around them (each region starts from its stars; with two stars, a short path
+joins them), then, while another solution exists, one of its stars is moved into a
+neighbouring region, which breaks that solution and keeps ours (`uniquify`, checked with a
+row-by-row solution counter). On the 10×10 board some regions are kept small (`skew`),
+since tight regions are what makes two-star puzzles solvable without trial.
+
+Steps (`logic.ts`): Around a Star, Full Unit, Last Cells (level 1); Shared Neighbour (a cell
+touching every place left for a unit's star), Confined Unit (a region inside one line, or a
+line inside one region, that need as many stars: the rest is empty); Squeeze (a star here
+would leave some unit without room); on the two-star board Blocks (a unit's open cells in
+two 2×2 blocks: one star each) and Pair Blocks (two neighbouring lines cut into 2×2 blocks:
+when only as many blocks are open as stars needed, each holds one); Region Groups (2-4
+regions inside as many lines, or the other way round: the counting move); Short Chain (assume
+a star or a gap, follow only the level-1 steps for a few moves, find a contradiction);
+Trial. Rating: the step total against per-size cut-offs (`STAR_CUTS`), bounded by the
+hardest step (Region Groups and Pair Blocks at least Medium, Short Chain at least Hard,
+Trial Expert). Making a puzzle takes 5-150 ms on the smaller boards and about 0.5-1.5 s on
+10×10. Codes look like `B8-…-…` (the region of each cell, then the stars).
 
 ## Puzzle codes
 
@@ -475,8 +503,8 @@ opens that puzzle directly (the "Copy link" button under the board makes one).
 6. ~~Generator that keeps only puzzles matching a rating filter~~
 7. ~~Sculpted puzzles: few clues, lots of X-Wing-type moves and hidden pairs, capped hardest moves~~
 8. ~~Names and printing~~
-9. ~~Treasure Map (Japanese Sums), Futoshiki, Calcudoku~~
-10. Next: Star Battle (see Other puzzle types); more sudoku techniques
+9. ~~Treasure Map (Japanese Sums), Futoshiki, Calcudoku, Star Battle~~
+10. Next: more sudoku techniques
 
 ## Licence
 

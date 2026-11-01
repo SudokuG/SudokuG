@@ -40,6 +40,9 @@ import { FUTOSHIKI } from "../src/games/futoshiki/game";
 import { CALCUDOKU } from "../src/games/calcudoku/game";
 import { CALC_SIZES, countCalc, decodeCalc, encodeCalc, meets } from "../src/games/calcudoku/engine";
 import { CALC_LEVELS, logicSolveCalc, makeCalc, rateCalc } from "../src/games/calcudoku/logic";
+import { STAR_BATTLE } from "../src/games/starbattle/game";
+import { STAR_SIZES, decodeStars, encodeStars, starSolutions } from "../src/games/starbattle/engine";
+import { STAR_LEVELS, logicSolveStars, makeStars, rateStars } from "../src/games/starbattle/logic";
 import type { LiteStep } from "../src/games/logic";
 import { RING, liteHint, singlesFinish } from "../src/games/logic";
 import type { LiteGame, LitePuzzle } from "../src/games/lite";
@@ -470,6 +473,7 @@ const RECIPE_FROM = Math.round((Date.parse("2026-11-02T12:00:00Z") - Date.parse(
   checkExamples(TREASURE_MAP);
   checkExamples(FUTOSHIKI);
   checkExamples(CALCUDOKU);
+  checkExamples(STAR_BATTLE);
 
   // Calcudoku: each size and level; exactly one solution (brute force agrees), cages meet
   // their targets, codes round-trip, steps never rule out the right digit, hints place one.
@@ -496,6 +500,38 @@ const RECIPE_FROM = Math.round((Date.parse("2026-11-02T12:00:00Z") - Date.parse(
         }
       }
   console.log(`Calcudoku: ${calcs} puzzles made and checked.`);
+
+  // Star Battle: each size and level; exactly one solution, codes round-trip, steps never
+  // place a wrong star or dot, a hint from the start places a right one, auto-finish works.
+  let stars = 0;
+  const starTech: Record<string, number> = {};
+  for (const size of STAR_SIZES)
+    for (const level of STAR_LEVELS)
+      for (let seed = 1; seed <= (size === 10 ? 1 : 2); seed++) {
+        const it = makeStars(size, level, seededRandom(seed * 6007 + size * 17 + level.length), 8000);
+        let r = it.next();
+        while (!r.done) r = it.next();
+        const p = r.value;
+        stars++;
+        const label = `star battle ${size}×${size} ${level}`;
+        if (rateStars(p)?.level !== level) fail(`${label}: rated ${rateStars(p)?.level ?? "unsolvable"}`);
+        if (starSolutions(p, 2).length !== 1) fail(`${label}: not exactly one solution`);
+        const back = decodeStars(encodeStars(p));
+        if (back.solution.join() !== p.solution.join() || back.regionOf.join() !== p.regionOf.join()) fail(`${label}: code round trip failed`);
+        const steps = logicSolveStars(p).steps;
+        steps.forEach((st) => (starTech[st.technique] = (starTech[st.technique] ?? 0) + 1));
+        sound(label, p.solution, steps);
+        if (seed === 1) {
+          const cells = p.solution.map(() => -1);
+          const h = liteHint(STAR_BATTLE.solver(p), { n: size, solution: p.solution, givens: p.givens, cells, cands: cells.map(() => 0), digits: 2 });
+          if (h.kind !== "step" || !h.step.placements.length || h.step.placements.some((pl) => pl.value !== p.solution[pl.cell])) fail(`${label}: the hint from the start isn't right`);
+          // Auto-finish from a nearly solved grid: everything but the last row's cells filled in.
+          const near = p.solution.map((v, i) => (i < size * (size - 1) ? v : -1));
+          const fin = singlesFinish(STAR_BATTLE.solver(p), { n: size, solution: p.solution, givens: p.givens, cells: near, cands: near.map(() => 0), digits: 2 });
+          if (!fin || fin.length !== size || fin.some((x) => x.value !== p.solution[x.cell])) fail(`${label}: auto-finish doesn't fill in the last row`);
+        }
+      }
+  console.log(`Star Battle: ${stars} puzzles made and checked. Steps used: ${JSON.stringify(starTech)}`);
   console.log(`Step-by-step solvers: ${maps} treasure maps and ${futos} futoshikis checked. Steps used: ${JSON.stringify(seenTech)}`);
 }
 

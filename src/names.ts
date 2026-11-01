@@ -167,8 +167,42 @@ const ENGINEERING: NameTheme = {
   ],
 };
 
+const SCIFI: NameTheme = {
+  first: {
+    Easy: [
+      "Routine", "Training", "Orbital", "Scout", "Patrol", "Civilian", "Short-Range", "Low-Orbit",
+      "Practice", "Courier", "Reserve", "Recon", "Survey", "Escort", "Shuttle", "Quiet",
+    ],
+    Medium: [
+      "Tactical", "Flanking", "Deep-Space", "Ion-Charged", "Cloaked", "Interstellar", "Shielded", "Long-Range",
+      "Boarding", "Strategic", "Warp-Capable", "Twin-Engine", "Armoured", "Pulse-Fed", "Vectored", "Encrypted",
+    ],
+    Hard: [
+      "Rogue", "Hyperspace", "Dreadnought-Class", "Antimatter", "Overcharged", "Gravitic", "Stealth", "Plasma-Fed",
+      "Last-Stand", "Siege", "Neutron", "Ghost-Fleet", "Railgun", "Battle-Scarred", "Outer-Rim", "Event-Horizon",
+    ],
+    Expert: [
+      "Supernova", "Galaxy-Ending", "Singularity", "Planet-Cracking", "Dark-Matter", "Wormhole", "Doomsday", "Quasar-Fed",
+      "Hyperdimensional", "Star-Eating", "Black-Hole", "Collapsing", "Tachyon", "Void-Born", "Apocalypse-Class", "Universe-Splitting",
+    ],
+    Other: ["Unidentified", "Derelict", "Classified", "Experimental", "Alien", "Uncharted", "Salvaged", "Prototype"],
+  },
+  middle: [
+    "Photon", "Laser", "Ion", "Plasma", "Warp", "Nebula", "Starfighter", "Tractor-Beam",
+    "Comet", "Asteroid", "Fusion", "Quantum", "Orbital", "Pulsar", "Lunar", "Solar",
+    "Graviton", "Hyperdrive", "Cosmic", "Meteor", "Thruster", "Proton", "Nova", "Shield",
+    "Starbase", "Vortex", "Beacon", "Particle", "Cyber", "Satellite", "Stellar", "Astro",
+  ],
+  last: [
+    "Cruiser", "Armada", "Frigate", "Squadron", "Flotilla", "Dreadnought", "Destroyer", "Interceptor",
+    "Battlestation", "Mothership", "Blockade", "Skirmish", "Offensive", "Gambit", "Manoeuvre", "Fleet",
+    "Outpost", "Corvette", "Carrier", "Siege", "Ambush", "Raid", "Vanguard", "Defence Grid",
+    "Torpedo", "Cannon", "Barrage", "Sentinel", "Starship", "Dogfight", "Convoy", "Expedition",
+  ],
+};
+
 /** One theme per puzzle type. New puzzle types get a theme of their own. */
-export const NAME_THEMES: Record<string, NameTheme> = { sudoku: FOOD, sums: PIRATES, futoshiki: ARTHURIAN, calcudoku: ENGINEERING };
+export const NAME_THEMES: Record<string, NameTheme> = { sudoku: FOOD, sums: PIRATES, futoshiki: ARTHURIAN, calcudoku: ENGINEERING, starbattle: SCIFI };
 
 /** Capitalise every word, also after a hyphen ("flaming-hot" → "Flaming-Hot"). */
 export const titleCase = (s: string) => s.replace(/(^|[\s-])([a-z])/g, (_, sep: string, ch: string) => sep + ch.toUpperCase());
