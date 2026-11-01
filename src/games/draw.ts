@@ -18,7 +18,8 @@ const RING = 1 << 15;
  * cell at (x, y); an empty ring (RING) means "a digit goes here".
  */
 export function svgCands(x: number, y: number, mask: number, max: number): string {
-  if (mask === RING) return `<rect x="${x - 15}" y="${y - 15}" width="30" height="30" rx="15" fill="none" stroke="#1f4f9e" stroke-width="3.5"/>`;
+  // An empty ring: the frame of one candidate, without the digit.
+  if (mask === RING) return `<rect x="${x - 20.5}" y="${y - 19.6}" width="41" height="39.2" rx="19.6" fill="none" stroke="#1f4f9e" stroke-width="2.5"/>`;
   const ds = Array.from({ length: max + 1 }, (_, k) => k).filter((d) => mask & (1 << d)).map((d) => (d ? String(d) : "✕"));
   if (!ds.length) return "";
   const size = ds.length > 5 ? 19 : ds.length > 3 ? 23 : 27;

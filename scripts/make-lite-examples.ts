@@ -34,6 +34,8 @@ const run = (it: Generator<number, unknown>) => {
 
 function find<P extends LitePuzzle>(g: LiteGame<P>, extra: (seed: number) => P | null): Record<string, { code: string; step: number }> {
   const out: Record<string, { code: string; step: number }> = {};
+  // A trial example should be easy to follow: a short chain. Longer ones only as a fallback.
+  const fallback: Record<string, { code: string; step: number }> = {};
   const want = g.techniques.map((t) => t.name);
   const consider = (p: P) => {
     const steps = solveSteps(g, p);
@@ -41,6 +43,10 @@ function find<P extends LitePuzzle>(g: LiteGame<P>, extra: (seed: number) => P |
       if (out[st.technique] || !want.includes(st.technique)) return;
       // Not right at the start (an emptier board shows less), unless the solve is short.
       if (k < Math.min(6, steps.length / 4) && st.level <= 1) return;
+      if (st.technique === "Trial" && (st.explanation.includes("…") || st.explanation.split("; ").length > 4)) {
+        fallback[st.technique] ??= { code: g.encode(p), step: k };
+        return;
+      }
       out[st.technique] = { code: g.encode(p), step: k };
     });
   };
@@ -51,6 +57,7 @@ function find<P extends LitePuzzle>(g: LiteGame<P>, extra: (seed: number) => P |
     const p = extra(seed);
     if (p) consider(p);
   }
+  for (const t of want) if (!out[t] && fallback[t]) out[t] = fallback[t];
   const missing = want.filter((t) => !out[t]);
   if (missing.length) console.warn(`${g.title}: no example found for ${missing.join(", ")}`);
   return out;

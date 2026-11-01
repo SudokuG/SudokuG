@@ -14,10 +14,14 @@ export interface LiteOptions {
   stickyToggle: boolean;
   /** Fill in the rest when at most this many cells are left and it follows from singles (0 = off). */
   autoFinish: number;
+  /** The keyboard's number pad enters candidates. */
+  numpadCands: boolean;
+  /** After making a new puzzle, switch to the Play tab. */
+  toPlay: boolean;
 }
 
 const KEY = "sudokug-lite-options";
-const DEFAULTS: LiteOptions = { peers: true, same: true, mistakes: false, tidy: true, timer: true, stickyToggle: false, autoFinish: 8 };
+const DEFAULTS: LiteOptions = { peers: true, same: true, mistakes: false, tidy: true, timer: true, stickyToggle: false, autoFinish: 8, numpadCands: false, toPlay: true };
 
 function load(): LiteOptions {
   try {
@@ -53,4 +57,6 @@ export const LITE_OPTION_TEXT: { key: Exclude<keyof LiteOptions, "autoFinish">; 
   { key: "tidy", title: "Remove candidates automatically", text: "Placing a digit removes it from the candidates in its row and column." },
   { key: "timer", title: "Show timer" },
   { key: "stickyToggle", title: "S key stays on", text: "On a phone, the S key normally works only while you hold it. With this on, one tap switches it on and the next tap off." },
+  { key: "numpadCands", title: "Keyboard number pad enters candidates", text: "The number pad on the right of a keyboard always enters candidates (it never overwrites a digit); the digits above the letters enter digits. Off: both work the same." },
+  { key: "toPlay", title: "Go to Play after making a puzzle", text: "Switch to the Play tab as soon as a new puzzle is ready." },
 ];

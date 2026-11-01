@@ -355,21 +355,34 @@ pad, Undo, Erase, Candidates, Hint, Check and Reveal.
 
 - **Candidates** sit in the middle of the cell, small and framed, in the colour of entered
   digits. In Treasure Map, candidates also say "not an X" unless ✕ is one of them; an empty
-  ring (the ring key, `.` or `O`) means "a digit goes here" without noting which.
-- **Selecting**: a tap selects a cell, dragging moves the selection. The S key (phones)
-  works its own way: the first tap after pressing S starts a new group, unless the selection
-  started on a digit (it is kept, and so is the highlight of that digit); tapping a selected
-  cell drops it; while S is held, digits go in as candidates (the keys act on the touch
-  itself, since phones often send no click for a second finger). On a computer Shift adds
-  cells and Ctrl toggles them.
+  ring (the ring key, `.` or `O`) means "a digit goes here" without noting which; it is drawn
+  exactly like a candidate frame (an invisible digit sizes it). Holding the ring key or `O`
+  for 2 seconds clears every ring (the key fills up while you hold it). On a computer,
+  right-clicking a Treasure Map cell puts in an X.
+- **Selecting** works as in sudoku: a tap selects a cell, dragging adds the cells you pass.
+  The S key (phones) adds more groups: the selection is kept, and so is the highlight of
+  the first selected digit; tapping a selected cell drops it; while S is held, digits go in
+  as candidates (the keys act on the touch itself, since phones often send no click for a
+  second finger). On a computer Shift adds cells and Ctrl toggles them.
+- **Number pad**: Shift+number pad enters candidates (on Windows it arrives as an arrow
+  key, so the number pad is read by its key code before the arrows). The option "Keyboard number
+  pad enters candidates" (sudoku and the light types) makes the number pad always enter
+  candidates, which never overwrite digits; off, it works like the other digit keys.
+- **Go to Play after making a puzzle** (option, on by default, sudoku too): a newly made puzzle opens the Play tab.
 - **Check** counts only your own entries. **Auto-finish** (option, default the last 8
   cells): when everything entered is right and the rest follows from singles, it fills in.
 - **Options** are shared by the light types (`src/games/lite-options.ts`); the theme is the
   site-wide one.
-- **Techniques**: the rules, then each technique of the solver with what it is, how to spot
-  it, and a worked example from a real puzzle (shown in place of the board, with where to
+- **Techniques**: the rules, then each technique of the solver with what it is, why it
+  works, how to spot it, and a worked example from a real puzzle (shown in place of the board, with where to
   look, what follows and what is ruled out). The examples (`src/games/<type>/examples.ts`)
-  are found by `npm run lite-examples`; the tests check that each still shows its technique.
+  are found by `npm run lite-examples` (for Trial it prefers a short chain); the tests check
+  that each still shows its technique.
+- **Notes** (Calcudoku): a note per cage for working out products and combinations, never
+  filled in for you. On a computer they are listed beside the board: the selected cage
+  always has a field, notes with text stay listed, empty ones hide again. On a phone, a bar
+  under the board shows the selected cage's note. The cage's cells are shaded while you
+  type. Notes are saved with the game (`LiteGame.notes`).
 
 Each type is a `LiteGame` in `src/games/<type>/game.ts` (board layout, extra marks such as
 clue or sign states, print drawing, its solver, techniques) with its logic in `engine.ts`
@@ -399,7 +412,16 @@ by what you need to keep track of:
   add up to the clue) shows where an X must or can't be, or fixes a cell;
 - with candidates written down: Candidate Single, Clue Groups (the same line reasoning on
   the candidates), Line Arrangements (with the order inside the groups);
-- Trial (assume a value, find a contradiction), for hints only.
+- Trial (assume a value, find a contradiction).
+
+**Trial** (all three types; `latinTrial`/`trialChain` in `src/games/latin-steps.ts`)
+assumes a value in a cell with few possibilities and follows the easier steps until
+something breaks: a cell with nothing left, a digit with no place in a line, a broken sign,
+a cage or line clue that can no longer be met (`why()` in each `logic.ts`). The explanation
+shows the chain from the assumption to that point, only the placements that matter ("r1c1
+would be 5, its only digit left; r4c4 would be 5, the only place for 5 in row 4; and then
+r3c5 would have no digit left"); of the first few values that break, the one with the
+shortest chain is used.
 
 Rating: each step weighs what it asks (line steps: the ways still open plus how many the
 clue allows at all); the difficulty is the total plus 4 per step of the longest stretch of X
@@ -410,7 +432,8 @@ from the clues alone, so no cells are ever given; about 10-100 ms. Codes look li
 
 **Futoshiki** (theme: Arthurian legend). Every row and column holds 1 to n once; the signs
 between cells point at the smaller digit. 5×5, 6×6 or 7×7. Steps: Single, Hidden Single,
-Sign (one sign narrows its two cells), Naked and Hidden Pair and Triple, Trial. Easy and
+Sign Chain (a chain of 3+ signs one way: each cell's range follows from its place in the
+chain), Sign (one sign narrows its two cells), Naked and Hidden Pair and Triple, X-Wing, Trial. Easy and
 Medium need singles and signs (by total effort, `FUTO_CUTS`), Hard pairs or triples or more
 effort, Expert up to 3 trial steps. Making one (`makeFutoshiki`): a minimal puzzle (as few
 clues as keep one solution); for easier levels, clues are added where the solve gets stuck
@@ -424,10 +447,11 @@ multiply (×), or in two cells differ (−) or divide (÷) to the target; one-ce
 given. 5×5, 6×6 or 7×7. Steps: Single, Hidden Single, Cage Options (every way to fill a cage
 with the digits still possible; up to 3 ways is easy), Naked and Hidden Pair, Must-Have Digit
 (a digit every way of a cage uses, always in one line, leaves the rest of that line), Naked
-and Hidden Triple, Trial. Rating as Futoshiki (`CALC_CUTS`). A puzzle is a random Latin
+and Hidden Triple, X-Wing, Trial. Rating as Futoshiki (`CALC_CUTS`); for Easy to Hard the
+generator skips the slow trial check (a puzzle that needs trial isn't one of those). A puzzle is a random Latin
 square with random cages (smaller cages for easier levels), kept when the steps solve it at
-the asked level; most random cagings have more than one solution and are dropped. About
-50 ms (5×5) to 1-3 s (7×7). Codes look like `K6-…-…-…` (solution, cage of each cell, the
+the asked level; most random cagings have more than one solution and are dropped (7×7 Easy
+and Expert use their own cage mix, which hits those levels more often). About 20 ms to 1 s. Codes look like `K6-…-…-…` (solution, cage of each cell, the
 operation of each cage; the targets follow).
 
 **Planned next**: **Star Battle** (theme: sci-fi battles and tech). Stars in a grid with

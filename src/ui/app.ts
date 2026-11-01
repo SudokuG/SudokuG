@@ -87,6 +87,10 @@ interface Settings {
   stickyToggle: boolean;
   /** Number pad shows how many of each digit are left. */
   padCounts: boolean;
+  /** The keyboard's number pad enters candidates (the digit row still enters digits). */
+  numpadCands: boolean;
+  /** After making a new puzzle, switch to the Play tab. */
+  toPlay: boolean;
 }
 
 const DEFAULT_SETTINGS: Settings = {
@@ -102,6 +106,8 @@ const DEFAULT_SETTINGS: Settings = {
   genProfile: TEMPLATES.Hard,
   stickyToggle: false,
   padCounts: true,
+  numpadCands: false,
+  toPlay: true,
 };
 
 /** Fixed: patterns up to Expert level count as an alternative to a triple or quad. */
@@ -765,7 +771,7 @@ function startGenerate(fresh = false): void {
     if (!f) return genMessage(`No puzzle found in ${MAX_TRIES} tries. This mix of techniques is rare on its own; try ticking a few more.`);
     loadPuzzle(f.puzzle, label, f.known);
     genMessage(f.note, !f.known);
-    setTab("play");
+    if (S.settings.toPlay) setTab("play");
   });
 }
 
@@ -1530,7 +1536,7 @@ function render(): void {
   $("timer").hidden = !set.timer || !S.puzzle;
 
   // Options
-  (["auto", "mistakes", "tidy", "peers", "same", "timer", "patterns", "stickyToggle", "padCounts"] as const).forEach((k) => (($(`opt-${k}`) as HTMLInputElement).checked = set[k]));
+  (["auto", "mistakes", "tidy", "peers", "same", "timer", "patterns", "stickyToggle", "padCounts", "numpadCands", "toPlay"] as const).forEach((k) => (($(`opt-${k}`) as HTMLInputElement).checked = set[k]));
   ($("opt-finish") as HTMLSelectElement).value = String(set.autoFinish);
   ($("opt-theme") as HTMLSelectElement).value = set.theme;
 
@@ -1659,8 +1665,10 @@ function onKey(e: KeyboardEvent): void {
   if (codeDigit || /^[1-9]$/.test(k)) {
     e.preventDefault();
     const d = codeDigit ? Number(codeDigit[2]) : Number(k);
-    const numpadShift = !!codeDigit && codeDigit[1] === "Numpad" && !/^[1-9]$/.test(k);
-    return enterNumber(d, effectiveMode(e.shiftKey || numpadShift));
+    const numpad = !!codeDigit && codeDigit[1] === "Numpad";
+    const numpadShift = numpad && !/^[1-9]$/.test(k);
+    // With "number pad enters candidates", the number pad works like a held Shift.
+    return enterNumber(d, effectiveMode(e.shiftKey || numpadShift || (numpad && S.settings.numpadCands)));
   }
   const lower = k.toLowerCase();
   if (MODE_KEYS[lower]) return setMode(MODE_KEYS[lower]);
@@ -1773,7 +1781,7 @@ function init(): void {
     saveSettings();
   });
   $("opt-auto").addEventListener("change", (e) => setAuto((e.target as HTMLInputElement).checked));
-  (["mistakes", "tidy", "peers", "same", "timer", "patterns", "stickyToggle", "padCounts"] as const).forEach((k) =>
+  (["mistakes", "tidy", "peers", "same", "timer", "patterns", "stickyToggle", "padCounts", "numpadCands", "toPlay"] as const).forEach((k) =>
     $(`opt-${k}`).addEventListener("change", (e) => {
       S.settings[k] = (e.target as HTMLInputElement).checked;
       if (k === "stickyToggle") S.sticky = false;

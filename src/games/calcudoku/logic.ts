@@ -11,7 +11,7 @@
 //   5. Trial: assume a digit; if the steps above then hit a contradiction, it can go.
 
 import { randomLatin } from "../latin";
-import { cloneLatin, hiddenSingle, linesOf, placeLatin, single, subsets } from "../latin-steps";
+import { cloneLatin, hiddenSingle, latinTrial, latinWhy, linesOf, placeLatin, single, subsets, xWing } from "../latin-steps";
 import type { LatinState } from "../latin-steps";
 import { bitsOf, cellName, describeEliminations, listJoin, popcount } from "../logic";
 import type { CellValue, LiteStep } from "../logic";
@@ -154,7 +154,7 @@ const mustHave: Finder = (p, s) => {
   return null;
 };
 
-const FINDERS: Finder[] = [single, hiddenSingle, cageStep(3), subsets(2), cageStep(Infinity), mustHave, subsets(3)];
+const FINDERS: Finder[] = [single, hiddenSingle, cageStep(3), subsets(2), cageStep(Infinity), mustHave, subsets(3), xWing];
 
 function easiest(p: CalcPuzzle, s: CalcState): LiteStep | "contradiction" | null {
   for (const f of FINDERS) {
@@ -166,40 +166,15 @@ function easiest(p: CalcPuzzle, s: CalcState): LiteStep | "contradiction" | null
 
 const solved = (s: CalcState) => s.placed.every(Boolean);
 
-function propagate(p: CalcPuzzle, s: CalcState): "solved" | "stuck" | "contradiction" {
-  for (let k = 0; k < 600; k++) {
-    if (solved(s)) return "solved";
-    const st = easiest(p, s);
-    if (st === "contradiction") return "contradiction";
-    if (!st) return "stuck";
-    applyStep(p, s, st);
-  }
-  return "stuck";
-}
-
-function trial(p: CalcPuzzle, s: CalcState): LiteStep | null {
-  const cells = s.dom.map((d, i) => [i, popcount(d)]).filter(([i, k]) => !s.placed[i] && k > 1).sort((a, b) => a[1] - b[1]);
-  for (const [i] of cells)
-    for (const v of bitsOf(s.dom[i])) {
-      const t = cloneLatin(s);
-      place(p, t, i, v);
-      if (propagate(p, t) === "contradiction") {
-        const name = cellName(p.n, i);
-        return {
-          technique: "Trial",
-          level: 5,
-          weight: 20,
-          placements: [],
-          eliminations: [{ cell: i, value: v }],
-          region: [i],
-          nudge: `Try a digit in ${name} and follow where it leads.`,
-          explanation: `Suppose ${name} were ${v}. Following the easier steps from there runs into a contradiction (a cage or a line can't be filled), so ${name} isn't ${v}.`,
-          parts: [{ elims: [{ cell: i, value: v }], text: `trying ${v} in ${name} leads to a contradiction, so ${name} isn't ${v}` }],
-        };
-      }
-    }
+/** Why a state can't be right: the Latin-square reasons, or a cage that can no longer be filled. */
+function why(p: CalcPuzzle, s: CalcState): { text: string; cells: number[] } | null {
+  const w = latinWhy(p, s);
+  if (w) return w;
+  for (const c of p.cages) if (!cageWays(p, s, c, 1).length) return { text: `${cageName(p, c)} could no longer be filled`, cells: c.cells };
   return null;
 }
+
+const trial = (p: CalcPuzzle, s: CalcState) => latinTrial(p, s, easiest, applyStep, why);
 
 export function nextStep(p: CalcPuzzle, s: CalcState): LiteStep | null {
   const r = easiest(p, s);
@@ -236,8 +211,9 @@ export const CALC_CUTS: Record<number, [number, number]> = { 5: [9, 23], 6: [20,
  * Rating, or null when it needs more than 3 trial steps (or has more than one solution).
  * Without trial: Easy, Medium or Hard by the step total and the hardest step (pairs and
  * crowded cages make it at least Medium, triples and must-have digits Hard); with trial: Expert.
+ * With `plainOnly`, puzzles that need trial give null (quicker, for the easier levels).
  */
-export function rateCalc(p: CalcPuzzle): { score: number; maxLevel: number; level: CalcLevel } | null {
+export function rateCalc(p: CalcPuzzle, plainOnly = false): { score: number; maxLevel: number; level: CalcLevel } | null {
   const plain = logicSolveCalc(p, startState(p), 0);
   const score = plain.steps.reduce((a, st) => a + st.weight, 0);
   const maxLevel = plain.steps.reduce((a, st) => Math.max(a, st.level), 0);
@@ -246,6 +222,7 @@ export function rateCalc(p: CalcPuzzle): { score: number; maxLevel: number; leve
     const level: CalcLevel = maxLevel >= 3.5 || score > cuts[1] ? "Hard" : maxLevel >= 3 || score > cuts[0] ? "Medium" : "Easy";
     return { score, maxLevel, level };
   }
+  if (plainOnly) return null;
   const t = logicSolveCalc(p, startState(p), 3);
   return t.solved ? { score: t.steps.reduce((a, st) => a + st.weight, 0), maxLevel: 5, level: "Expert" } : null;
 }
@@ -256,6 +233,11 @@ const SIZE_WEIGHTS: Record<CalcLevel, number[]> = {
   Medium: [0, 0.07, 0.48, 0.33, 0.12],
   Hard: [0, 0.04, 0.4, 0.38, 0.18],
   Expert: [0, 0.02, 0.34, 0.4, 0.2, 0.04],
+};
+/** On 7×7 boards other mixes hit Easy and Expert far more often (measured on samples). */
+const SIZE_WEIGHTS_7: Partial<Record<CalcLevel, number[]>> = {
+  Easy: [0, 0.16, 0.6, 0.22, 0.02],
+  Expert: [0, 0.08, 0.5, 0.32, 0.1],
 };
 
 /**
@@ -269,8 +251,8 @@ export function* makeCalc(n: number, level: CalcLevel, rnd: () => number, budget
   let best: { p: CalcPuzzle; miss: number } | null = null;
   for (let tries = 1; ; tries++) {
     const solution = randomLatin(n, rnd).map((v) => v + 1);
-    const p = randomCages(n, solution, rnd, SIZE_WEIGHTS[level]);
-    const r = rateCalc(p);
+    const p = randomCages(n, solution, rnd, (n === 7 && SIZE_WEIGHTS_7[level]) || SIZE_WEIGHTS[level]);
+    const r = rateCalc(p, level !== "Expert");
     if (r) {
       const miss = Math.abs(CALC_LEVELS.indexOf(r.level) - want);
       if (!miss) return p;

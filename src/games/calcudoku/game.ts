@@ -114,4 +114,13 @@ export const CALCUDOKU: LiteGame<CalcPuzzle> = {
   techniques: CALC_TECHNIQUES,
   examples: CALC_EXAMPLES,
   hintToPlacement: true,
+  notes: {
+    regionOf: (p, i) => p.cageOf[i],
+    name: (p, k) => {
+      const c = p.cages[k];
+      const first = Math.min(...c.cells);
+      return `${c.target}${c.op} at r${Math.floor(first / p.n) + 1}c${(first % p.n) + 1}`;
+    },
+    skip: (p, k) => p.cages[k].cells.length === 1,
+  },
 };

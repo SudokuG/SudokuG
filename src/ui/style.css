@@ -534,7 +534,9 @@ html[data-game]:not([data-game="sudoku"]) .layout, html[data-game]:not([data-gam
 }
 
 /* Rings, struck candidates, the ring key, auto-finish */
-.lite-pill.ring { width: calc(var(--cell-fs) * 0.46); height: calc(var(--cell-fs) * 0.46); padding: 0; border-width: 2px; }
+.lite-pill .ghost { visibility: hidden; }
+.lite-pad button.dot-key.arming { background: linear-gradient(var(--hint-soft), var(--hint-soft)) no-repeat left / 0% 100%, var(--btn); animation: ring-arm 2s linear forwards; }
+@keyframes ring-arm { to { background-size: 100% 100%, auto; } }
 .lite-pill .gone { color: var(--elim); text-decoration: line-through; text-decoration-thickness: 2px; }
 .lite-cell.target .lite-pill.ring { border-color: var(--place); }
 .lite-cell.target { color: var(--place); }
@@ -565,6 +567,24 @@ html[data-game]:not([data-game="sudoku"]) .layout, html[data-game]:not([data-gam
 .calc-label.done { color: var(--muted); opacity: 0.55; }
 .calc-label.bad { color: var(--elim); }
 
+/* Notes per cage (Calcudoku): a list beside the grid; on a phone, a bar under the grid. */
+.lite-notes { display: flex; flex-direction: column; gap: 8px; }
+.note-list { display: flex; flex-direction: column; gap: 6px; }
+.note { display: flex; flex-direction: column; gap: 3px; }
+.note-name { font-size: 0.78rem; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+.note.active .note-name { color: var(--pen); }
+.note textarea { font: inherit; font-size: 0.92rem; resize: none; overflow: hidden; min-height: 2.2em; padding: 6px 9px; border-radius: 8px; border: 1px solid var(--btn-border); background: var(--surface); color: var(--ink); word-break: normal; }
+.note.active textarea { border-color: var(--pen); }
+.lite-cell.note-region { background: var(--hint-soft); }
+@media (max-width: 760px) {
+  .lite .pane [data-r="notes"] { order: -1; }
+  .lite-notes .notes-title { display: none; }
+  .lite-notes .note:not(.active):not(:focus-within) { display: none; }
+  .note { flex-direction: row; align-items: center; gap: 8px; }
+  .note-name { flex: none; min-width: 4.5em; }
+  .note textarea { flex: 1; min-width: 0; }
+}
+
 /* The puzzle-type dropdown at the top of each Puzzles tab */
 .type-pick { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
 .type-pick label { font-weight: 700; }
@@ -590,9 +610,9 @@ html[data-game]:not([data-game="sudoku"]) .layout, html[data-game]:not([data-gam
 .futoshiki-board .lite-cell.given { border-width: 3px; }
 .futo-sign { display: grid; place-items: center; min-width: 0; }
 .futo-sign.v { aspect-ratio: 1 / 0.42; }
-.futo-sign svg { width: calc(var(--cw) * 0.34); height: calc(var(--cw) * 0.34); overflow: visible; }
-.futo-sign path { fill: none; stroke: var(--ink); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-.futo-sign.bad path { stroke: var(--elim); stroke-width: 1.9; }
+.futo-sign svg { width: calc(var(--cw) * 0.42); height: calc(var(--cw) * 0.42); overflow: visible; }
+.futo-sign path { fill: none; stroke: var(--ink); stroke-width: 1.05; stroke-linecap: round; stroke-linejoin: round; }
+.futo-sign.bad path { stroke: var(--elim); stroke-width: 1.4; }
 
 
 /* ---- Printing: the dialog ------------------------------------------------------ */

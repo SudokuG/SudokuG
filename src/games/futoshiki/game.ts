@@ -21,8 +21,9 @@ const GAP = 0.42;
 function chevron(p: FutoshikiPuzzle, a: number, b: number): string {
   const vertical = b - a === p.n;
   const aSmaller = p.solution[a] < p.solution[b];
-  if (!vertical) return aSmaller ? "M7 1.8L3 5L7 8.2" : "M3 1.8L7 5L3 8.2";
-  return aSmaller ? "M1.8 7L5 3L8.2 7" : "M1.8 3L5 7L8.2 3";
+  // Long arms and a narrow opening (about 64°) read as "<" at a glance, also when small.
+  if (!vertical) return aSmaller ? "M7.6 2L2.4 5L7.6 8" : "M2.4 2L7.6 5L2.4 8";
+  return aSmaller ? "M2 7.6L5 2.4L8 7.6" : "M2 2.4L5 7.6L8 2.4";
 }
 
 export function futoshikiSvg(p: FutoshikiPuzzle, entries?: number[], cands?: number[]): string {
@@ -44,10 +45,10 @@ export function futoshikiSvg(p: FutoshikiPuzzle, entries?: number[], cands?: num
     if (!p.signs[k]) return;
     const vertical = b - a === N;
     // The 10×10 chevron box, scaled up and centred in the gap.
-    const s = 4.2;
+    const s = 4.4;
     const cx = vertical ? at(a % N) + C / 2 : at(a % N) + C + G / 2;
     const cy = vertical ? at(Math.floor(a / N)) + C + G / 2 : at(Math.floor(a / N)) + C / 2;
-    t.push(`<path d="${chevron(p, a, b)}" transform="translate(${cx - 5 * s} ${cy - 5 * s}) scale(${s})" fill="none" stroke="#000" stroke-width="${5 / s}" stroke-linecap="round" stroke-linejoin="round"/>`);
+    t.push(`<path d="${chevron(p, a, b)}" transform="translate(${cx - 5 * s} ${cy - 5 * s}) scale(${s})" fill="none" stroke="#000" stroke-width="${4 / s}" stroke-linecap="round" stroke-linejoin="round"/>`);
   });
   const pad = 6;
   return `<svg class="pz-grid" viewBox="${-pad} ${-pad} ${W + 2 * pad} ${W + 2 * pad}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Futoshiki puzzle"><rect x="${-pad}" y="${-pad}" width="${W + 2 * pad}" height="${W + 2 * pad}" fill="#fff"/><g font-family='${FONT}'>${t.join("")}</g></svg>`;

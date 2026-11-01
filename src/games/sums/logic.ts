@@ -20,6 +20,7 @@
 
 import { bitsOf, cellName, listJoin, onlyBit, popcount, valueName } from "../logic";
 import type { CellValue, LiteStep } from "../logic";
+import { trialChain } from "../latin-steps";
 import { cluesOf, randomGrid } from "./engine";
 import type { SumsPuzzle } from "./engine";
 
@@ -399,39 +400,64 @@ function easiest(p: SumsPuzzle, s: SumsState): LiteStep | "contradiction" | null
 const solved = (s: SumsState) => s.placed.every(Boolean);
 
 /** Apply steps up to level 4 until solved, stuck or contradicted. */
-function propagate(p: SumsPuzzle, s: SumsState): "solved" | "stuck" | "contradiction" {
-  for (let k = 0; k < 400; k++) {
-    if (solved(s)) return "solved";
-    const st = easiest(p, s);
-    if (st === "contradiction") return "contradiction";
-    if (!st) return "stuck";
-    applyStep(p, s, st);
+/** Why a state can't be right: a cell with nothing left, a line short of X's, a digit with no place, or a clue that can't be met. */
+function why(p: SumsPuzzle, s: SumsState): { text: string; cells: number[] } | null {
+  const n = p.n;
+  for (let i = 0; i < n * n; i++) if (!s.dom[i]) return { text: `${cellName(n, i)} would have nothing left`, cells: [i] };
+  for (const line of linesOf(p)) {
+    for (let d = 1; d <= n - 2; d++) if (!line.cells.some((c) => s.dom[c] & (1 << d))) return { text: `the ${d} would have no place left in ${line.name}`, cells: line.cells };
+    if (line.cells.filter((c) => s.dom[c] & 1).length < 2) return { text: `${line.name} would have no room for two X's`, cells: line.cells };
+    if (!lineWays(s.dom, line).ways) return { text: `${line.name} could no longer add up to ${line.clue.join(" ")}`, cells: line.cells };
   }
-  return "stuck";
+  return null;
 }
 
 const trialStep: Finder = (p, s) => {
   // Cells with the fewest possibilities first: those are the easiest to try.
   const cells = s.dom.map((d, i) => [i, popcount(d)]).filter(([i, k]) => !s.placed[i] && k > 1).sort((a, b) => a[1] - b[1]);
-  for (const [i] of cells)
+  // Of the first few digits that break, show the one with the shortest chain.
+  let best: { i: number; v: number; chain: string[]; reason: { text: string; cells: number[] } } | null = null;
+  let found = 0;
+  search: for (const [i] of cells)
     for (const v of bitsOf(s.dom[i])) {
       const t = cloneState(s);
       place(p, t, i, v);
-      if (propagate(p, t) === "contradiction") {
-        const name = cellName(p.n, i);
-        return {
-          technique: "Trial",
-          level: 5,
-          weight: 25,
-          placements: [],
-          eliminations: [{ cell: i, value: v }],
-          region: [i],
-          nudge: `Try a possibility in ${name} and follow where it leads.`,
-          explanation: `Suppose ${name} were ${v ? v : "an X"}. Following the easier steps from there runs into a contradiction (some line can no longer add up), so ${name} ${v ? `isn't ${v}` : "isn't an X"}.`,
-        };
+      const steps: LiteStep[] = [];
+      const doms: number[][] = [];
+      let broken = false;
+      for (let k = 0; k < 400 && !solved(t); k++) {
+        const st = easiest(p, t);
+        if (st === "contradiction") {
+          broken = true;
+          break;
+        }
+        if (!st) break;
+        steps.push(st);
+        doms.push([...t.dom]);
+        applyStep(p, t, st);
       }
+      if (!broken) continue;
+      const reason = why(p, t) ?? { text: "some line could no longer add up", cells: [] };
+      const chain = trialChain(p.n, steps, reason, doms);
+      if (!best || chain.length < best.chain.length) best = { i, v, chain, reason };
+      if (++found >= 4 || chain.length <= 3) break search;
     }
-  return null;
+  if (!best) return null;
+  const { i, v, chain, reason } = best;
+  const name = cellName(p.n, i);
+  const what = v ? String(v) : "an X";
+  const said = chain.length ? `Then ${chain.join("; ")}; and then ${reason.text}.` : `Then at once ${reason.text}.`;
+  return {
+    technique: "Trial",
+    level: 5,
+    weight: 25,
+    placements: [],
+    eliminations: [{ cell: i, value: v }],
+    region: [i, ...reason.cells],
+    nudge: `Try ${what} in ${name} and follow where it leads.`,
+    explanation: `Suppose ${name} were ${what}. ${said} That can't be, so ${name} ${v ? `isn't ${v}` : "isn't an X"}.`,
+    parts: [{ elims: [{ cell: i, value: v }], text: `${what} in ${name} would lead to a contradiction (${reason.text}), so ${name} ${v ? `isn't ${v}` : "isn't an X"}` }],
+  };
 };
 
 /** The next step (easiest first), or null when even trial finds nothing. */

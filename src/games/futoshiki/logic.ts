@@ -14,7 +14,7 @@
 import { bitsOf, cellName, describeEliminations, listJoin, onlyBit, popcount } from "../logic";
 import type { CellValue, LiteStep } from "../logic";
 import { shuffle } from "../latin";
-import { cloneLatin, hiddenSingle, placeLatin, single, subsets } from "../latin-steps";
+import { cloneLatin, hiddenSingle, latinTrial, latinWhy, placeLatin, single, subsets, xWing } from "../latin-steps";
 import type { LatinState } from "../latin-steps";
 import { generateFutoshiki, inequalities, pairsOf } from "./engine";
 import type { FutoshikiPuzzle } from "./engine";
@@ -83,7 +83,79 @@ const sign: Finder = (p, s) => {
   return null;
 };
 
-const FINDERS: Finder[] = [single, hiddenSingle, sign, subsets(2), subsets(3)];
+/**
+ * A chain of signs pointing the same way, a < b < c < …: each cell is at least its place in the
+ * chain and at most n minus the cells above it. Seen at a glance, before working sign by sign.
+ */
+const signChain: Finder = (p, s) => {
+  const n = p.n;
+  const less = inequalities(p);
+  const smaller = new Map<number, number[]>();
+  const larger = new Map<number, number[]>();
+  for (const [a, b] of less) {
+    smaller.set(b, [...(smaller.get(b) ?? []), a]);
+    larger.set(a, [...(larger.get(a) ?? []), b]);
+  }
+  const memo = (next: Map<number, number[]>) => {
+    const m = new Map<number, number>();
+    const len = (c: number): number => {
+      if (m.has(c)) return m.get(c)!;
+      const v = 1 + Math.max(0, ...(next.get(c) ?? []).map(len));
+      m.set(c, v);
+      return v;
+    };
+    return len;
+  };
+  const below = memo(smaller);
+  const above = memo(larger);
+  // Longest chains first.
+  const cells = [...Array(n * n).keys()].filter((c) => below(c) + above(c) - 1 >= 3).sort((x, y) => below(y) + above(y) - (below(x) + above(x)));
+  for (const c of cells) {
+    // The chain through c: follow the longest way down and up.
+    const down: number[] = [];
+    for (let x = c; (smaller.get(x) ?? []).length; ) {
+      x = smaller.get(x)!.reduce((best, y) => (below(y) > below(best) ? y : best));
+      down.unshift(x);
+    }
+    const up: number[] = [];
+    for (let x = c; (larger.get(x) ?? []).length; ) {
+      x = larger.get(x)!.reduce((best, y) => (above(y) > above(best) ? y : best));
+      up.push(x);
+    }
+    const chain = [...down, c, ...up];
+    const L = chain.length;
+    const elims: CellValue[] = [];
+    chain.forEach((cell, j) => {
+      if (s.placed[cell]) return;
+      for (const d of bitsOf(s.dom[cell])) if (d < j + 1 || d > n - (L - 1 - j)) elims.push({ cell, value: d });
+    });
+    if (!elims.length) continue;
+    const names = chain.map((x) => cellName(n, x));
+    return {
+      technique: "Sign Chain",
+      level: 2,
+      weight: L - 1,
+      placements: [],
+      eliminations: elims,
+      region: chain,
+      nudge: `Follow the chain of signs from ${names[0]} to ${names[L - 1]}.`,
+      explanation: `${names.join(" < ")}: ${L} cells, each bigger than the one before. ${chain
+        .map((_, j) => (j === 0 ? `${names[j]} is at most ${n - L + 1}` : j === L - 1 ? `${names[j]} at least ${L}` : `${names[j]} between ${j + 1} and ${n - (L - 1 - j)}`))
+        .join(", ")}. So ${describeEliminations(n, elims)}.`,
+      parts: chain
+        .map((cell, j) => ({ cell, j, gone: elims.filter((e) => e.cell === cell) }))
+        .filter((x) => x.gone.length)
+        .map((x) => ({
+          elims: x.gone,
+          premise: [],
+          text: `${names.join(" < ")}, so ${names[x.j]} (place ${x.j + 1} of ${L}) isn't ${listJoin(x.gone.map((e) => String(e.value))).replace(/ and /g, " or ")}`,
+        })),
+    };
+  }
+  return null;
+};
+
+const FINDERS: Finder[] = [single, hiddenSingle, signChain, sign, subsets(2), subsets(3), xWing];
 
 function easiest(p: FutoshikiPuzzle, s: FutoState): LiteStep | "contradiction" | null {
   for (const f of FINDERS) {
@@ -95,40 +167,16 @@ function easiest(p: FutoshikiPuzzle, s: FutoState): LiteStep | "contradiction" |
 
 const solved = (s: FutoState) => s.placed.every(Boolean);
 
-function propagate(p: FutoshikiPuzzle, s: FutoState): "solved" | "stuck" | "contradiction" {
-  for (let k = 0; k < 600; k++) {
-    if (solved(s)) return "solved";
-    const st = easiest(p, s);
-    if (st === "contradiction") return "contradiction";
-    if (!st) return "stuck";
-    applyStep(p, s, st);
-  }
-  return "stuck";
-}
-
-function trial(p: FutoshikiPuzzle, s: FutoState): LiteStep | null {
-  const cells = s.dom.map((d, i) => [i, popcount(d)]).filter(([i, k]) => !s.placed[i] && k > 1).sort((a, b) => a[1] - b[1]);
-  for (const [i] of cells)
-    for (const v of bitsOf(s.dom[i])) {
-      const t = cloneState(s);
-      place(p, t, i, v);
-      if (propagate(p, t) === "contradiction") {
-        const name = cellName(p.n, i);
-        return {
-          technique: "Trial",
-          level: 5,
-          weight: 20,
-          placements: [],
-          eliminations: [{ cell: i, value: v }],
-          region: [i],
-          nudge: `Try a digit in ${name} and follow where it leads.`,
-          explanation: `Suppose ${name} were ${v}. Following the easier steps from there runs into a contradiction, so ${name} isn't ${v}.`,
-          parts: [{ elims: [{ cell: i, value: v }], text: `trying ${v} in ${name} leads to a contradiction, so ${name} isn't ${v}` }],
-        };
-      }
-    }
+/** Why a state can't be right: the Latin-square reasons, or a sign that can no longer hold. */
+function why(p: FutoshikiPuzzle, s: FutoState): { text: string; cells: number[] } | null {
+  const w = latinWhy(p, s);
+  if (w) return w;
+  for (const [a, b] of inequalities(p))
+    if (lowest(s.dom[a]) >= highest(s.dom[b])) return { text: `${cellName(p.n, a)} could no longer be smaller than ${cellName(p.n, b)}`, cells: [a, b] };
   return null;
 }
+
+const trial = (p: FutoshikiPuzzle, s: FutoState) => latinTrial(p, s, easiest, applyStep, why);
 
 export function nextStep(p: FutoshikiPuzzle, s: FutoState): LiteStep | null {
   const r = easiest(p, s);
