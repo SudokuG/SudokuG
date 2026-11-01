@@ -8,6 +8,7 @@ import { seededRandom } from "../src/engine";
 import type { LiteGame, LitePuzzle } from "../src/games/lite";
 import type { LiteStep } from "../src/games/logic";
 import { FUTOSHIKI } from "../src/games/futoshiki/game";
+import { CALCUDOKU } from "../src/games/calcudoku/game";
 import { TREASURE_MAP } from "../src/games/sums/game";
 import { cluesOf, randomGrid, solveSums } from "../src/games/sums/engine";
 
@@ -76,3 +77,4 @@ write(
   }),
 );
 write("src/games/futoshiki/examples.ts", "FUTO_EXAMPLES", "Futoshiki", find(FUTOSHIKI, () => null));
+write("src/games/calcudoku/examples.ts", "CALC_EXAMPLES", "Calcudoku", find(CALCUDOKU, () => null));

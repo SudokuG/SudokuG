@@ -6,7 +6,6 @@
   <header class="top">
     <div class="brand">
       <h1>SudokuG</h1>
-      <nav id="game-pick" class="game-pick" aria-label="Puzzle type"></nav>
     </div>
     <div class="meta">
       <span id="puzzle-name" class="puzzle-name" hidden></span>
@@ -124,6 +123,7 @@
 
       <!-- Puzzles -->
       <div id="pane-puzzles" class="pane" role="tabpanel" aria-labelledby="tab-puzzles" hidden>
+        <div class="type-pick" data-type-pick></div>
         <h2 class="pane-title">Daily puzzles</h2>
         <p id="daily-date" class="small"></p>
         <div id="daily-pick" class="daily-pick"></div>
@@ -257,6 +257,7 @@
   <!-- The lighter puzzle types: filled in by src/games/lite.ts -->
   <main id="game-sums" class="game-view lite" aria-label="Treasure Map"></main>
   <main id="game-futoshiki" class="game-view lite" aria-label="Futoshiki"></main>
+  <main id="game-calcudoku" class="game-view lite" aria-label="Calcudoku"></main>
 
   <div id="update-toast" class="toast" role="status" hidden>
     <span>A new version of SudokuG is ready. Your game is saved, so nothing is lost.</span>

@@ -2,7 +2,7 @@
 // types live in src/games/<type>/ and are made on the spot when you ask for one.
 // The choice is remembered in this browser; a puzzle link opens its own type.
 
-export type GameId = "sudoku" | "sums" | "futoshiki";
+export type GameId = "sudoku" | "sums" | "futoshiki" | "calcudoku";
 
 export interface GameInfo {
   id: GameId;
@@ -14,6 +14,7 @@ export const GAMES: GameInfo[] = [
   { id: "sudoku", title: "Sudoku" },
   { id: "sums", title: "Treasure Map" },
   { id: "futoshiki", title: "Futoshiki" },
+  { id: "calcudoku", title: "Calcudoku" },
 ];
 
 const KEY = "sudokug-puzzle-type"; // ("sudokug-game" was the old sudoku save)
@@ -47,26 +48,28 @@ export function setGame(g: GameId): void {
     /* ignore */
   }
   document.documentElement.dataset.game = g;
-  document.querySelectorAll<HTMLButtonElement>("#game-pick button").forEach((b) => {
-    const on = b.dataset.game === g;
-    b.classList.toggle("on", on);
-    b.setAttribute("aria-pressed", String(on));
-  });
+  document.querySelectorAll<HTMLSelectElement>("select[data-type-select]").forEach((sel) => (sel.value = g));
   for (const f of listeners) f(g);
 }
 
-/** Build the switcher in the header and show the current game. */
+let pickers = 0;
+/**
+ * The puzzle-type dropdown, at the top of every Puzzles tab (fills each [data-type-pick]
+ * element; the light puzzles' pages must be built first). Shows the current type.
+ */
 export function initGamePicker(): void {
-  const nav = document.getElementById("game-pick")!;
-  nav.replaceChildren(
-    ...GAMES.map((g) => {
-      const b = document.createElement("button");
-      b.type = "button";
-      b.dataset.game = g.id;
-      b.textContent = g.title;
-      b.addEventListener("click", () => setGame(g.id));
-      return b;
-    }),
-  );
+  document.querySelectorAll<HTMLElement>("[data-type-pick]").forEach((box) => {
+    if (box.querySelector("select")) return;
+    const id = `type-pick-${++pickers}`;
+    const label = document.createElement("label");
+    label.htmlFor = id;
+    label.textContent = "Puzzle";
+    const sel = document.createElement("select");
+    sel.id = id;
+    sel.dataset.typeSelect = "";
+    for (const g of GAMES) sel.add(new Option(g.title, g.id));
+    sel.addEventListener("change", () => setGame(sel.value as GameId));
+    box.append(label, sel);
+  });
   setGame(current);
 }

@@ -7,7 +7,8 @@ technique first), every puzzle gets a difficulty and a "grind" rating, and the g
 makes puzzles of a chosen difficulty where no tedious triple, quad or long chain is ever
 the only way forward: few clues, lots of X-Wings, Skyscrapers, Kites and hidden pairs.
 Every puzzle has a (food) name, and puzzles can be printed or saved as PDF. Next to sudoku
-there are lighter puzzle types, made on the spot: Treasure Map and Futoshiki (see below). On a phone or computer you can install it from the browser
+there are lighter puzzle types, made on the spot: Treasure Map, Futoshiki and Calcudoku (see
+below). On a phone or computer you can install it from the browser
 ("Add to home screen" / "Install") and play offline.
 
 ## Getting started
@@ -75,8 +76,10 @@ src/
   games/latin.ts     random Latin squares and base-62 codes; games/draw.ts: print pieces
   games/sums/        Treasure Map: engine.ts (grid, clues, brute-force solver, codes),
                      logic.ts (step-by-step solver, rating, levels), game.ts (board, printing)
-  games/futoshiki/   Futoshiki: the same three files; both also have techniques.ts (the
+  games/futoshiki/   Futoshiki: the same three files; all also have techniques.ts (the
                      Techniques tab) and examples.ts (worked examples, npm run lite-examples)
+  games/calcudoku/   Calcudoku: the same
+  games/latin-steps.ts  steps shared by the Latin-square puzzles (singles, pairs, triples)
   ui/games.ts        the puzzle-type switcher in the header
   ui/print-dialog.ts the print dialog, shared by all puzzle types
   samples.ts         built-in puzzles
@@ -343,8 +346,9 @@ Pressing Ctrl+P prints the current puzzle the same way instead of the whole page
 
 ## Other puzzle types
 
-The switcher next to the title chooses the puzzle type; the choice is remembered, and a
-link to a puzzle opens its type. Sudoku keeps the full app (`src/ui/app.ts`); the lighter
+The **Puzzle** dropdown at the top of every Puzzles tab chooses the puzzle type (the header
+stays free for the puzzle's name); the choice is remembered, and a link to a puzzle opens
+its type. Sudoku keeps the full app (`src/ui/app.ts`); the lighter
 types share one page laid out like sudoku's (`src/games/lite.ts`): Play, Puzzles, Options
 and Techniques tabs; the code row under the board (at the bottom on a phone). Play has the
 pad, Undo, Erase, Candidates, Hint, Check and Reveal.
@@ -414,14 +418,21 @@ until it is no harder than asked; then every sign and digit whose removal keeps 
 at its level is taken away, pass after pass, so every clue that is left helps. Expert
 puzzles stay minimal. About 10 ms to 1 s; codes look like `F6-…-…-…`.
 
-**Planned next**:
-1. **Calcudoku** (KenKen-style; theme: overcomplicated engineering terms). A Latin square
-   cut into cages with a target and an operation (+ − × ÷). Reuses the Latin square, the
-   page and the Futoshiki solver shape; new are the cages (random growing regions) and
-   drawing them. Sizes 4×4 to 6×6 (more is possible, but slow to check by hand).
-2. **Star Battle** (theme: sci-fi battles and tech). Stars in a grid with irregular regions,
-   one or two per row, column and region, never touching. No digits, a region generator and
-   its own solver, so last.
+**Calcudoku** (theme: overcomplicated engineering terms; also known as KenKen, a trademark).
+Every row and column holds 1 to n once; thick lines make cages whose digits add (+),
+multiply (×), or in two cells differ (−) or divide (÷) to the target; one-cell cages are
+given. 5×5, 6×6 or 7×7. Steps: Single, Hidden Single, Cage Options (every way to fill a cage
+with the digits still possible; up to 3 ways is easy), Naked and Hidden Pair, Must-Have Digit
+(a digit every way of a cage uses, always in one line, leaves the rest of that line), Naked
+and Hidden Triple, Trial. Rating as Futoshiki (`CALC_CUTS`). A puzzle is a random Latin
+square with random cages (smaller cages for easier levels), kept when the steps solve it at
+the asked level; most random cagings have more than one solution and are dropped. About
+50 ms (5×5) to 1-3 s (7×7). Codes look like `K6-…-…-…` (solution, cage of each cell, the
+operation of each cage; the targets follow).
+
+**Planned next**: **Star Battle** (theme: sci-fi battles and tech). Stars in a grid with
+irregular regions, one or two per row, column and region, never touching. No digits, a
+region generator and its own solver.
 
 ## Puzzle codes
 
@@ -440,8 +451,8 @@ opens that puzzle directly (the "Copy link" button under the board makes one).
 6. ~~Generator that keeps only puzzles matching a rating filter~~
 7. ~~Sculpted puzzles: few clues, lots of X-Wing-type moves and hidden pairs, capped hardest moves~~
 8. ~~Names and printing~~
-9. ~~Treasure Map (Japanese Sums), Futoshiki~~
-10. Next: Calcudoku, Star Battle (see Other puzzle types); more sudoku techniques
+9. ~~Treasure Map (Japanese Sums), Futoshiki, Calcudoku~~
+10. Next: Star Battle (see Other puzzle types); more sudoku techniques
 
 ## Licence
 

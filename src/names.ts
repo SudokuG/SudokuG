@@ -132,8 +132,43 @@ const ARTHURIAN: NameTheme = {
   ],
 };
 
+/** Calcudoku: overcomplicated engineering terms. */
+const ENGINEERING: NameTheme = {
+  first: {
+    Easy: [
+      "Basic", "Standard", "Manual", "Simplified", "Entry-Level", "Low-Voltage", "Hand-Cranked", "Analogue",
+      "Single-Phase", "Unpowered", "Prototype", "Pocket-Sized", "Starter", "Passive", "Desktop", "Training",
+    ],
+    Medium: [
+      "Modular", "Calibrated", "Synchronised", "Pneumatic", "Hydraulic", "Bi-Directional", "Auto-Adjusting", "Dual-Stage",
+      "Torque-Assisted", "Variable-Pitch", "Thermostatic", "Gyro-Stabilised", "Counter-Balanced", "Load-Bearing", "Pressure-Sealed", "Servo-Driven",
+    ],
+    Hard: [
+      "Turbocharged", "Quantum-Coupled", "Hyperbolic", "Multi-Axial", "Cryogenic", "Plasma-Cooled", "Magnetically Levitated", "Triple-Redundant",
+      "Harmonically Damped", "Supercritical", "Phase-Shifted", "Fly-by-Wire", "Inverse-Kinematic", "Electro-Hydraulic", "High-Torque", "Self-Lubricating",
+    ],
+    Expert: [
+      "Recursive Self-Calibrating", "Non-Euclidean", "Fully Asynchronous", "Over-Engineered", "Trans-Dimensional", "Hyper-Redundant", "Ludicrously Overclocked", "Fractally Nested",
+      "Thermonuclear", "Retro-Encabulated", "Infinitely Adjustable", "Exponentially Geared", "Anti-Entropic", "Chrono-Synchronised", "Omni-Directional", "Tachyon-Primed",
+    ],
+    Other: ["Experimental", "Unlabelled", "Classified", "Reverse-Engineered", "Patent-Pending", "Salvaged", "Bespoke", "Unfinished"],
+  },
+  middle: [
+    "Flux", "Torque", "Thermo-Kinetic", "Gyroscopic", "Differential", "Harmonic", "Sprocket", "Turbine",
+    "Piston", "Capacitive", "Inductive", "Centrifugal", "Ferro-Magnetic", "Photonic", "Ratchet", "Ballistic",
+    "Carburettor", "Hydro-Static", "Feedback", "Vortex", "Crankshaft", "Gimbal", "Valve", "Oscillation",
+    "Laser", "Resonance", "Spindle", "Pulse", "Thermal", "Cam", "Dynamo", "Plasma",
+  ],
+  last: [
+    "Regulator", "Manifold", "Actuator", "Dampener", "Inverter", "Modulator", "Oscillator", "Gearbox",
+    "Capacitor", "Compensator", "Encabulator", "Transducer", "Governor", "Coupling", "Flywheel", "Rectifier",
+    "Accumulator", "Servomechanism", "Calibrator", "Converter", "Stabiliser", "Thruster", "Assembly", "Mechanism",
+    "Apparatus", "Resonator", "Contraption", "Turbocharger", "Gasket", "Dynamo", "Integrator", "Amplifier",
+  ],
+};
+
 /** One theme per puzzle type. New puzzle types get a theme of their own. */
-export const NAME_THEMES: Record<string, NameTheme> = { sudoku: FOOD, sums: PIRATES, futoshiki: ARTHURIAN };
+export const NAME_THEMES: Record<string, NameTheme> = { sudoku: FOOD, sums: PIRATES, futoshiki: ARTHURIAN, calcudoku: ENGINEERING };
 
 /** Capitalise every word, also after a hyphen ("flaming-hot" → "Flaming-Hot"). */
 export const titleCase = (s: string) => s.replace(/(^|[\s-])([a-z])/g, (_, sep: string, ch: string) => sep + ch.toUpperCase());

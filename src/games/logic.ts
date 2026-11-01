@@ -219,7 +219,7 @@ export function liteHint<S extends { dom: number[]; placed: boolean[] }>(o: Lite
         eliminations: [],
         region: [...new Set([...used.flatMap((x) => x.region), ...st.region])],
         nudge: single ? `${where} can be filled in: ${tools} rule out the other digits.` : `${st.nudge} Use ${tools} to rule out the other places.`,
-        explanation: `${reasons} So ${st.explanation[0].toLowerCase()}${st.explanation.slice(1)}`,
+        explanation: `${reasons} ${single ? `That leaves ${valueName(pl.value)} as the only ${pl.value ? "digit" : "possibility"} for ${where}.` : `So ${st.explanation[0].toLowerCase()}${st.explanation.slice(1)}`}`,
       },
     };
   }

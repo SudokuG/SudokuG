@@ -41,6 +41,7 @@ import { currentGame, initGamePicker, onGameChange } from "./games";
 import { initLite } from "../games/lite";
 import { TREASURE_MAP } from "../games/sums/game";
 import { FUTOSHIKI } from "../games/futoshiki/game";
+import { CALCUDOKU } from "../games/calcudoku/game";
 import { openPrintDialog, setCurrentPrint, wirePrintDialog } from "./print-dialog";
 import type { PrintPuzzle } from "./print";
 import { browserId, markPlayed, playedSet } from "./played";
@@ -1898,7 +1899,6 @@ function init(): void {
     setTab("puzzles");
   }
   // The other puzzle types (a link to one of them switches to it).
-  initGamePicker();
   // They share the site-wide theme, which lives with the sudoku settings.
   const theme = {
     get: () => S.settings.theme,
@@ -1911,6 +1911,9 @@ function init(): void {
   };
   initLite(TREASURE_MAP, $("game-sums"), theme);
   initLite(FUTOSHIKI, $("game-futoshiki"), theme);
+  initLite(CALCUDOKU, $("game-calcudoku"), theme);
+  // The puzzle-type dropdowns (one in each Puzzles tab), now that every page is built.
+  initGamePicker();
 }
 
 /**

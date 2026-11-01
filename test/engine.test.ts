@@ -37,6 +37,9 @@ import { SUMS_LEVELS, logicSolveSums, makeSums, rateSumsPuzzle } from "../src/ga
 import { FUTO_LEVELS, logicSolveFutoshiki, makeFutoshiki, rateFutoshiki } from "../src/games/futoshiki/logic";
 import { TREASURE_MAP } from "../src/games/sums/game";
 import { FUTOSHIKI } from "../src/games/futoshiki/game";
+import { CALCUDOKU } from "../src/games/calcudoku/game";
+import { CALC_SIZES, countCalc, decodeCalc, encodeCalc, meets } from "../src/games/calcudoku/engine";
+import { CALC_LEVELS, logicSolveCalc, makeCalc, rateCalc } from "../src/games/calcudoku/logic";
 import type { LiteStep } from "../src/games/logic";
 import { RING, liteHint, singlesFinish } from "../src/games/logic";
 import type { LiteGame, LitePuzzle } from "../src/games/lite";
@@ -466,6 +469,33 @@ const RECIPE_FROM = Math.round((Date.parse("2026-11-02T12:00:00Z") - Date.parse(
   };
   checkExamples(TREASURE_MAP);
   checkExamples(FUTOSHIKI);
+  checkExamples(CALCUDOKU);
+
+  // Calcudoku: each size and level; exactly one solution (brute force agrees), cages meet
+  // their targets, codes round-trip, steps never rule out the right digit, hints place one.
+  let calcs = 0;
+  for (const size of CALC_SIZES)
+    for (const level of CALC_LEVELS)
+      for (let seed = 1; seed <= (size === 7 ? 1 : 2); seed++) {
+        const it = makeCalc(size, level, seededRandom(seed * 4001 + size * 13 + level.length), 8000);
+        let r = it.next();
+        while (!r.done) r = it.next();
+        const p = r.value;
+        calcs++;
+        const label = `calcudoku ${size}×${size} ${level}`;
+        if (rateCalc(p)?.level !== level) fail(`${label}: rated ${rateCalc(p)?.level ?? "unsolvable"}`);
+        if (countCalc(p, 2) !== 1) fail(`${label}: not exactly one solution`);
+        for (const c of p.cages) if (!meets(c, c.cells.map((i) => p.solution[i]))) fail(`${label}: a cage doesn't meet its target`);
+        const back = decodeCalc(encodeCalc(p));
+        if (back.solution.join() !== p.solution.join() || back.cageOf.join() !== p.cageOf.join() || back.cages.map((c) => c.op + c.target).join() !== p.cages.map((c) => c.op + c.target).join()) fail(`${label}: code round trip failed`);
+        sound(label, p.solution, logicSolveCalc(p).steps);
+        if (seed === 1) {
+          const cells = p.solution.map((v, i) => (p.givens[i] ? v : -1));
+          const h = liteHint(CALCUDOKU.solver(p), { n: size, solution: p.solution, givens: p.givens, cells, cands: cells.map(() => 0), digits: ((1 << (size + 1)) - 1) & ~1 }, true);
+          if (h.kind !== "step" || h.step.placements.length !== 1 || h.step.placements[0].value !== p.solution[h.step.placements[0].cell]) fail(`${label}: the hint from the start doesn't place a right digit`);
+        }
+      }
+  console.log(`Calcudoku: ${calcs} puzzles made and checked.`);
   console.log(`Step-by-step solvers: ${maps} treasure maps and ${futos} futoshikis checked. Steps used: ${JSON.stringify(seenTech)}`);
 }
 

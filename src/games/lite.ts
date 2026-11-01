@@ -191,6 +191,7 @@ function markup<P extends LitePuzzle>(g: LiteGame<P>, theme: boolean): string {
         </div>
       </div>
       <div data-pane="puzzles" class="pane" role="tabpanel" hidden>
+        <div class="type-pick" data-type-pick></div>
         <h2 class="pane-title">New ${esc(g.noun)}</h2>
         <span class="small-label">Size</span>
         <div data-r="sizes" class="diff-pick lite-sizes" role="radiogroup" aria-label="Size"></div>
@@ -838,7 +839,7 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
     }
     g.decorate(board, S.p, cells, S.sel);
     el("name").textContent = nameOf(S.code, S.level);
-    el("label").textContent = `${S.level} · ${N}×${N}`;
+    el("label").textContent = `${g.title} · ${S.level} · ${N}×${N}`;
     all("code").forEach((x) => (x.textContent = S.code));
     el("timer").hidden = !opt.timer;
     btn("undo").disabled = !S.undo.length || S.solved;
