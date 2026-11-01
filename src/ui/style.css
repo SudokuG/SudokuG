@@ -533,6 +533,26 @@ html[data-game]:not([data-game="sudoku"]) .layout, html[data-game]:not([data-gam
   .lite-pad .pad-sticky { font-size: 1.4rem; }
 }
 
+/* Rings, struck candidates, the ring key, auto-finish */
+.lite-pill.ring { width: calc(var(--cell-fs) * 0.46); height: calc(var(--cell-fs) * 0.46); padding: 0; border-width: 2px; }
+.lite-pill .gone { color: var(--elim); text-decoration: line-through; text-decoration-thickness: 2px; }
+.lite-cell.target .lite-pill.ring { border-color: var(--place); }
+.lite-cell.target { color: var(--place); }
+.ring-key { display: inline-block; width: 0.7em; height: 0.7em; border: 2.5px solid currentColor; border-radius: 50%; vertical-align: -0.05em; }
+.lite-cell.pop { animation: pop 0.4s ease-out; color: var(--place); }
+
+/* Techniques tab: the worked example takes the board's place. */
+.lite-guide { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.lite-guide .guide-title { align-self: stretch; text-align: center; }
+.lite-guide [data-r="guide-example"] { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.lite-guide .rules h3 { font-size: 0.74rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 16px 0 4px; }
+.lite-guide .rules { font-size: 0.95rem; color: var(--ink); }
+.lite-board.static { pointer-events: none; width: min(100%, 460px); }
+.lite.guiding .lite-board-wrap > :not(.lite-guide), .lite.guiding .code-row-mobile { display: none !important; }
+.key.k-region { background: var(--hint-soft); border: 1px solid var(--hint); }
+.key.k-put { background: var(--place-soft); border: 1px solid var(--place); }
+.key.k-gone { background: var(--error-soft); border: 1px solid var(--elim); }
+
 /* Treasure Map: clues on the left and on top, then n×n cells. */
 .sums-board { grid-template-columns: 1.5fr repeat(var(--n), 1fr); --cell-fs: calc(100cqi / (var(--n) + 1.5) * 0.56); }
 .sums-board .lite-cell { border-left: 1px solid var(--hair); border-top: 1px solid var(--hair); }

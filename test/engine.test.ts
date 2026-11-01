@@ -38,6 +38,8 @@ import { FUTO_LEVELS, logicSolveFutoshiki, makeFutoshiki, rateFutoshiki } from "
 import { TREASURE_MAP } from "../src/games/sums/game";
 import { FUTOSHIKI } from "../src/games/futoshiki/game";
 import type { LiteStep } from "../src/games/logic";
+import { RING, liteHint, singlesFinish } from "../src/games/logic";
+import type { LiteGame, LitePuzzle } from "../src/games/lite";
 
 let failures = 0;
 const fail = (msg: string) => {
@@ -381,11 +383,20 @@ const RECIPE_FROM = Math.round((Date.parse("2026-11-02T12:00:00Z") - Date.parse(
         for (const st of log.steps) seenTech[st.technique] = (seenTech[st.technique] ?? 0) + 1;
         if (seed === 1 && level === "Hard") {
           const empty = p.solution.map(() => -1);
-          const h = TREASURE_MAP.hint(p, empty, empty.map(() => 0));
+          const e = { n: p.n, solution: p.solution, givens: p.givens, cells: empty, cands: empty.map(() => 0), digits: ((1 << (p.n - 1)) - 1) & ~1 };
+          const h = liteHint(TREASURE_MAP.solver(p), e);
           if (h.kind !== "step") fail(`treasure map: no hint from the start (${h.kind})`);
           const wrong = empty.slice();
           wrong[0] = p.solution[0] === 1 ? 2 : 1;
-          if (TREASURE_MAP.hint(p, wrong, empty.map(() => 0)).kind !== "error") fail("treasure map: a wrong entry isn't pointed out");
+          if (liteHint(TREASURE_MAP.solver(p), { ...e, cells: wrong }).kind !== "error") fail("treasure map: a wrong entry isn't pointed out");
+          // A ring (not an X) on an X is a mistake too.
+          const xCell = p.solution.indexOf(0);
+          const ringed = e.cands.slice();
+          ringed[xCell] = RING;
+          if (liteHint(TREASURE_MAP.solver(p), { ...e, cands: ringed }).kind !== "error") fail("treasure map: a ring on an X isn't pointed out");
+          // Auto-finish: with all but a few cells filled, the rest follows from singles.
+          const most = p.solution.map((v, i) => (i % 9 === 4 ? -1 : v));
+          if (!singlesFinish(TREASURE_MAP.solver(p), { ...e, cells: most })) fail("treasure map: auto-finish doesn't see the last cells");
         }
       }
   let futos = 0;
@@ -403,11 +414,58 @@ const RECIPE_FROM = Math.round((Date.parse("2026-11-02T12:00:00Z") - Date.parse(
         if (!log.solved) fail(`futoshiki ${size}×${size} ${level}: the steps don't solve it`);
         sound(`futoshiki ${encodeFutoshiki(p)}`, p.solution, log.steps);
         for (const st of log.steps) seenTech["F " + st.technique] = (seenTech["F " + st.technique] ?? 0) + 1;
+        // No clue to spare: taking any sign or digit away changes the level, or (Expert) the
+        // solution is no longer unique.
+        const spare = () => {
+          const r = rateFutoshiki(p, false);
+          if (level !== "Expert") return r?.level === level;
+          return solveFutoshiki(p.n, inequalities(p), p.solution.map((v, i) => (p.givens[i] ? v : 0)), 2).count === 1;
+        };
+        if (seed === 2) {
+          for (let k = 0; k < p.signs.length; k++)
+            if (p.signs[k]) {
+              p.signs[k] = false;
+              if (spare()) fail(`futoshiki ${size}×${size} ${level}: sign ${k} isn't needed`);
+              p.signs[k] = true;
+            }
+          for (let i = 0; i < p.givens.length; i++)
+            if (p.givens[i]) {
+              p.givens[i] = false;
+              if (spare()) fail(`futoshiki ${size}×${size} ${level}: digit at ${i} isn't needed`);
+              p.givens[i] = true;
+            }
+        }
         if (seed === 1 && level === "Medium") {
           const empty = p.solution.map((v, i) => (p.givens[i] ? v : -1));
-          if (FUTOSHIKI.hint(p, empty, empty.map(() => 0)).kind !== "step") fail("futoshiki: no hint from the start");
+          const e = { n: p.n, solution: p.solution, givens: p.givens, cells: empty, cands: empty.map(() => 0), digits: ((1 << (p.n + 1)) - 1) & ~1 };
+          // Hints go to the next digit to place, without needing candidates.
+          const h = liteHint(FUTOSHIKI.solver(p), e, true);
+          if (h.kind !== "step" || h.step.placements.length !== 1) fail(`futoshiki: the hint from the start places no digit (${h.kind})`);
+          else if (h.step.placements[0].value !== p.solution[h.step.placements[0].cell]) fail("futoshiki: the hint places a wrong digit");
         }
       }
+  // Worked examples in the Techniques tab: each replays to a step of its technique.
+  const checkExamples = <P extends LitePuzzle>(g: LiteGame<P>) => {
+    for (const t of g.techniques) {
+      const ex = g.examples[t.name];
+      if (!ex) {
+        fail(`${g.title}: no worked example for ${t.name}`);
+        continue;
+      }
+      const p = g.decode(ex.code);
+      const solver = g.solver(p);
+      const s = solver.start();
+      let st: LiteStep | null = null;
+      for (let k = 0; k <= ex.step; k++) {
+        st = solver.next(s);
+        if (!st) break;
+        if (k < ex.step) solver.apply(s, st);
+      }
+      if (st?.technique !== t.name) fail(`${g.title}: the example for ${t.name} shows ${st?.technique ?? "nothing"} (run npm run lite-examples)`);
+    }
+  };
+  checkExamples(TREASURE_MAP);
+  checkExamples(FUTOSHIKI);
   console.log(`Step-by-step solvers: ${maps} treasure maps and ${futos} futoshikis checked. Steps used: ${JSON.stringify(seenTech)}`);
 }
 

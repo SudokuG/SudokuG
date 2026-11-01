@@ -3,7 +3,8 @@
 
 import { FONT, svgCell } from "../draw";
 import type { LiteGame } from "../lite";
-import { liteHint } from "../logic";
+import { FUTO_TECHNIQUES } from "./techniques";
+import { FUTO_EXAMPLES } from "./examples";
 import { FUTOSHIKI_SIZES, decodeFutoshiki, encodeFutoshiki, isFutoshikiCode, pairsOf } from "./engine";
 import type { FutoshikiPuzzle } from "./engine";
 import { FUTO_LEVELS, applyStep, makeFutoshiki, nextStep, place, rateFutoshiki, startState } from "./logic";
@@ -68,18 +69,15 @@ export const FUTOSHIKI: LiteGame<FutoshikiPuzzle> = {
     <p>A sign turns red when the digits next to it break it. Easy and Medium need singles and signs; Hard adds pairs and triples; Expert may need you to try a digit and see where it leads.</p>`,
   make: (n, level, rnd) => makeFutoshiki(n, level as FutoLevel, rnd),
   levelOf: (p) => rateFutoshiki(p)?.level ?? "Unrated",
-  hint: (p, cells, cands) =>
-    liteHint({
-      n: p.n,
-      solution: p.solution,
-      givens: p.givens,
-      cells,
-      cands,
-      start: () => startState(p),
-      place: (s, i, v) => place(p, s, i, v),
-      next: (s) => nextStep(p, s),
-      apply: (s, st) => applyStep(p, s, st),
-    }),
+  solver: (p) => ({
+    start: () => startState(p),
+    place: (s, i, v) => place(p, s, i, v),
+    next: (s) => nextStep(p, s),
+    apply: (s, st) => applyStep(p, s, st),
+  }),
+  techniques: FUTO_TECHNIQUES,
+  examples: FUTO_EXAMPLES,
+  hintToPlacement: true,
   encode: encodeFutoshiki,
   decode: decodeFutoshiki,
   isCode: isFutoshikiCode,

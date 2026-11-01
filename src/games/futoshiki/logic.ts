@@ -13,6 +13,7 @@
 
 import { bitsOf, cellName, describeEliminations, listJoin, onlyBit, popcount } from "../logic";
 import type { CellValue, LiteStep } from "../logic";
+import { shuffle } from "../latin";
 import { generateFutoshiki, inequalities, pairsOf } from "./engine";
 import type { FutoshikiPuzzle } from "./engine";
 
@@ -119,8 +120,17 @@ const sign: Finder = (p, s) => {
     const B = cellName(n, b);
     const vals = (m: number) => listJoin(bitsOf(m).map(String)).replace(/ and /g, " or ");
     const why: string[] = [];
-    if (na !== s.dom[a]) why.push(`${A} must be smaller than ${B}, which is at most ${highest(s.dom[b])}, so ${A} can't be ${vals(s.dom[a] & ~na)}`);
-    if (nb !== s.dom[b]) why.push(`${B} must be larger than ${A}, which is at least ${lowest(s.dom[a])}, so ${B} can't be ${vals(s.dom[b] & ~nb)}`);
+    const parts: { elims: CellValue[]; text: string; premise: number[] }[] = [];
+    const hb = highest(s.dom[b]);
+    const la = lowest(s.dom[a]);
+    if (na !== s.dom[a]) {
+      why.push(`${A} must be smaller than ${B}, which is at most ${hb}, so ${A} can't be ${vals(s.dom[a] & ~na)}`);
+      parts.push({ elims: elims.filter((e) => e.cell === a), premise: hb < n ? [b] : [], text: `${A} < ${B}${hb < n ? ` (at most ${hb})` : ""}, so ${A} isn't ${vals(s.dom[a] & ~na)}` });
+    }
+    if (nb !== s.dom[b]) {
+      why.push(`${B} must be larger than ${A}, which is at least ${la}, so ${B} can't be ${vals(s.dom[b] & ~nb)}`);
+      parts.push({ elims: elims.filter((e) => e.cell === b), premise: la > 1 ? [a] : [], text: `${B} > ${A}${la > 1 ? ` (at least ${la})` : ""}, so ${B} isn't ${vals(s.dom[b] & ~nb)}` });
+    }
     return {
       technique: "Sign",
       level: 2,
@@ -130,6 +140,7 @@ const sign: Finder = (p, s) => {
       region: [a, b],
       nudge: `Look at the sign between ${A} and ${B}.`,
       explanation: `The sign between ${A} and ${B} points at ${A}: ${why.join("; and ")}.`,
+      parts,
     };
   }
   return null;
@@ -161,6 +172,7 @@ const subsets =
           region: line.cells,
           nudge: `Look for ${k} cells in ${line.name} that share ${k} digits.`,
           explanation: `In ${line.name}, ${listJoin(cells.map((c) => cellName(n, c)))} can only hold ${listJoin(bitsOf(union).map(String))} between them, so those digits go there and nowhere else in the ${line.name.split(" ")[0]}: ${describeEliminations(n, elims)}.`,
+          parts: [{ elims, text: `${listJoin(cells.map((c) => cellName(n, c)))} hold ${listJoin(bitsOf(union).map(String))} between them, so ${describeEliminations(n, elims).replace(/can't be/g, "isn't")}` }],
         };
       }
       // Hidden: k digits with only k places between them.
@@ -181,6 +193,7 @@ const subsets =
           region: line.cells,
           nudge: `Look for ${k} digits that have the same ${k} places left in ${line.name}.`,
           explanation: `In ${line.name}, ${listJoin(ds.map(String))} can only go in ${listJoin(at.map((c) => cellName(n, c)))}, so those cells hold just them: ${describeEliminations(n, elims)}.`,
+          parts: [{ elims, text: `${listJoin(ds.map(String))} can only go in ${listJoin(at.map((c) => cellName(n, c)))} in ${line.name}, so ${describeEliminations(n, elims).replace(/can't be/g, "isn't")}` }],
         };
       }
     }
@@ -227,6 +240,7 @@ function trial(p: FutoshikiPuzzle, s: FutoState): LiteStep | null {
           region: [i],
           nudge: `Try a digit in ${name} and follow where it leads.`,
           explanation: `Suppose ${name} were ${v}. Following the easier steps from there runs into a contradiction, so ${name} isn't ${v}.`,
+          parts: [{ elims: [{ cell: i, value: v }], text: `trying ${v} in ${name} leads to a contradiction, so ${name} isn't ${v}` }],
         };
       }
     }
@@ -240,7 +254,7 @@ export function nextStep(p: FutoshikiPuzzle, s: FutoState): LiteStep | null {
 }
 
 /** Solve step by step; at most `maxTrials` trial steps (0: stop where trial would be needed). */
-export function logicSolveFutoshiki(p: FutoshikiPuzzle, from: FutoState = startState(p), maxTrials = 3): { steps: LiteStep[]; solved: boolean } {
+export function logicSolveFutoshiki(p: FutoshikiPuzzle, from: FutoState = startState(p), maxTrials = 3): { steps: LiteStep[]; solved: boolean; state: FutoState } {
   const s = cloneState(from);
   const steps: LiteStep[] = [];
   let trials = 0;
@@ -255,7 +269,7 @@ export function logicSolveFutoshiki(p: FutoshikiPuzzle, from: FutoState = startS
     steps.push(st);
     applyStep(p, s, st);
   }
-  return { steps, solved: solved(s) };
+  return { steps, solved: solved(s), state: s };
 }
 
 export const FUTO_LEVELS = ["Easy", "Medium", "Hard", "Expert"] as const;
@@ -284,37 +298,88 @@ export function rateFutoshiki(p: FutoshikiPuzzle, allowTrial = true): { score: n
 }
 
 /**
- * A puzzle of a size and level: a minimal puzzle (as few clues as keep one solution), then
- * clues given back one at a time while it is harder than asked. Yields between tries;
- * after `budgetMs` it takes the closest.
+ * A puzzle of a size and level, with no clue it doesn't need.
+ *   1. A minimal puzzle: as few signs and digits as keep one solution.
+ *   2. Expert: kept when it needs trial (at most 3 times). Easier levels: while it is harder
+ *      than asked, a clue is added where the solve gets stuck (a sign next to an open cell,
+ *      or now and then a digit).
+ *   3. Trim: every clue whose removal keeps the puzzle at the same level goes (signs and
+ *      digits in random order). What is left all helps.
+ * Yields between tries; after `budgetMs` it takes the closest.
  */
-export function* makeFutoshiki(n: number, level: FutoLevel, rnd: () => number, budgetMs = 3000): Generator<number, FutoshikiPuzzle> {
+export function* makeFutoshiki(n: number, level: FutoLevel, rnd: () => number, budgetMs = 5000): Generator<number, FutoshikiPuzzle> {
   const t0 = performance.now();
   const want = FUTO_LEVELS.indexOf(level);
   let best: { p: FutoshikiPuzzle; miss: number } | null = null;
   const pairs = pairsOf(n);
+  const keep = (p: FutoshikiPuzzle, miss: number) => {
+    if (!best || miss < best.miss) best = { p: { ...p, givens: p.givens.slice(), signs: p.signs.slice() }, miss };
+  };
   for (let tries = 1; ; tries++) {
     const p = generateFutoshiki(n, rnd, 0);
-    for (let extra = 0; extra < 4 * n; extra++) {
-      // Quick rating without trial; a puzzle that needs trial is checked properly only when Expert is wanted.
-      let r = rateFutoshiki(p, false)!;
-      if (r.level === "Expert" && level === "Expert") {
-        const full = rateFutoshiki(p, true);
-        if (!full) r = { ...r, level: "Expert", score: Infinity };
-        else return p;
+    if (level === "Expert") {
+      const r = rateFutoshiki(p, true);
+      // A minimal puzzle has no clue to spare already.
+      if (r?.level === "Expert") return p;
+      keep(p, r ? want - FUTO_LEVELS.indexOf(r.level) : 1);
+    } else {
+      for (let extra = 0; extra < 4 * n; extra++) {
+        const plain = logicSolveFutoshiki(p, startState(p), 0);
+        const got = FUTO_LEVELS.indexOf(rateFutoshiki(p, false)!.level);
+        keep(p, Math.abs(got - want));
+        if (got === want) {
+          yield tries;
+          yield* trim(p, level, rnd);
+          return p;
+        }
+        if (got < want) break; // easier than asked: start from a new minimal puzzle
+        // Add clues where the solve got stuck: one per level too hard (the trim takes back any extra).
+        const st = plain.state;
+        const open = (c: number) => !st.placed[c];
+        let added = 0;
+        for (let k = 0; k < got - want; k++) {
+          const signs = [...pairs.keys()].filter((j) => !p.signs[j] && (open(pairs[j][0]) || open(pairs[j][1])));
+          const cells = [...Array(n * n).keys()].filter((i) => !p.givens[i] && open(i));
+          if (signs.length && (rnd() < 0.8 || !cells.length)) p.signs[signs[Math.floor(rnd() * signs.length)]] = true;
+          else if (cells.length) p.givens[cells[Math.floor(rnd() * cells.length)]] = true;
+          else break;
+          added++;
+        }
+        if (!added) break;
       }
-      const got = FUTO_LEVELS.indexOf(r.level) + (r.score === Infinity && level !== "Expert" ? 0 : 0);
-      const miss = Math.abs(got - want) + (r.score === Infinity && level === "Expert" ? 1 : 0);
-      if (!best || miss < best.miss) best = { p: { ...p, givens: p.givens.slice(), signs: p.signs.slice() }, miss };
-      if (!miss) return best.p;
-      if (got < want) break; // easier than asked: start from a new minimal puzzle
-      // Give back a clue: mostly signs, sometimes a digit.
-      const offSigns = [...pairs.keys()].filter((k) => !p.signs[k]);
-      const offCells = [...Array(n * n).keys()].filter((i) => !p.givens[i]);
-      if (offSigns.length && (rnd() < 0.75 || !offCells.length)) p.signs[offSigns[Math.floor(rnd() * offSigns.length)]] = true;
-      else p.givens[offCells[Math.floor(rnd() * offCells.length)]] = true;
     }
-    if (best && performance.now() - t0 > budgetMs) return best.p;
+    if (best && performance.now() - t0 > budgetMs) {
+      // Out of time: the closest one, trimmed at the level it has.
+      const q = (best as { p: FutoshikiPuzzle }).p;
+      const got = rateFutoshiki(q, false)!.level;
+      if (got !== "Expert") yield* trim(q, got, rnd);
+      return q;
+    }
     yield tries;
+  }
+}
+
+/**
+ * Take away every clue the puzzle can do without at its level, in random order, pass after
+ * pass until none can go (taking one away can make another unnecessary). Yields now and then.
+ */
+function* trim(p: FutoshikiPuzzle, level: FutoLevel, rnd: () => number): Generator<number, void> {
+  let since = performance.now();
+  for (let removed = true; removed; ) {
+    removed = false;
+    const signs = p.signs.map((on, k) => (on ? k : -1)).filter((k) => k >= 0);
+    const cells = p.givens.map((on, i) => (on ? i : -1)).filter((i) => i >= 0);
+    const clues = shuffle([...signs.map((k) => ({ sign: k })), ...cells.map((i) => ({ cell: i }))], rnd);
+    for (const c of clues) {
+      if ("sign" in c) p.signs[c.sign] = false;
+      else p.givens[c.cell] = false;
+      if (rateFutoshiki(p, false)!.level === level) removed = true;
+      else if ("sign" in c) p.signs[c.sign] = true;
+      else p.givens[c.cell] = true;
+      if (performance.now() - since > 25) {
+        yield 0;
+        since = performance.now();
+      }
+    }
   }
 }

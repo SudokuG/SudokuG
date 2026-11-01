@@ -12,10 +12,12 @@ export interface LiteOptions {
   timer: boolean;
   /** Phone S key: stays on until tapped again (instead of only while held). */
   stickyToggle: boolean;
+  /** Fill in the rest when at most this many cells are left and it follows from singles (0 = off). */
+  autoFinish: number;
 }
 
 const KEY = "sudokug-lite-options";
-const DEFAULTS: LiteOptions = { peers: true, same: true, mistakes: false, tidy: true, timer: true, stickyToggle: false };
+const DEFAULTS: LiteOptions = { peers: true, same: true, mistakes: false, tidy: true, timer: true, stickyToggle: false, autoFinish: 8 };
 
 function load(): LiteOptions {
   try {
@@ -42,7 +44,9 @@ export function setLiteOption<K extends keyof LiteOptions>(key: K, value: LiteOp
   for (const f of listeners) f();
 }
 
-export const LITE_OPTION_TEXT: { key: keyof LiteOptions; title: string; text?: string }[] = [
+export const AUTO_FINISH_CHOICES = [0, 5, 8, 12];
+
+export const LITE_OPTION_TEXT: { key: Exclude<keyof LiteOptions, "autoFinish">; title: string; text?: string }[] = [
   { key: "peers", title: "Highlight row and column", text: "Shade the cells in the row and column of the selected cell." },
   { key: "same", title: "Highlight the same digit", text: "Mark digits equal to the one in the selected cell." },
   { key: "mistakes", title: "Highlight mistakes", text: "Mark an entry red as soon as it doesn't match the solution." },

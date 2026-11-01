@@ -4,7 +4,8 @@
 
 import { FONT, svgCell } from "../draw";
 import type { LiteGame } from "../lite";
-import { liteHint } from "../logic";
+import { SUMS_TECHNIQUES } from "./techniques";
+import { SUMS_EXAMPLES } from "./examples";
 import { SUMS_SIZES, decodeSums, encodeSums, isSumsCode, runSums } from "./engine";
 import type { SumsPuzzle } from "./engine";
 import { SUMS_LEVELS, applyStep, makeSums, nextStep, place, rateSumsPuzzle, startState } from "./logic";
@@ -62,18 +63,15 @@ export const TREASURE_MAP: LiteGame<SumsPuzzle> = {
     <p class="aside">Puzzle fans know this kind as <i>Japanese Sums</i>; Denksport Logisch calls it “Japans vierkant”.</p>`,
   make: (n, level, rnd) => makeSums(n, level as SumsLevel, rnd),
   levelOf: (p) => rateSumsPuzzle(p)?.level ?? "Unrated",
-  hint: (p, cells, cands) =>
-    liteHint({
-      n: p.n,
-      solution: p.solution,
-      givens: p.givens,
-      cells,
-      cands,
-      start: () => startState(p),
-      place: (s, i, v) => place(p, s, i, v),
-      next: (s) => nextStep(p, s),
-      apply: (s, st) => applyStep(p, s, st),
-    }),
+  solver: (p) => ({
+    start: () => startState(p),
+    place: (s, i, v) => place(p, s, i, v),
+    next: (s) => nextStep(p, s),
+    apply: (s, st) => applyStep(p, s, st),
+  }),
+  techniques: SUMS_TECHNIQUES,
+  examples: SUMS_EXAMPLES,
+  hintToPlacement: false,
   encode: encodeSums,
   decode: decodeSums,
   isCode: isSumsCode,

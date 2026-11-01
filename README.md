@@ -71,11 +71,12 @@ src/
   page.html          page markup; build.mjs inlines fonts, CSS and JS into it
   sw.js              service worker: keeps the game on the device for offline play
   games/lite.ts      the page shared by the lighter puzzle types (tabs, pad, hints, timer, saving, …)
-  games/lite-options.ts  their options; games/logic.ts: steps and hints shared by their solvers
+  games/lite-options.ts  their options; games/logic.ts: steps, hints and auto-finish for their solvers
   games/latin.ts     random Latin squares and base-62 codes; games/draw.ts: print pieces
   games/sums/        Treasure Map: engine.ts (grid, clues, brute-force solver, codes),
                      logic.ts (step-by-step solver, rating, levels), game.ts (board, printing)
-  games/futoshiki/   Futoshiki: the same three files
+  games/futoshiki/   Futoshiki: the same three files; both also have techniques.ts (the
+                     Techniques tab) and examples.ts (worked examples, npm run lite-examples)
   ui/games.ts        the puzzle-type switcher in the header
   ui/print-dialog.ts the print dialog, shared by all puzzle types
   samples.ts         built-in puzzles
@@ -345,32 +346,51 @@ Pressing Ctrl+P prints the current puzzle the same way instead of the whole page
 The switcher next to the title chooses the puzzle type; the choice is remembered, and a
 link to a puzzle opens its type. Sudoku keeps the full app (`src/ui/app.ts`); the lighter
 types share one page laid out like sudoku's (`src/games/lite.ts`): Play, Puzzles, Options
-and How to play tabs; the code row under the board (at the bottom on a phone). Play has the
-pad, Undo, Erase, Candidates (shown small and framed in the middle of the cell), Hint, Check
-and Reveal. Drag over the grid to move the selection; hold S (a pad key on phones, as in
-sudoku), Shift or Ctrl to add cells instead. Their options (`src/games/lite-options.ts`) are
-shared by all light types; the theme is the site-wide one.
+and Techniques tabs; the code row under the board (at the bottom on a phone). Play has the
+pad, Undo, Erase, Candidates, Hint, Check and Reveal.
+
+- **Candidates** sit in the middle of the cell, small and framed, in the colour of entered
+  digits. In Treasure Map, candidates also say "not an X" unless ✕ is one of them; an empty
+  ring (the ring key, `.` or `O`) means "a digit goes here" without noting which.
+- **Selecting**: a tap selects a cell, dragging moves the selection. The S key (phones)
+  works its own way: the first tap after pressing S starts a new group, unless the selection
+  started on a digit (it is kept, and so is the highlight of that digit); tapping a selected
+  cell drops it; while S is held, digits go in as candidates (the keys act on the touch
+  itself, since phones often send no click for a second finger). On a computer Shift adds
+  cells and Ctrl toggles them.
+- **Check** counts only your own entries. **Auto-finish** (option, default the last 8
+  cells): when everything entered is right and the rest follows from singles, it fills in.
+- **Options** are shared by the light types (`src/games/lite-options.ts`); the theme is the
+  site-wide one.
+- **Techniques**: the rules, then each technique of the solver with what it is, how to spot
+  it, and a worked example from a real puzzle (shown in place of the board, with where to
+  look, what follows and what is ruled out). The examples (`src/games/<type>/examples.ts`)
+  are found by `npm run lite-examples`; the tests check that each still shows its technique.
 
 Each type is a `LiteGame` in `src/games/<type>/game.ts` (board layout, extra marks such as
-clue or sign states, print drawing, hints) with its logic in `engine.ts` and `logic.ts` (no
-page code, tested in `test/engine.test.ts`). A puzzle is made when you ask for one (no
-generator app, no library). Each type has its own name theme (`src/names.ts`). To add a
-type: write its engine, logic and `LiteGame`, add it to `GAMES` in `src/ui/games.ts`, give
-it a `<main>` in `page.html` and an `initLite(...)` line in `app.ts`.
+clue or sign states, print drawing, its solver, techniques) with its logic in `engine.ts`
+and `logic.ts` (no page code, tested in `test/engine.test.ts`). A puzzle is made when you
+ask for one (no generator app, no library). Each type has its own name theme
+(`src/names.ts`). To add a type: write its engine, logic, techniques and `LiteGame`, add it
+to `GAMES` in `src/ui/games.ts`, give it a `<main>` in `page.html`, an `initLite(...)` line in
+`app.ts`, and run `npm run lite-examples`.
 
 **Step-by-step solvers.** Both types have one (`logic.ts`), like the sudoku engine: it
-solves the way a person does, easiest step first. It gives the hints (first click: where to
-look; second: the whole step; Apply carries it out) and rates puzzles, so every size comes in
-Easy, Medium, Hard and Expert. Hints first point out wrong entries, and candidates that
-leave out the right digit. A puzzle the steps solve completely has exactly one solution,
-which is also how the generators check uniqueness (much faster than brute force).
+solves the way a person does, easiest step first. It rates puzzles, so every size comes in
+Easy, Medium, Hard and Expert, and it gives the hints (first click: where to look; second:
+the reasoning; Apply carries it out). Hints first point out wrong entries, rings on X's and
+candidates that leave out the right value. Treasure Map hints give one step at a time
+(where an X must or can't be, or a digit). Futoshiki hints go straight to the next digit you
+can place and explain only the pieces it needs ("r5c3 > r5c4, so r5c3 isn't 1; …"), so they
+work without candidates written down (`liteHint` in `src/games/logic.ts`). A puzzle the
+steps solve completely has exactly one solution, which is also how the generators check
+uniqueness (much faster than brute force).
 
 **Treasure Map** (theme: pirates). Puzzle fans call this kind *Japanese Sums*; Denksport
 Logisch calls it "Japans vierkant". Every row and column holds 1 to n-2 once and two X's;
-the clues are the sums of the runs of digits, in order. 6×6, 7×7 or 8×8. Much of the work is
-finding where the X's can and can't be, so there is a dot mark (•, the full stop key) for "a
-digit goes here". The solver's steps, by what you need to keep track of:
-- with what you can see (placed digits, X's and dots): Single, Hidden Single, Last X's;
+the clues are the sums of the runs of digits, in order. 6×6, 7×7 or 8×8. The solver's steps,
+by what you need to keep track of:
+- with what you can see (placed digits, X's and rings): Single, Hidden Single, Last X's;
   Clue X's: one line's clue (every way to put its X's and split the digits into groups that
   add up to the clue) shows where an X must or can't be, or fixes a cell;
 - with candidates written down: Candidate Single, Clue Groups (the same line reasoning on
@@ -388,9 +408,11 @@ from the clues alone, so no cells are ever given; about 10-100 ms. Codes look li
 between cells point at the smaller digit. 5×5, 6×6 or 7×7. Steps: Single, Hidden Single,
 Sign (one sign narrows its two cells), Naked and Hidden Pair and Triple, Trial. Easy and
 Medium need singles and signs (by total effort, `FUTO_CUTS`), Hard pairs or triples or more
-effort, Expert up to 3 trial steps. A puzzle is a minimal one (as few clues as keep one
-solution), with clues given back while it rates harder than asked; about 10-200 ms. Codes
-look like `F6-…-…-…`.
+effort, Expert up to 3 trial steps. Making one (`makeFutoshiki`): a minimal puzzle (as few
+clues as keep one solution); for easier levels, clues are added where the solve gets stuck
+until it is no harder than asked; then every sign and digit whose removal keeps the puzzle
+at its level is taken away, pass after pass, so every clue that is left helps. Expert
+puzzles stay minimal. About 10 ms to 1 s; codes look like `F6-…-…-…`.
 
 **Planned next**:
 1. **Calcudoku** (KenKen-style; theme: overcomplicated engineering terms). A Latin square
