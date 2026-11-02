@@ -18,10 +18,12 @@ export interface LiteOptions {
   numpadCands: boolean;
   /** After making a new puzzle, switch to the Play tab. */
   toPlay: boolean;
+  /** Star Battle: a star dots the cells around it, and full rows, columns and regions. */
+  autoDots: boolean;
 }
 
 const KEY = "sudokug-lite-options";
-const DEFAULTS: LiteOptions = { peers: true, same: true, mistakes: false, tidy: true, timer: true, stickyToggle: false, autoFinish: 8, numpadCands: false, toPlay: true };
+const DEFAULTS: LiteOptions = { peers: true, same: true, mistakes: false, tidy: true, timer: true, stickyToggle: false, autoFinish: 8, numpadCands: false, toPlay: true, autoDots: true };
 
 function load(): LiteOptions {
   try {
@@ -50,13 +52,17 @@ export function setLiteOption<K extends keyof LiteOptions>(key: K, value: LiteOp
 
 export const AUTO_FINISH_CHOICES = [0, 5, 8, 12];
 
-export const LITE_OPTION_TEXT: { key: Exclude<keyof LiteOptions, "autoFinish">; title: string; text?: string }[] = [
+/** Which puzzle types an option is for: those with candidates, or those with automatic dots (Star Battle). Unset: all. */
+export type OptionFor = "candidates" | "autoDots";
+
+export const LITE_OPTION_TEXT: { key: Exclude<keyof LiteOptions, "autoFinish">; title: string; text?: string; for?: OptionFor }[] = [
   { key: "peers", title: "Highlight row and column", text: "Shade the cells in the row and column of the selected cell." },
-  { key: "same", title: "Highlight the same digit", text: "Mark digits equal to the one in the selected cell." },
+  { key: "same", title: "Highlight the same digit", text: "Mark digits equal to the one in the selected cell, and lightly mark the cells that have it as a candidate (with that candidate picked out).", for: "candidates" },
+  { key: "autoDots", title: "Dot automatically", text: "Placing a star dots the cells around it, and the rest of its row, column or region once that has all its stars. Taking the star away again removes those dots.", for: "autoDots" },
   { key: "mistakes", title: "Highlight mistakes", text: "Mark an entry red as soon as it doesn't match the solution." },
-  { key: "tidy", title: "Remove candidates automatically", text: "Placing a digit removes it from the candidates in its row and column." },
+  { key: "tidy", title: "Remove candidates automatically", text: "Placing a digit removes it from the candidates in its row and column.", for: "candidates" },
   { key: "timer", title: "Show timer" },
   { key: "stickyToggle", title: "S key stays on", text: "On a phone, the S key normally works only while you hold it. With this on, one tap switches it on and the next tap off." },
-  { key: "numpadCands", title: "Keyboard number pad enters candidates", text: "The number pad on the right of a keyboard always enters candidates (it never overwrites a digit); the digits above the letters enter digits. Off: both work the same." },
+  { key: "numpadCands", title: "Keyboard number pad enters candidates", text: "The number pad on the right of a keyboard always enters candidates (it never overwrites a digit); the digits above the letters enter digits. Off: both work the same.", for: "candidates" },
   { key: "toPlay", title: "Go to Play after making a puzzle", text: "Switch to the Play tab as soon as a new puzzle is ready." },
 ];

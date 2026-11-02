@@ -537,6 +537,10 @@ html[data-game]:not([data-game="sudoku"]) .layout, html[data-game]:not([data-gam
 .lite-pill .ghost { visibility: hidden; }
 .lite-pad button.dot-key.arming { background: linear-gradient(var(--hint-soft), var(--hint-soft)) no-repeat left / 0% 100%, var(--btn); animation: ring-arm 2s linear forwards; }
 @keyframes ring-arm { to { background-size: 100% 100%, auto; } }
+/* Candidates equal to the highlighted digit: a light shade on the cell, the candidate picked out. */
+.lite-cell.cand-same { background: color-mix(in srgb, var(--same-digit) 45%, var(--surface)); }
+.lite-cell.cand-same.sel { background: var(--sel-digit); }
+.lite-pill .hl { color: var(--surface); background: var(--entry); border-radius: 999px; padding: 0 0.2em; margin: 0 0.06em; }
 .lite-pill .gone { color: var(--elim); text-decoration: line-through; text-decoration-thickness: 2px; }
 .lite-cell.target .lite-pill.ring { border-color: var(--place); }
 .lite-cell.target { color: var(--place); }

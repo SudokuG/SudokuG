@@ -371,6 +371,12 @@ pad, Undo, Erase, Candidates, Hint, Check and Reveal.
   pad enters candidates" (sudoku and the light types) makes the number pad always enter
   candidates, which never overwrite digits; off, it works like the other digit keys.
 - **Go to Play after making a puzzle** (option, on by default, sudoku too): a newly made puzzle opens the Play tab.
+- **Highlight the same digit** (option): selecting a digit also lightly shades the cells that
+  have it as a candidate, with that candidate picked out in the pill, to see patterns.
+  Candidates removed again leave nothing behind (the ring is only for Treasure Map).
+- **Right mouse button** (Treasure Map, Star Battle): click or drag to put an X/dot in every
+  open cell you pass (digits and stars stay); a plain right-click on an X takes it away.
+  One undo step. A long press on a phone puts in an X.
 - **Check** counts only your own entries. **Auto-finish** (option, default the last 8
   cells): when everything entered is right and the rest follows from singles, it fills in.
 - **Options** are shared by the light types (`src/games/lite-options.ts`); the theme is the
@@ -461,7 +467,12 @@ region (the areas inside the thick lines) holds one, never touching, not even di
 6×6 and 8×8 have one star per unit, 10×10 two (the classic size). No digits and no
 candidates: the pad has a star and a dot (an empty cell); `1` or `*` places a star, `0`, `X`
 or `.` a dot, right-click a dot, and dragging over cells then pressing the dot empties a
-whole stretch. Stars that break a rule and dots that leave a unit without room turn red.
+whole stretch, or drag with the right mouse button. Stars that break a rule and dots that
+leave a unit without room turn red. "Dot automatically" (option, on by default): a star dots
+the cells around it, and the rest of its row, column or region once that has all its stars;
+taking the star away removes those dots again (they are marked in the unused candidates,
+`autoMarks` hook). The puzzle is solved as soon as all stars are right; the open cells left
+fill with dots (`isSolved` hook), and auto-finish animates only the stars.
 The shared page takes this from a few optional `LiteGame` hooks (`candidates: false`,
 `glyph`, `valueName`, `keyAliases`, `clashes`, `sizeLabel`, `controls`); stars are the
 value 1, dots the X (0).

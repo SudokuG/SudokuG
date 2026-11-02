@@ -51,6 +51,23 @@ function clashes(p: StarPuzzle, cells: number[]): Set<number> {
   return out;
 }
 
+/** Cells that must be empty given the stars entered: around each star, and the rest of full units. */
+function autoMarks(p: StarPuzzle, cells: number[]): Set<number> {
+  const { n, k } = p;
+  const out = new Set<number>();
+  cells.forEach((v, i) => v === 1 && around(n, i).forEach((j) => out.add(j)));
+  const units = [
+    ...Array.from({ length: n }, (_, r) => Array.from({ length: n }, (_, c) => r * n + c)),
+    ...Array.from({ length: n }, (_, c) => Array.from({ length: n }, (_, r) => r * n + c)),
+    ...p.regions,
+  ];
+  for (const u of units) if (u.filter((i) => cells[i] === 1).length >= k) u.forEach((i) => cells[i] !== 1 && out.add(i));
+  return out;
+}
+
+/** Solved when exactly the right cells hold stars (the rest needn't be dotted). */
+const isSolved = (p: StarPuzzle, cells: number[]) => p.solution.every((v, i) => (v === 1) === (cells[i] === 1));
+
 export function starSvg(p: StarPuzzle, entries?: number[]): string {
   const N = p.n;
   const C = 100;
@@ -90,7 +107,9 @@ export const STAR_BATTLE: LiteGame<StarPuzzle> = {
     <p>Place stars in the grid: <b>one</b> in every row, every column and every region (the areas inside the thick lines). On the 10×10 board it is <b>two</b> of each.</p>
     <p>Stars never touch, not even diagonally.</p>
     <p>Mark the cells you know are empty with a dot. That is most of the work: each star you find empties the cells around it and the rest of its row, column and region.</p>`,
-  controls: `<li>Tap or click a cell, then the star or dot key. Keys: <kbd>1</kbd> or <kbd>*</kbd> a star, <kbd>0</kbd>, <kbd>X</kbd> or <kbd>.</kbd> a dot (an empty cell). Right-click puts in a dot. Pressing the same key again clears the cell.</li>
+  controls: `<li>Tap or click a cell, then the star or dot key. Keys: <kbd>1</kbd> or <kbd>*</kbd> a star, <kbd>0</kbd>, <kbd>X</kbd> or <kbd>.</kbd> a dot (an empty cell). Pressing the same key again clears the cell.</li>
+      <li>With the right mouse button, click or drag to dot every open cell you pass (stars stay); start on a dot to take dots away instead. On a phone, a long press dots a cell.</li>
+      <li>With “Dot automatically” (Options, on by default), a star dots the cells around it, and the rest of its row, column or region once that has all its stars. The puzzle is solved as soon as all the stars are right.</li>
       <li>Drag over cells to select them all, then press the dot to empty a whole stretch at once. On a phone, hold <b>S</b> to add more cells; on a computer, <kbd>Shift</kbd> adds cells and <kbd>Ctrl</kbd> toggles them.</li>
       <li><kbd>H</kbd> hint, <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo, <kbd>Backspace</kbd> erase, arrow keys move. Stars that break a rule, and dots that leave a row, column or region without room, turn red.</li>`,
   candidates: false,
@@ -98,6 +117,8 @@ export const STAR_BATTLE: LiteGame<StarPuzzle> = {
   valueName: (v) => (v ? "Star" : "Empty"),
   keyAliases: { "*": 1, ".": 0, o: 0, O: 0 },
   clashes,
+  autoMarks,
+  isSolved,
   sizeLabel: (n) => `${n}×${n} ${starsText(n)}`,
   make: (n, level, rnd) => makeStars(n, level as StarLevel, rnd),
   levelOf: (p) => rateStars(p)?.level ?? "Unrated",

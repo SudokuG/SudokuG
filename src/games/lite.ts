@@ -73,6 +73,13 @@ export interface LiteGame<P extends LitePuzzle> {
   keyAliases?: Record<string, number>;
   /** Cells to show as clashing (default: a digit twice in a line, too many X's in a line). */
   clashes?(p: P, cells: number[]): Set<number>;
+  /**
+   * Cells that must be empty given the values entered (Star Battle: around each star, and the
+   * rest of full rows, columns and regions); with the "Dot automatically" option they get X's.
+   */
+  autoMarks?(p: P, cells: number[]): Set<number>;
+  /** Solved before every cell is filled in (Star Battle: all the stars are right). */
+  isSolved?(p: P, cells: number[]): boolean;
   /** The size as shown on the size buttons (default "8×8"). */
   sizeLabel?(n: number): string;
   /** The "Mouse, keyboard and touch" list items (HTML), instead of the default for digits. */
@@ -120,12 +127,13 @@ const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;");
  * Candidates as a small framed pill (in the colour of entered digits); an empty ring for
  * "a digit goes here". `gone` (full hints, examples) strikes candidates that are ruled out.
  */
-export function pillHtml(cands: number, max: number, gone = 0): string {
+export function pillHtml(cands: number, max: number, gone = 0, hl = 0): string {
   if (!cands) return "";
   // An empty ring: the same pill as one candidate, with the digit left invisible.
   if (cands === RING) return `<span class="lite-pill ring"><span class="ghost">0</span></span>`;
   const ds = Array.from({ length: max + 1 }, (_, k) => k).filter((d) => cands & (1 << d));
-  const inner = ds.map((d) => `<span${gone & (1 << d) ? ' class="gone"' : ""}>${d ? d : "✕"}</span>`).join("");
+  const cls = (d: number) => (gone & (1 << d) ? ' class="gone"' : hl && d === hl ? ' class="hl"' : "");
+  const inner = ds.map((d) => `<span${cls(d)}>${d ? d : "✕"}</span>`).join("");
   return `<span class="lite-pill${ds.length > 3 ? " many" : ""}">${inner}</span>`;
 }
 
@@ -134,7 +142,7 @@ function rulesHtml<P extends LitePuzzle>(g: LiteGame<P>): string {
   const controls =
     g.controls ??
     `<li>Tap or click a cell; drag over cells to select them all. On a phone, hold <b>S</b> and tap or drag to add more cells (the selection and its digit highlight stay); tap a selected cell again to drop it; while S is held, digits go in as candidates. On a computer, <kbd>Shift</kbd> adds cells and <kbd>Ctrl</kbd> toggles them.</li>
-      <li>Digits enter digits; with <kbd>Shift</kbd>, <b>S</b> or Candidates on, they toggle small candidates in the middle of the cell. The number pad can always enter candidates (an option).${g.xPerLine ? " <kbd>X</kbd> or <kbd>0</kbd> places an X (or right-click the cell); <kbd>.</kbd> or <kbd>O</kbd> an empty ring (a digit goes here); hold the ring key or <kbd>O</kbd> for 2 seconds to clear all rings. Candidates without ✕ also mean “not an X”; add ✕ to them while it still might be one." : ""}</li>
+      <li>Digits enter digits; with <kbd>Shift</kbd>, <b>S</b> or Candidates on, they toggle small candidates in the middle of the cell. The number pad can always enter candidates (an option).${g.xPerLine ? " <kbd>X</kbd> or <kbd>0</kbd> places an X (or right-click the cell; drag with the right button held to X every open cell you pass, or start on an X to take them away); <kbd>.</kbd> or <kbd>O</kbd> an empty ring (a digit goes here); hold the ring key or <kbd>O</kbd> for 2 seconds to clear all rings. Candidates without ✕ also mean “not an X”; add ✕ to them while it still might be one." : ""}</li>
       <li><kbd>H</kbd> hint, <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo, <kbd>Backspace</kbd> erase, <kbd>Space</kbd> switches candidates on or off, arrow keys move.</li>`;
   return `${g.rules}
     <h3>Mouse, keyboard and touch</h3>
@@ -152,7 +160,7 @@ function markup<P extends LitePuzzle>(g: LiteGame<P>, theme: boolean): string {
       <button data-r="copy" class="link-btn" type="button">Copy link</button>
       <button data-r="print" class="link-btn" type="button">Print</button>
     </div>`;
-  const options = LITE_OPTION_TEXT.map(
+  const options = LITE_OPTION_TEXT.filter((o) => (o.for === "candidates" ? g.candidates !== false : o.for === "autoDots" ? !!g.autoMarks : true)).map(
     (o) => `<label class="opt"><input data-opt="${o.key}" type="checkbox"> <span><b>${o.title}</b>${o.text ? `<small>${o.text}</small>` : ""}</span></label>`,
   ).join("");
   return `
@@ -469,17 +477,42 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
     if (S.solved || !S.p || S.finishing) return;
     const before: Snap = { cells: S.cur.cells.slice(), cands: S.cur.cands.slice() };
     fn(S.cur);
+    autoDots(before, S.cur);
     if (JSON.stringify(before) === JSON.stringify(S.cur)) return;
     S.undo.push(before);
     if (S.undo.length > 300) S.undo.shift();
     afterChange();
   }
 
+  /** Marks an X that "Dot automatically" placed (in the candidates, which such types don't use). */
+  const AUTO = 1;
+  /**
+   * "Dot automatically" (types with autoMarks): when a value was added, X the cells that must
+   * be empty; X's placed that way go again once nothing requires them (a star taken away).
+   */
+  function autoDots(before: Snap, s: Snap): void {
+    if (!g.autoMarks || !S.p) return;
+    s.cells.forEach((v, i) => v !== 0 && s.cands[i] === AUTO && (s.cands[i] = 0));
+    if (!opt.autoDots) return;
+    const forced = g.autoMarks(S.p, s.cells);
+    const added = s.cells.some((v, i) => v > 0 && before.cells[i] !== v);
+    if (added) forced.forEach((i) => s.cells[i] === -1 && !S.p!.givens[i] && ((s.cells[i] = 0), (s.cands[i] = AUTO)));
+    s.cells.forEach((v, i) => {
+      if (v === 0 && s.cands[i] === AUTO && !forced.has(i)) {
+        s.cells[i] = -1;
+        s.cands[i] = 0;
+      }
+    });
+  }
+
   function afterChange(): void {
     S.wrong.clear();
     S.hint = null;
     status("");
-    if (S.cur.cells.every((v, i) => v === S.p!.solution[i])) {
+    const done = g.isSolved ? g.isSolved(S.p!, S.cur.cells) : S.cur.cells.every((v, i) => v === S.p!.solution[i]);
+    if (done) {
+      // (Star Battle: the cells left open are empty.)
+      S.cur.cells.forEach((v, i) => v === -1 && (S.cur.cells[i] = S.p!.solution[i]));
       S.solved = true;
       el("solved-text").textContent = recordSolve();
       status(`Solved in ${fmtTime(S.elapsed)}.`, "good");
@@ -496,8 +529,10 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
   function maybeFinish(): void {
     const left = S.cur.cells.filter((v) => v < 0).length;
     if (!opt.autoFinish || left > opt.autoFinish || S.finishing) return;
-    const order = singlesFinish(g.solver(S.p!), entries());
-    if (!order) return;
+    const all = singlesFinish(g.solver(S.p!), entries());
+    if (!all) return;
+    // (Star Battle: only the stars; the open cells left are empty once it is solved.)
+    const order = g.isSolved ? all.filter((x) => x.value > 0) : all;
     S.finishing = true;
     const before: Snap = { cells: S.cur.cells.slice(), cands: S.cur.cands.slice() };
     status("The rest follows from singles: filling it in.");
@@ -528,8 +563,8 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
       for (const j of [r * N + k, k * N + c]) {
         if (!(s.cands[j] & (1 << v))) continue;
         s.cands[j] &= ~(1 << v);
-        // A cell whose candidates said "a digit" keeps saying so.
-        if (!(s.cands[j] & ~RING)) s.cands[j] = RING;
+        // A cell whose candidates said "a digit" keeps saying so (types with X's only).
+        if (!(s.cands[j] & ~RING)) s.cands[j] = g.xPerLine ? RING : 0;
       }
   };
 
@@ -567,7 +602,7 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
           const had = s.cands[i];
           const c = allHave ? had & ~RING & ~b : (had & ~RING) | b;
           // Removing the last candidate of a cell that said "not an X" leaves its ring.
-          const saidNotX = had === RING || (had & digitMask() && !(had & 1));
+          const saidNotX = !!g.xPerLine && (had === RING || (had & digitMask() && !(had & 1)));
           s.cands[i] = c || (saidNotX ? RING : 0);
         }),
       );
@@ -740,9 +775,49 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
     if (S.sel === i) S.sel = selOrder[selOrder.length - 1] ?? i;
   };
 
+  /**
+   * Right mouse button (types with X's): X's in the open cells you click or drag across;
+   * digits and stars stay. A right-click (no drag) on an X takes it away. One undo step.
+   */
+  let paint: { start: number; moved: boolean; before: Snap } | null = null;
+  let painted = false;
+  const paintCell = (i: number) => {
+    if (!paint || i < 0 || S.p!.givens[i]) return;
+    if (i !== paint.start) paint.moved = true;
+    if (S.cur.cells[i] !== -1) return;
+    S.cur.cells[i] = 0;
+    render();
+  };
+  const endPaint = () => {
+    if (!paint) return;
+    const { before, start, moved } = paint;
+    paint = null;
+    if (!moved && before.cells[start] === 0) {
+      // A plain right-click on an X: take it away.
+      S.cur.cells[start] = -1;
+      if (noCands) S.cur.cands[start] = 0;
+    }
+    if (JSON.stringify(before) === JSON.stringify(S.cur)) return;
+    autoDots(before, S.cur);
+    S.undo.push(before);
+    if (S.undo.length > 300) S.undo.shift();
+    afterChange();
+  };
+
   board.addEventListener("pointerdown", (e) => {
     const i = cellAt(e);
-    if (i < 0 || !S.p || e.button === 2) return;
+    if (i < 0 || !S.p) return;
+    if (e.button === 2) {
+      if (!g.xPerLine || S.solved || S.finishing || e.pointerType !== "mouse") return;
+      e.preventDefault();
+      painted = true;
+      setSelection([i]);
+      S.sel = i;
+      paint = { start: i, moved: false, before: { cells: S.cur.cells.slice(), cands: S.cur.cands.slice() } };
+      paintCell(i);
+      render();
+      return;
+    }
     e.preventDefault();
     board.focus({ preventScroll: true });
     if (e.ctrlKey || e.metaKey || (S.sticky && S.selection.has(i) && S.selection.size > 1)) {
@@ -757,6 +832,7 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
     render();
   });
   board.addEventListener("pointermove", (e) => {
+    if (paint && S.p) return paintCell(cellAt(e, true));
     if (!drag || !S.p) return;
     const i = cellAt(e, true);
     if (i < 0) return;
@@ -769,17 +845,21 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
       render();
     }
   });
-  // Right-click puts an X in the cell (types with X's).
+  // A long press on a touch screen puts an X in the cell (the mouse paints X's, above).
   board.addEventListener("contextmenu", (e) => {
     if (!g.xPerLine || !S.p) return;
+    e.preventDefault();
+    if (painted || paint) return void (painted = false);
     const i = cellAt(e as PointerEvent);
     if (i < 0) return;
-    e.preventDefault();
     setSelection([i]);
     S.sel = i;
     enter(0);
   });
-  const endDrag = () => (drag = null);
+  const endDrag = () => {
+    drag = null;
+    endPaint();
+  };
   window.addEventListener("pointerup", endDrag);
   window.addEventListener("pointercancel", endDrag);
 
@@ -894,6 +974,9 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
       c.classList.toggle("primary", i === S.sel && S.selection.has(i));
       c.classList.toggle("peer", opt.peers && !multi && i !== S.sel && (r === sr || col === sc));
       c.classList.toggle("same", opt.same && !noCands && hlVal > 0 && v === hlVal && i !== hl);
+      // Cells with the highlighted digit among their candidates: a lighter mark, to see patterns.
+      const candHl = opt.same && !noCands && hlVal > 0 && v < 0 && cands[i] !== RING && !!(cands[i] & (1 << hlVal));
+      c.classList.toggle("cand-same", candHl);
       c.classList.toggle("x", v === 0);
       c.classList.toggle("wrong", S.wrong.has(i));
       c.classList.toggle("clash", clash.has(i));
@@ -903,7 +986,7 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
       c.classList.toggle("target", targets.has(i));
       c.classList.toggle("elim", elims.has(i));
       if (v >= 0) c.innerHTML = show(v);
-      else c.innerHTML = pillHtml(cands[i], maxDigit());
+      else c.innerHTML = pillHtml(cands[i], maxDigit(), 0, candHl ? hlVal : 0);
       c.setAttribute("aria-label", `Row ${r + 1}, column ${col + 1}: ${v >= 0 ? valueName(v) : cands[i] === RING ? "a digit" : "open"}`);
       c.setAttribute("aria-selected", String(S.selection.has(i)));
     }
