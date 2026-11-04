@@ -10,7 +10,8 @@
 
 import { DOT, RING, liteHint, singlesFinish } from "./logic";
 import type { LiteHint, LiteSolver, LiteStep } from "./logic";
-import { AUTO_FINISH_CHOICES, LITE_OPTION_TEXT, liteOptions, onLiteOptions, setLiteOption } from "./lite-options";
+import { AUTO_FINISH_CHOICES, LITE_OPTION_TEXT, liteOptionsFor } from "./lite-options";
+import type { LiteOptions } from "./lite-options";
 import { puzzleName } from "../names";
 import { currentGame, onGameChange, setGame } from "../ui/games";
 import type { GameId } from "../ui/games";
@@ -34,7 +35,7 @@ export interface LiteGame<P extends LitePuzzle> {
   levels: readonly string[];
   /** Digits used on an n×n board (1..maxDigit). */
   maxDigit(n: number): number;
-  /** X's per row and column (0: the type has no X's; types with X's also get the ring mark). Star Battle sets 1: its dots are its X's, and its own clash check counts them. */
+  /** X's per row and column (0: the type has no X's; types with X's also get the ring mark). Star Battle sets 1: its crosses are its X's, and its own clash check counts them. */
   xPerLine: number;
   /** Rules, as HTML for the "How to play" tab. */
   rules: string;
@@ -75,11 +76,15 @@ export interface LiteGame<P extends LitePuzzle> {
   clashes?(p: P, cells: number[]): Set<number>;
   /**
    * Cells that must be empty given the values entered (Star Battle: around each star, and the
-   * rest of full rows, columns and regions); with the "Dot automatically" option they get X's.
+   * rest of full rows, columns and regions); with the "Cross automatically" option they get X's.
    */
   autoMarks?(p: P, cells: number[]): Set<number>;
   /** Solved before every cell is filled in (Star Battle: all the stars are right). */
   isSolved?(p: P, cells: number[]): boolean;
+  /** Options that start differently for this type (Star Battle: no auto-finish). */
+  optionDefaults?: Partial<LiteOptions>;
+  /** Offer smart input (Star Battle): tap or drag to cross, double tap for a star, hold to clear. */
+  smartInput?: boolean;
   /** The size as shown on the size buttons (default "8×8"). */
   sizeLabel?(n: number): string;
   /** The "Mouse, keyboard and touch" list items (HTML), instead of the default for digits. */
@@ -160,7 +165,7 @@ function markup<P extends LitePuzzle>(g: LiteGame<P>, theme: boolean): string {
       <button data-r="copy" class="link-btn" type="button">Copy link</button>
       <button data-r="print" class="link-btn" type="button">Print</button>
     </div>`;
-  const options = LITE_OPTION_TEXT.filter((o) => (o.for === "candidates" ? g.candidates !== false : o.for === "autoDots" ? !!g.autoMarks : true)).map(
+  const options = LITE_OPTION_TEXT.filter((o) => (o.for === "candidates" ? g.candidates !== false : o.for === "autoDots" ? !!g.autoMarks : o.for === "smart" ? !!g.smartInput : true)).map(
     (o) => `<label class="opt"><input data-opt="${o.key}" type="checkbox"> <span><b>${o.title}</b>${o.text ? `<small>${o.text}</small>` : ""}</span></label>`,
   ).join("");
   return `
@@ -258,7 +263,7 @@ function markup<P extends LitePuzzle>(g: LiteGame<P>, theme: boolean): string {
           <select id="${id}-finish" data-r="finish">${AUTO_FINISH_CHOICES.map((k) => `<option value="${k}">${k ? `Last ${k} cells` : "Off"}</option>`).join("")}</select>
           <small>When only this many cells are left, everything you filled in is right, and the rest follows from singles, the puzzle fills itself in.</small>
         </div>
-        <p class="small">These options are shared by all puzzle types except sudoku, which has its own.</p>
+        <p class="small">These options are for ${esc(g.title)} only; each puzzle type keeps its own.</p>
       </div>
       <div data-pane="techniques" class="pane" role="tabpanel" hidden>
         <div data-r="guide-list" class="guide-list" role="tablist" aria-orientation="vertical" aria-label="Techniques"></div>
@@ -278,7 +283,8 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
   const STATS_KEY = `sudokug-${g.id}-stats`;
   const board = el("board");
   const active = () => currentGame() === g.id;
-  const opt = liteOptions;
+  const store = liteOptionsFor(g.id, g.optionDefaults);
+  const opt = store.opt;
 
   const S = {
     p: null as P | null,
@@ -309,6 +315,8 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
     notes: {} as Record<number, string>,
     /** The region whose note is being edited. */
     noteFocus: null as number | null,
+    /** Smart input: the selection is just the last tapped cell, not marked on the board. */
+    quiet: false,
   };
   let cellEls: HTMLElement[] = [];
   const noCands = g.candidates === false;
@@ -336,6 +344,7 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
     S.sel = Math.max(0, p.givens.findIndex((x) => !x));
     S.selection = new Set([S.sel]);
     selOrder = [S.sel];
+    S.quiet = !!g.smartInput && opt.smart;
     S.elapsed = 0;
     S.solved = false;
     S.hints = 0;
@@ -484,10 +493,10 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
     afterChange();
   }
 
-  /** Marks an X that "Dot automatically" placed (in the candidates, which such types don't use). */
+  /** Marks an X that "Cross automatically" placed (in the candidates, which such types don't use). */
   const AUTO = 1;
   /**
-   * "Dot automatically" (types with autoMarks): when a value was added, X the cells that must
+   * "Cross automatically" (types with autoMarks): when a value was added, X the cells that must
    * be empty; X's placed that way go again once nothing requires them (a star taken away).
    */
   function autoDots(before: Snap, s: Snap): void {
@@ -495,14 +504,30 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
     s.cells.forEach((v, i) => v !== 0 && s.cands[i] === AUTO && (s.cands[i] = 0));
     if (!opt.autoDots) return;
     const forced = g.autoMarks(S.p, s.cells);
-    const added = s.cells.some((v, i) => v > 0 && before.cells[i] !== v);
-    if (added) forced.forEach((i) => s.cells[i] === -1 && !S.p!.givens[i] && ((s.cells[i] = 0), (s.cands[i] = AUTO)));
+    const added = s.cells.map((v, i) => (v > 0 && before.cells[i] !== v ? i : -1)).filter((i) => i >= 0);
+    if (added.length) {
+      const fresh = [...forced].filter((i) => s.cells[i] === -1 && !S.p!.givens[i]);
+      fresh.forEach((i) => ((s.cells[i] = 0), (s.cands[i] = AUTO)));
+      ripple(added, fresh);
+    }
     s.cells.forEach((v, i) => {
       if (v === 0 && s.cands[i] === AUTO && !forced.has(i)) {
         s.cells[i] = -1;
         s.cands[i] = 0;
       }
     });
+  }
+
+  /** Delays (ms) for marks that should appear one after another, set by ripple(), used by the next render. */
+  const delays = new Map<number, number>();
+  /** New marks in `cells` appear in a quick wave outwards from the cells `from` (a new star). */
+  function ripple(from: number[], cells: number[]): void {
+    if (!from.length) return;
+    const N = n();
+    for (const i of cells) {
+      const d = Math.min(...from.map((f) => Math.hypot(Math.floor(i / N) - Math.floor(f / N), (i % N) - (f % N))));
+      delays.set(i, Math.round(Math.max(0, d - 1) * 30));
+    }
   }
 
   function afterChange(): void {
@@ -512,7 +537,9 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
     const done = g.isSolved ? g.isSolved(S.p!, S.cur.cells) : S.cur.cells.every((v, i) => v === S.p!.solution[i]);
     if (done) {
       // (Star Battle: the cells left open are empty.)
-      S.cur.cells.forEach((v, i) => v === -1 && (S.cur.cells[i] = S.p!.solution[i]));
+      const open = S.cur.cells.map((v, i) => (v === -1 ? i : -1)).filter((i) => i >= 0);
+      open.forEach((i) => (S.cur.cells[i] = S.p!.solution[i]));
+      ripple(selOrder.filter((i) => S.cur.cells[i] > 0).slice(-1), open);
       S.solved = true;
       el("solved-text").textContent = recordSolve();
       status(`Solved in ${fmtTime(S.elapsed)}.`, "good");
@@ -804,9 +831,148 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
     afterChange();
   };
 
+
+  // ---- Smart input (Star Battle, an option) ---------------------------------------------
+  // Tap or drag over cells: crosses (stars stay). Double tap (double-click): a star, or takes
+  // the star away. Hold, or right-click: clear the cell (right-drag clears every cell passed).
+  // With Shift or S held, taps and drags select instead; the star and cross keys fill the
+  // selection, and holding or right-clicking inside it clears it. Tapping outside the grid
+  // drops the selection. A tapped cell is the (quiet, unmarked) cursor for the keyboard.
+  const smartOn = () => !!g.smartInput && opt.smart;
+  const HOLD_MS = 450;
+  const DOUBLE_MS = 350;
+  let sm: { start: number; moved: boolean; held: boolean; erase: boolean; before: Snap; timer: number } | null = null;
+  let lastTap: { cell: number; time: number; before: Snap; undoLen: number } | null = null;
+  const snap = (): Snap => ({ cells: S.cur.cells.slice(), cands: S.cur.cands.slice() });
+  /** Make the changes since `before` one undo step (with automatic crosses). */
+  function commitFrom(before: Snap): void {
+    if (JSON.stringify(before) === JSON.stringify(S.cur)) return render();
+    autoDots(before, S.cur);
+    S.undo.push(before);
+    if (S.undo.length > 300) S.undo.shift();
+    afterChange();
+  }
+  const clearCell = (i: number) => {
+    if (S.p!.givens[i]) return;
+    S.cur.cells[i] = -1;
+    S.cur.cands[i] = 0;
+  };
+  const crossCell = (i: number) => {
+    if (i >= 0 && !S.p!.givens[i] && S.cur.cells[i] === -1) S.cur.cells[i] = 0;
+  };
+  /** True when cell i is in a selection of several cells (the target of hold and right-click). */
+  const inGroup = (i: number) => !S.quiet && S.selection.size > 1 && S.selection.has(i);
+
+  function smartDown(e: PointerEvent, i: number): void {
+    e.preventDefault();
+    board.focus({ preventScroll: true });
+    if (S.solved || S.finishing) return;
+    const before = snap();
+    if (e.button === 2) {
+      // Right-click: clear this cell, or the whole selection when it is inside one.
+      painted = true;
+      if (inGroup(i)) {
+        S.selection.forEach(clearCell);
+        return commitFrom(before);
+      }
+      sm = { start: i, moved: false, held: true, erase: true, before, timer: 0 };
+      clearCell(i);
+      return render();
+    }
+    if (!inGroup(i)) {
+      setSelection([i]);
+      S.quiet = true;
+    }
+    S.sel = i;
+    const timer = window.setTimeout(() => {
+      if (!sm || sm.moved) return;
+      sm.held = true;
+      cellEls[i]?.classList.remove("holding");
+      navigator.vibrate?.(12);
+      if (inGroup(i)) S.selection.forEach(clearCell);
+      else clearCell(i);
+      commitFrom(sm.before);
+    }, HOLD_MS);
+    sm = { start: i, moved: false, held: false, erase: false, before, timer };
+    cellEls[i]?.classList.add("holding");
+    render();
+  }
+
+  function smartMove(e: PointerEvent): void {
+    if (!sm || (sm.held && !sm.erase)) return;
+    const j = cellAt(e, true);
+    if (j < 0 || (j === sm.start && !sm.moved)) return;
+    if (sm.erase) {
+      clearCell(j);
+      return render();
+    }
+    if (!sm.moved) {
+      sm.moved = true;
+      clearTimeout(sm.timer);
+      cellEls[sm.start]?.classList.remove("holding");
+      if (!S.quiet) {
+        // Dragging from inside a selection crosses too; the selection goes.
+        setSelection([sm.start]);
+        S.quiet = true;
+      }
+      crossCell(sm.start);
+    }
+    crossCell(j);
+    S.sel = j;
+    render();
+  }
+
+  function smartUp(): void {
+    if (!sm) return;
+    const m = sm;
+    sm = null;
+    clearTimeout(m.timer);
+    cellEls[m.start]?.classList.remove("holding");
+    if (m.erase || m.moved) return commitFrom(m.before);
+    if (m.held) return;
+    // A tap. The second of two quick taps on a cell: undo the first, toggle a star.
+    const i = m.start;
+    const now = performance.now();
+    if (lastTap && lastTap.cell === i && now - lastTap.time < DOUBLE_MS) {
+      const first = lastTap;
+      lastTap = null;
+      S.cur = { cells: first.before.cells.slice(), cands: first.before.cands.slice() };
+      S.undo.length = first.undoLen;
+      if (!S.p!.givens[i]) S.cur.cells[i] = first.before.cells[i] === 1 ? -1 : 1;
+      if (S.cur.cells[i] === 1) S.cur.cands[i] = 0;
+      return commitFrom(first.before);
+    }
+    if (inGroup(i)) {
+      // A tap inside a selection: just the one cell from now on.
+      setSelection([i]);
+      S.quiet = true;
+    }
+    const undoLen = S.undo.length;
+    const v = S.cur.cells[i];
+    if (!S.p!.givens[i]) {
+      if (v === -1) S.cur.cells[i] = 0;
+      else if (v === 0) clearCell(i);
+    }
+    lastTap = { cell: i, time: now, before: m.before, undoLen };
+    commitFrom(m.before);
+  }
+
+  // Tapping outside the grid (not on a control) drops the selection.
+  document.addEventListener("pointerdown", (e) => {
+    if (!smartOn() || !active() || !S.p) return;
+    const t = e.target as HTMLElement;
+    if (board.contains(t) || t.closest("button, input, select, textarea, label, a, summary, dialog")) return;
+    if (!S.selection.size) return;
+    setSelection([]);
+    S.quiet = true;
+    render();
+  });
+
   board.addEventListener("pointerdown", (e) => {
     const i = cellAt(e);
     if (i < 0 || !S.p) return;
+    if (smartOn() && !(e.shiftKey || e.ctrlKey || e.metaKey || S.sticky)) return smartDown(e, i);
+    S.quiet = false;
     if (e.button === 2) {
       if (!g.xPerLine || S.solved || S.finishing || e.pointerType !== "mouse") return;
       e.preventDefault();
@@ -832,6 +998,7 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
     render();
   });
   board.addEventListener("pointermove", (e) => {
+    if (sm && S.p) return smartMove(e);
     if (paint && S.p) return paintCell(cellAt(e, true));
     if (!drag || !S.p) return;
     const i = cellAt(e, true);
@@ -849,7 +1016,7 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
   board.addEventListener("contextmenu", (e) => {
     if (!g.xPerLine || !S.p) return;
     e.preventDefault();
-    if (painted || paint) return void (painted = false);
+    if (painted || paint || smartOn()) return void (painted = false);
     const i = cellAt(e as PointerEvent);
     if (i < 0) return;
     setSelection([i]);
@@ -859,6 +1026,7 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
   const endDrag = () => {
     drag = null;
     endPaint();
+    smartUp();
   };
   window.addEventListener("pointerup", endDrag);
   window.addEventListener("pointercancel", endDrag);
@@ -970,14 +1138,15 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
       const r = Math.floor(i / N);
       const col = i % N;
       c.classList.toggle("given", S.p.givens[i]);
-      c.classList.toggle("sel", S.selection.has(i));
-      c.classList.toggle("primary", i === S.sel && S.selection.has(i));
-      c.classList.toggle("peer", opt.peers && !multi && i !== S.sel && (r === sr || col === sc));
+      c.classList.toggle("sel", S.selection.has(i) && !S.quiet);
+      c.classList.toggle("primary", i === S.sel && S.selection.has(i) && !S.quiet);
+      c.classList.toggle("peer", opt.peers && !multi && !S.quiet && i !== S.sel && (r === sr || col === sc));
       c.classList.toggle("same", opt.same && !noCands && hlVal > 0 && v === hlVal && i !== hl);
       // Cells with the highlighted digit among their candidates: a lighter mark, to see patterns.
       const candHl = opt.same && !noCands && hlVal > 0 && v < 0 && cands[i] !== RING && !!(cands[i] & (1 << hlVal));
       c.classList.toggle("cand-same", candHl);
       c.classList.toggle("x", v === 0);
+      c.classList.toggle("has-value", v > 0);
       c.classList.toggle("wrong", S.wrong.has(i));
       c.classList.toggle("clash", clash.has(i));
       const ringOnX = v < 0 && S.p.solution[i] === 0 && cands[i] && !(cands[i] & 1);
@@ -985,8 +1154,15 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
       c.classList.toggle("region", region.has(i));
       c.classList.toggle("target", targets.has(i));
       c.classList.toggle("elim", elims.has(i));
-      if (v >= 0) c.innerHTML = show(v);
-      else c.innerHTML = pillHtml(cands[i], maxDigit(), 0, candHl ? hlVal : 0);
+      // Only rewrite a cell whose content changed (so a mark appearing animates once).
+      const html = v >= 0 ? show(v) : pillHtml(cands[i], maxDigit(), 0, candHl ? hlVal : 0);
+      if (c.dataset.h !== html) {
+        const d = delays.get(i);
+        if (d) c.style.setProperty("--d", `${d}ms`);
+        else c.style.removeProperty("--d");
+        c.innerHTML = html;
+        c.dataset.h = html;
+      }
       c.setAttribute("aria-label", `Row ${r + 1}, column ${col + 1}: ${v >= 0 ? valueName(v) : cands[i] === RING ? "a digit" : "open"}`);
       c.setAttribute("aria-selected", String(S.selection.has(i)));
     }
@@ -995,6 +1171,14 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
       cellEls.forEach((c, i) => c.classList.toggle("note-region", nf !== null && g.notes!.regionOf(S.p!, i) === nf));
       renderNotes();
     }
+    if (delays.size) {
+      // Once the wave has passed, the delays go (so later changes to those cells are instant).
+      const done = [...delays.keys()];
+      const wait = Math.max(...delays.values()) + 300;
+      delays.clear();
+      setTimeout(() => done.forEach((i) => cellEls[i]?.style.removeProperty("--d")), wait);
+    }
+    root.classList.toggle("no-outline", !opt.outline);
     g.decorate(board, S.p, cells, S.sel);
     el("name").textContent = nameOf(S.code, S.level);
     el("label").textContent = `${g.title} · ${S.level} · ${N}×${N}`;
@@ -1265,6 +1449,7 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
   // ---- Keys, timer, wiring -------------------------------------------------------------
   function move(dr: number, dc: number, extend: boolean): void {
     const N = n();
+    S.quiet = false;
     S.sel = ((Math.floor(S.sel / N) + dr + N) % N) * N + (((S.sel % N) + dc + N) % N);
     if (extend) addCell(S.sel);
     else setSelection([S.sel]);
@@ -1381,14 +1566,14 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
   picker("levels", [...g.levels], (v) => v, (v) => (S.pickLevel = v));
   root.querySelectorAll<HTMLButtonElement>("[data-tab]").forEach((b) => b.addEventListener("click", () => setTab(b.dataset.tab as Tab)));
   root.querySelectorAll<HTMLInputElement>("[data-opt]").forEach((box) =>
-    box.addEventListener("change", () => setLiteOption(box.dataset.opt as keyof typeof opt, box.checked)),
+    box.addEventListener("change", () => store.set(box.dataset.opt as keyof typeof opt, box.checked)),
   );
-  onLiteOptions(() => {
+  store.on(() => {
     renderOptions();
     if (S.p) render();
   });
   if (theme) el("theme").addEventListener("change", () => theme.set((el("theme") as HTMLSelectElement).value));
-  el("finish").addEventListener("change", () => setLiteOption("autoFinish", Number((el("finish") as HTMLSelectElement).value)));
+  el("finish").addEventListener("change", () => store.set("autoFinish", Number((el("finish") as HTMLSelectElement).value)));
   el("new").addEventListener("click", newPuzzle);
   el("solved-new").addEventListener("click", newPuzzle);
   el("restart").addEventListener("click", () => {

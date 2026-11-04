@@ -567,13 +567,54 @@ html[data-game]:not([data-game="sudoku"]) .layout, html[data-game]:not([data-gam
 .sb-wrap.br { border-right: 2.5px solid var(--grid); }
 .sb-wrap.bb { border-bottom: 2.5px solid var(--grid); }
 .sb-wrap > .lite-cell { aspect-ratio: auto; width: 100%; height: 100%; }
-.sb-star { width: 70%; height: 70%; fill: currentColor; display: block; }
-.sb-dot { width: calc(var(--cell-fs) * 0.2); height: calc(var(--cell-fs) * 0.2); border-radius: 50%; background: currentColor; display: block; }
 .starbattle-board .lite-cell.x { color: var(--muted); }
 .starbattle-board .lite-cell.target, .starbattle-board .lite-cell.pop { color: var(--place); }
 .starbattle-board .lite-cell.clash, .starbattle-board .lite-cell.mistake { color: var(--elim); }
-.lite-pad .sb-star { width: 1.05em; height: 1.05em; margin: auto; }
-.lite-pad .sb-dot { width: 0.32em; height: 0.32em; margin: auto; }
+
+/* Star Battle colours: a soft colour per region (hue set per cell as --rh), crossed cells a
+   little darker, starred cells lit up a little. */
+:root { --sb-sat: 58%; --sb-light: 90%; --sb-x: rgb(25 35 55 / 0.075); --sb-glow: rgb(255 243 190 / 0.85); --sb-glow-edge: rgb(255 236 160 / 0); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --sb-sat: 30%; --sb-light: 25%; --sb-x: rgb(0 0 0 / 0.24); --sb-glow: rgb(255 214 120 / 0.2); --sb-glow-edge: rgb(255 214 120 / 0); }
+}
+:root[data-theme="dark"] { --sb-sat: 30%; --sb-light: 25%; --sb-x: rgb(0 0 0 / 0.24); --sb-glow: rgb(255 214 120 / 0.2); --sb-glow-edge: rgb(255 214 120 / 0); }
+.sb-wrap { background: hsl(var(--rh, 210) var(--sb-sat) var(--sb-light)); }
+.starbattle-board .lite-cell { background: transparent; }
+.starbattle-board .lite-cell.x { background: var(--sb-x); transition: background-color 0.15s ease-out var(--d, 0ms), transform 0.12s ease-out; }
+.starbattle-board .lite-cell.has-value { background: radial-gradient(circle at 50% 45%, var(--sb-glow), var(--sb-glow-edge) 72%); }
+.starbattle-board .lite-cell.peer { background: color-mix(in srgb, var(--peer-digit) 55%, transparent); }
+.starbattle-board .lite-cell.x.peer { background: color-mix(in srgb, var(--peer-digit) 55%, var(--sb-x)); }
+.starbattle-board .lite-cell.sel { background: color-mix(in srgb, var(--sel-digit) 75%, transparent); }
+.starbattle-board .lite-cell.region { background: color-mix(in srgb, var(--hint-soft) 80%, transparent); }
+.starbattle-board .lite-cell.target { background: color-mix(in srgb, var(--place-soft) 85%, transparent); }
+.starbattle-board .lite-cell.wrong, .starbattle-board .lite-cell.mistake { background: color-mix(in srgb, var(--error-soft) 85%, transparent); }
+/* Stars: rounded tips (a round-joined stroke) and a soft shine; crosses with round ends. */
+.sb-star { width: 74%; height: 74%; display: block; overflow: visible; }
+.sb-star .body { fill: currentColor; stroke: currentColor; stroke-width: 2.6; stroke-linejoin: round; }
+.sb-star .shine { fill: #fff; opacity: 0.22; }
+.sb-cross { width: 46%; height: 46%; display: block; }
+.sb-cross path { fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; }
+.lite-pad .sb-star { width: 1.15em; height: 1.15em; margin: auto; }
+.lite-pad .sb-cross { width: 0.8em; height: 0.8em; margin: auto; }
+/* Marks appear with a little pop; crosses placed by a star come in a quick wave (--d). */
+.lite-board:not(.static) .sb-cross { animation: sb-pop 0.17s ease-out both; animation-delay: var(--d, 0ms); }
+.lite-board:not(.static) .sb-star { animation: sb-star-pop 0.26s cubic-bezier(0.3, 1.5, 0.55, 1) both; }
+@keyframes sb-pop { from { transform: scale(0.3); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes sb-star-pop { from { transform: scale(0.4) rotate(-25deg); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .lite-board .sb-cross, .lite-board .sb-star { animation: none; } }
+
+/* Smart input: a cell being held sinks a little until it clears. */
+.starbattle-board .lite-cell { transition: transform 0.12s ease-out; }
+.starbattle-board .lite-cell.holding { transform: scale(0.9); transition: transform 0.45s linear; }
+
+/* The selection outline: rounded frames around every selected cell (Star Battle, Futoshiki),
+   or the square inset frame on the main cell (the others); none with the option off. */
+.starbattle-board .lite-cell.primary { box-shadow: none; }
+.starbattle-board .lite-cell.sel::after { content: ""; position: absolute; inset: 7%; border: 2.5px solid var(--pen); border-radius: 28%; pointer-events: none; }
+.futoshiki-board .lite-cell.sel { box-shadow: inset 0 0 0 3px var(--pen); }
+.futoshiki-board .lite-cell.cand-same { background: var(--sel-digit); }
+.lite.no-outline .lite-cell.primary, .lite.no-outline .futoshiki-board .lite-cell.sel { box-shadow: none; }
+.lite.no-outline .starbattle-board .lite-cell.sel::after { display: none; }
 
 /* Calcudoku: cells with thick cage borders and a label in each cage's first cell. */
 .calcudoku-board { --cell-fs: calc(100cqi / var(--n) * 0.56); width: min(100%, 560px); }

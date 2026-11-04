@@ -373,14 +373,19 @@ pad, Undo, Erase, Candidates, Hint, Check and Reveal.
 - **Go to Play after making a puzzle** (option, on by default, sudoku too): a newly made puzzle opens the Play tab.
 - **Highlight the same digit** (option): selecting a digit also lightly shades the cells that
   have it as a candidate, with that candidate picked out in the pill, to see patterns.
-  Candidates removed again leave nothing behind (the ring is only for Treasure Map).
-- **Right mouse button** (Treasure Map, Star Battle): click or drag to put an X/dot in every
+  Candidates removed again leave nothing behind (the ring is only for Treasure Map). In
+  Futoshiki every selected cell gets the frame, and cells with the matching candidate get
+  the selected-cell shade.
+- **Right mouse button** (Treasure Map; Star Battle without smart input): click or drag to put an X in every
   open cell you pass (digits and stars stay); a plain right-click on an X takes it away.
   One undo step. A long press on a phone puts in an X.
 - **Check** counts only your own entries. **Auto-finish** (option, default the last 8
   cells): when everything entered is right and the rest follows from singles, it fills in.
-- **Options** are shared by the light types (`src/games/lite-options.ts`); the theme is the
-  site-wide one.
+- **Options** are kept per puzzle type (`liteOptionsFor` in `src/games/lite-options.ts`,
+  saved as `sudokug-lite-options-<type>`; the first time, a type starts from the old shared
+  choices, with its own defaults on top: Star Battle has auto-finish off). The Options tab
+  only lists what applies to the type. "Outline the selected cells" (on by default) can turn
+  the selection frame off. The theme is the site-wide one.
 - **Techniques**: the rules, then each technique of the solver with what it is, why it
   works, how to spot it, and a worked example from a real puzzle (shown in place of the board, with where to
   look, what follows and what is ruled out). The examples (`src/games/<type>/examples.ts`)
@@ -465,17 +470,36 @@ operation of each cage; the targets follow).
 **Star Battle** (theme: sci-fi battles and tech). Place stars so that every row, column and
 region (the areas inside the thick lines) holds one, never touching, not even diagonally.
 6×6 and 8×8 have one star per unit, 10×10 two (the classic size). No digits and no
-candidates: the pad has a star and a dot (an empty cell); `1` or `*` places a star, `0`, `X`
-or `.` a dot, right-click a dot, and dragging over cells then pressing the dot empties a
-whole stretch, or drag with the right mouse button. Stars that break a rule and dots that
-leave a unit without room turn red. "Dot automatically" (option, on by default): a star dots
-the cells around it, and the rest of its row, column or region once that has all its stars;
-taking the star away removes those dots again (they are marked in the unused candidates,
-`autoMarks` hook). The puzzle is solved as soon as all stars are right; the open cells left
-fill with dots (`isSolved` hook), and auto-finish animates only the stars.
-The shared page takes this from a few optional `LiteGame` hooks (`candidates: false`,
-`glyph`, `valueName`, `keyAliases`, `clashes`, `sizeLabel`, `controls`); stars are the
-value 1, dots the X (0).
+candidates: the pad has a star and a cross (an empty cell); `1` or `*` places a star, `0`,
+`X` or `.` a cross. Stars that break a rule and crosses that leave a unit without room turn
+red.
+
+*Smart input* (option, on by default; `smartDown`/`smartMove`/`smartUp` in `lite.ts`, for
+types with `smartInput`): a tap or click crosses a cell (again: clears it; a star stays),
+dragging crosses every open cell passed, a double tap or double-click toggles a star (the
+first tap is undone, so it is one undo step), holding a cell (450 ms; it sinks a little
+meanwhile) or right-clicking clears it, and right-dragging clears every cell passed. With
+Shift or S held, taps and drags select instead (rounded frames); the star and cross keys
+fill the selection, holding or right-clicking inside it clears it, and tapping anywhere
+outside the grid (not on a control) drops it. A tapped cell is a quiet cursor (`S.quiet`:
+no frame, no row/column shading) that the keyboard can still use. Without smart input, the
+board works like the other types (select, then a key; right-drag crosses).
+
+"Cross automatically" (option, on by default): a star crosses the cells around it, and the
+rest of its row, column or region once that has all its stars; taking the star away removes
+those crosses again (they are marked in the unused candidates, `autoMarks` hook). The
+crosses appear in a quick wave outwards from the star (30 ms per cell of distance,
+`ripple()`; each mark scales in, `prefers-reduced-motion` turns it off; cells are only
+rewritten when their content changes, so marks animate once). The puzzle is solved as soon
+as all stars are right; the open cells left fill with crosses (`isSolved` hook).
+
+Look: every region has its own soft colour (`regionHues`: a hand-picked set of hues,
+neighbours as far apart as possible; pastel in light mode, muted in dark), crossed cells are
+a little darker, starred cells softly lit. Stars have rounded tips and a faint shine. Printed
+puzzles stay white with black lines.
+The shared page takes all this from optional `LiteGame` hooks (`candidates: false`,
+`glyph`, `valueName`, `keyAliases`, `clashes`, `autoMarks`, `isSolved`, `smartInput`,
+`optionDefaults`, `sizeLabel`, `controls`); stars are the value 1, crosses the X (0).
 
 Making one (`engine.ts`): random stars first (k per row and column, none touching), then
 regions grown around them (each region starts from its stars; with two stars, a short path
