@@ -3,6 +3,15 @@
 Release notes, newest first: per version, very briefly, what changed. Maintained by Claude.
 Resolved notes, answered questions and replaced files go to ARCHIVE.md, not here.
 
+## v1.2 (2026-11-19)
+- Redo in every puzzle type.
+- The light types' pad shows how many of each value are left; finished keys are greyed out.
+- Sudoku: sweep over the pad too (candidates, or pairs and colours in those modes).
+  "Sweep over the number pad" is an option in every type.
+- Sudoku: cells with the highlighted digit as a candidate or pair are shaded lightly
+  (option "Shade cells with the candidate").
+- Sudoku: option "Outline the selected cells", as in the other types.
+
 ## v1.1 (2026-11-19)
 - Number pad: keys react to the first touch; holding a key no longer selects text or opens
   a search. On a phone the light types' pad has two rows of wide keys, as in sudoku.

@@ -267,6 +267,7 @@ function markup<P extends LitePuzzle>(g: LiteGame<P>, theme: boolean): string {
         <div data-r="pad" class="pad lite-pad" aria-label="Number pad"></div>
         <div class="actions act-edit">
           <button data-r="undo" class="btn" type="button" title="Undo (Ctrl+Z)">Undo</button>
+          <button data-r="redo" class="btn" type="button" title="Redo (Ctrl+Y)">Redo</button>
           <button data-r="erase" class="btn" type="button" title="Erase (Backspace)">Erase</button>
           ${g.candidates === false ? "" : `<button data-r="mode" class="btn lite-mode" type="button" aria-pressed="false" title="Candidates (Space, or hold Shift)">Candidates</button>`}
         </div>
@@ -340,6 +341,7 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
     pickLevel: g.levels[1] ?? g.levels[0],
     cur: { cells: [], cands: [] } as Snap,
     undo: [] as Snap[],
+    redo: [] as Snap[],
     sel: 0,
     selection: new Set<number>([0]),
     pencil: false,
@@ -389,6 +391,7 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
     S.level = level ?? g.levelOf(p);
     S.cur = { cells: p.solution.map((v, i) => (p.givens[i] ? v : -1)), cands: new Array(p.n * p.n).fill(0) };
     S.undo = [];
+    S.redo = [];
     S.sel = Math.max(0, p.givens.findIndex((x) => !x));
     S.selection = new Set([S.sel]);
     selOrder = [S.sel];
@@ -536,9 +539,15 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
     fn(S.cur);
     autoDots(before, S.cur);
     if (JSON.stringify(before) === JSON.stringify(S.cur)) return;
+    pushUndo(before);
+    afterChange();
+  }
+
+  /** A step to undo (a new change also ends what Redo could bring back). */
+  function pushUndo(before: Snap): void {
     S.undo.push(before);
     if (S.undo.length > 300) S.undo.shift();
-    afterChange();
+    S.redo = [];
   }
 
   /** Marks an X that "Cross automatically" placed (in the candidates, which such types don't use). */
@@ -621,7 +630,7 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
         return void setTimeout(tick, 110);
       }
       S.finishing = false;
-      S.undo.push(before);
+      pushUndo(before);
       cellEls.forEach((c) => c?.classList.remove("pop"));
       afterChange();
     };
@@ -742,13 +751,20 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
   }
 
   function undo(): void {
-    const prev = S.undo.pop();
-    if (!prev || S.solved || S.finishing) return;
-    S.cur = prev;
+    if (!S.undo.length || S.solved || S.finishing) return;
+    S.redo.push(S.cur);
+    S.cur = S.undo.pop()!;
     S.wrong.clear();
     S.hint = null;
     render();
     save();
+  }
+
+  function redo(): void {
+    if (!S.redo.length || S.solved || S.finishing) return;
+    S.undo.push(S.cur);
+    S.cur = S.redo.pop()!;
+    afterChange();
   }
 
   /** Check: your own entries (digits, X's) and rings that sit on an X. */
@@ -923,8 +939,7 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
     }
     if (JSON.stringify(before) === JSON.stringify(S.cur)) return;
     autoDots(before, S.cur);
-    S.undo.push(before);
-    if (S.undo.length > 300) S.undo.shift();
+    pushUndo(before);
     afterChange();
   };
 
@@ -945,8 +960,7 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
   function commitFrom(before: Snap): void {
     if (JSON.stringify(before) === JSON.stringify(S.cur)) return render();
     autoDots(before, S.cur);
-    S.undo.push(before);
-    if (S.undo.length > 300) S.undo.shift();
+    pushUndo(before);
     afterChange();
   }
   const clearCell = (i: number) => {
@@ -1191,7 +1205,7 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
           b.title = "Ring: a digit goes here, not an X (O or full stop). Hold 2 seconds to clear all rings";
           b.classList.add("dot-key");
         } else {
-          b.innerHTML = show(v);
+          b.innerHTML = show(v) + (v > 0 ? `<span class="left"></span>` : "");
           b.title = g.valueName ? `${valueName(v)} (${v ? "1" : "0 or X"})` : v === 0 ? "X: a cell without a digit (X or 0)" : String(v);
           if (g.valueName) b.setAttribute("aria-label", valueName(v));
           if (v === 0) b.classList.add("x-key");
@@ -1220,12 +1234,14 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
       enter(v);
     });
     pad.addEventListener("pointermove", (e) => {
-      if (!sweep || sweep.id !== e.pointerId || !S.p) return;
+      if (!sweep || sweep.id !== e.pointerId || !S.p || !opt.sweep) return;
       const v = keyAt(e.clientX, e.clientY);
       if (v === null || sweep.keys.has(v)) return;
       stopRingHold();
       const first = [...sweep.keys][0];
-      if (!sweepable(v) || !sweepable(first) || !openCells().length || S.solved || S.finishing) return;
+      // (Open cells as before the first key, which may have put a digit in.)
+      const open = editable().some((i) => sweep!.before.cells[i] < 0);
+      if (!sweepable(v) || !sweepable(first) || !open || S.solved || S.finishing) return;
       if (sweep.add === null) {
         // The sweep starts: whatever the first key did becomes a candidate instead.
         S.cur = { cells: sweep.before.cells.slice(), cands: sweep.before.cands.slice() };
@@ -1333,11 +1349,21 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
     all("code").forEach((x) => (x.textContent = S.code));
     el("timer").hidden = !opt.timer;
     btn("undo").disabled = !S.undo.length || S.solved;
+    btn("redo").disabled = !S.redo.length || S.solved;
     const mode = root.querySelector<HTMLElement>('[data-r="mode"]');
     mode?.classList.toggle("on", S.pencil);
     mode?.setAttribute("aria-pressed", String(S.pencil));
     const pad = el("pad");
     pad.classList.toggle("pad-pencil", pencilOn());
+    // What is left of each value (stars, digits), and keys greyed out once all are placed.
+    pad.querySelectorAll<HTMLElement>("[data-v]").forEach((k) => {
+      const v = Number(k.dataset.v);
+      if (v <= 0 || v === RING) return;
+      const left = S.p!.solution.filter((x) => x === v).length - cells.filter((x) => x === v).length;
+      k.classList.toggle("done", left <= 0);
+      const tag = k.querySelector<HTMLElement>(".left");
+      if (tag) tag.textContent = opt.padCounts && !pencilOn() && left > 0 ? String(left) : "";
+    });
     pad.querySelector(".pad-sticky")?.classList.toggle("on", S.sticky);
     el("solved").hidden = !S.solved;
     el("solved-time").textContent = fmtTime(S.elapsed);
@@ -1613,6 +1639,10 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
     const t = e.target as HTMLElement;
     if (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || document.querySelector("dialog[open]")) return;
     const k = e.key;
+    if ((e.ctrlKey || e.metaKey) && (k.toLowerCase() === "y" || (k.toLowerCase() === "z" && e.shiftKey))) {
+      e.preventDefault();
+      return redo();
+    }
     if ((e.ctrlKey || e.metaKey) && k.toLowerCase() === "z") {
       e.preventDefault();
       return undo();
@@ -1731,6 +1761,7 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
     setTab("play");
   });
   el("undo").addEventListener("click", undo);
+  el("redo").addEventListener("click", redo);
   el("erase").addEventListener("click", erase);
   root.querySelector('[data-r="mode"]')?.addEventListener("click", () => {
     S.pencil = !S.pencil;

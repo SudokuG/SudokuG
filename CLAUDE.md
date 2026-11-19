@@ -1,7 +1,7 @@
 # CLAUDE.md
 
 Osty: 0.10
-Versions: v1.1 → v1.2 → v1.3 …; constant: "version" in package.json (written as 1.1.0)
+Versions: v1.1 → v1.2 → v1.3 …; constant: "version" in package.json (v1.2 written as 1.2.0)
 This project uses the project-osty skill (Project Osty). Every session: read the global
 and project PREFERENCES.md and NOTES.md; read MAP.md before touching code; work from
 ROADMAP.md "Now"; update MAP/ROADMAP/CHANGELOG/ARCHIVE/NOTES/PREFERENCES in the same

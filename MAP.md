@@ -13,11 +13,14 @@
 - Puzzle switcher: type dropdown at the top of the Puzzles tab | src/ui/games.ts | remembered
 - Pad: number pad; on a phone two rows (sudoku 5+5, light types ceil(keys/2), max 5) | `buildPad` in app.ts and lite.ts | –
 - S key: phone-only pad key, held = Shift (add cells, candidates) | `pad-sticky` | option S key stays on
-- Sweep: slide a finger over light-type pad keys to toggle candidates in one go | lite.ts `buildPad` | one undo step
+- Sweep: slide a finger over pad keys to toggle candidates in one go | lite.ts `wirePad`, app.ts `wireSweep` | option sweep; one undo step
 - Digit highlight: tapping a pad key with nothing selected marks that digit and its candidates | app.ts `S.padDigit`, lite.ts `S.padDigit` | –
 - Selection outline: one outline around each group of selected cells (not Futoshiki: a frame per cell) | board.ts `outlinePath`, lite.ts sel overlay | option Outline the selected cells
 - Region lines: thin grid + thick region/cage lines as SVG | lite.ts `linesHtml`, `placeOverlays`, `LiteGame.regions` | –
-- Highlight row and column / Highlight box (sudoku) / Highlight region (light types with regions): separate options | Settings.peers/box, LiteOptions.peers/region |
+- Highlight row and column / Highlight box (sudoku) / Highlight region (light types with regions): separate options | Settings.peers/box, LiteOptions.peers/region | region off by default (user, v1.2)
+- Shade cells with the candidate (sudoku): cand-same shading for the highlighted digit | Settings.candShade | light types always shade
+- Pad counts: value left per key, `.done` greys a finished key | renderModes (app.ts), render (lite.ts) | options padCounts
+- Undo/Redo: both pages; lite.ts pushUndo() clears redo | S.undo/S.redo | not saved
 - Candidates (light): framed pill in the middle of the cell | lite.ts `pillHtml` | Snap.cands bitmask
 - Ring: Treasure Map "a digit goes here" mark | RING in games/logic.ts | cands === RING
 - Smart input: Star Battle tap/drag crosses, double tap star, hold clears | lite.ts smartDown/Move/Up | option
@@ -55,3 +58,4 @@ pointer/keys → app.ts or lite.ts state → change() pushes undo snapshot → r
 - Options kept per light type: types need different defaults (Star Battle no auto-finish) (v1.0)
 - Lines and selection outline as SVG overlays: CSS borders of mixed widths make notched corners (v1.1)
 - Futoshiki keeps a frame per selected cell: its cells don't touch (v1.1)
+- Not aligned on purpose (Q1, v1.2): candidate pills stay as they are; Star Battle smart input keeps its unmarked cursor; region highlight stays off by default; sudoku keeps Fill/Clear candidates, light types keep Reveal

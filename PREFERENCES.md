@@ -17,6 +17,11 @@ Project preferences override global ones.
 - [ ] P5 The README explains things for someone who has never used a terminal (how to open
   one, what to click in GitHub Desktop). (v1.0, inferred)
 
+- [ ] P6 New behaviour that changes something familiar comes with an option to switch it
+  off (sweeping, candidate shading). (v1.2, asked twice) — looks general; tick to make global
+- [ ] P7 Highlighting extras (region highlight) stay off by default; the player turns them
+  on. (v1.2, stated)
+
 ## Promoted
 
 ## Retired

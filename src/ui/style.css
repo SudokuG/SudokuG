@@ -240,6 +240,8 @@ h1 { font-family: var(--font-display); font-weight: 800; font-size: 1.6rem; lett
    the held key. The S key itself takes no gestures at all, and a two-finger touch that
    starts on it gets none either (browsers combine the rules of all touching fingers). */
 .pad, .pad button, .modes, .act-edit, .color-tools { touch-action: pan-y; }
+/* Pad keys act on the first touch and a finger can sweep over them (wireSweep, wirePad). */
+#pad, #pad button { touch-action: none; }
 .pad.base-pencil { --accent: var(--m-pencil); }
 .pad.base-centre { --accent: var(--m-centre); }
 .pad.base-color { --accent: var(--m-color); }

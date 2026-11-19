@@ -353,7 +353,7 @@ stays free for the puzzle's name); the choice is remembered, and a link to a puz
 its type. Sudoku keeps the full app (`src/ui/app.ts`); the lighter
 types share one page laid out like sudoku's (`src/games/lite.ts`): Play, Puzzles, Options
 and Techniques tabs; the code row under the board (at the bottom on a phone). Play has the
-pad, Undo, Erase, Candidates, Hint, Check and Reveal.
+pad, Undo, Redo, Erase, Candidates, Hint, Check and Reveal.
 
 - **Candidates** sit in the middle of the cell, small and framed, in the colour of entered
   digits. In Treasure Map, candidates also say "not an X" unless ✕ is one of them; an empty
@@ -374,7 +374,11 @@ pad, Undo, Erase, Candidates, Hint, Check and Reveal.
   opens a search. On a phone the keys sit in two rows when there are more than five, as in
   sudoku; the S key fills the rest of the last row. **Sweep** (light types): slide a finger
   from key to key to toggle those candidates in the selected cells, in one undo step; the
-  first key decides whether the sweep adds or removes. **A key with nothing selected**
+  first key decides whether the sweep adds or removes. Sudoku sweeps too: in Digit mode a
+  sweep enters candidates, in Pairs and Colour mode pairs and colours ("Sweep over the
+  number pad", an option in every type, on by default). Each key shows how many of its
+  value are left ("Show what's left on the number pad"), and a key whose value is all
+  placed is greyed out. **A key with nothing selected**
   (every type) marks the cells with that digit and lightly those with it as a candidate;
   the same key again, or selecting a cell, ends it.
 - **Number pad**: Shift+number pad enters candidates (on Windows it arrives as an arrow
@@ -382,11 +386,14 @@ pad, Undo, Erase, Candidates, Hint, Check and Reveal.
   pad enters candidates" (sudoku and the light types) makes the number pad always enter
   candidates, which never overwrite digits; off, it works like the other digit keys.
 - **Go to Play after making a puzzle** (option, on by default, sudoku too): a newly made puzzle opens the Play tab.
+- **Undo and Redo** in every type (Ctrl+Z, Ctrl+Y or Ctrl+Shift+Z).
 - **Highlight the same digit** (option): selecting a digit also lightly shades the cells that
   have it as a candidate, with that candidate picked out in the pill, to see patterns.
   Candidates removed again leave nothing behind (the ring is only for Treasure Map). In
   Futoshiki every selected cell gets the frame, and cells with the matching candidate get
-  the selected-cell shade.
+  the selected-cell shade. Sudoku does the same for candidates and pairs ("Shade cells with
+  the candidate", on by default; off, only the candidate itself is marked). Sudoku also has
+  "Outline the selected cells".
 - **Right mouse button** (Treasure Map; Star Battle without smart input): click or drag to put an X in every
   open cell you pass (digits and stars stay); a plain right-click on an X takes it away.
   One undo step. A long press on a phone puts in an X.
