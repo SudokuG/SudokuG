@@ -528,19 +528,6 @@ otherwise) that stores the starting digits themselves, so codes keep working whe
 generator changes. Paste one into Load, or share a link: `https://sudokug.github.io/SudokuG/#<code>`
 opens that puzzle directly (the "Copy link" button under the board makes one).
 
-## Roadmap
-
-1. ~~Playable grid, pencil marks, auto-candidates, undo/redo, import/export~~
-2. ~~Engine core, brute-force solver~~
-3. ~~Hints with singles, locked candidates and subsets~~
-4. ~~Harder techniques (fish, wings, coloring, chains)~~
-5. ~~Rating and "grindiness" metrics~~
-6. ~~Generator that keeps only puzzles matching a rating filter~~
-7. ~~Sculpted puzzles: few clues, lots of X-Wing-type moves and hidden pairs, capped hardest moves~~
-8. ~~Names and printing~~
-9. ~~Treasure Map (Japanese Sums), Futoshiki, Calcudoku, Star Battle~~
-10. Next: more sudoku techniques
-
 ## Licence
 
 MIT: anyone may use, copy and change the code, as long as the licence and copyright

@@ -1,0 +1,22 @@
+# Preferences
+
+What Claude has learned about how you want things done in this project.
+Tick a box to make that preference global (all projects). Edit or delete any line freely.
+Project preferences override global ones.
+
+## Active
+- [ ] P1 The puzzle types share their design and behaviour wherever they can and it makes
+  sense (pad, selection, highlighting, options, borders, layout). Before aligning existing
+  differences, list them and ask. (v1.1, stated)
+- [ ] P2 Built for the phone first: big touch targets, every key reacts to the first
+  touch, no text selection or system pop-ups from holding a key. (v1.1, stated)
+- [ ] P3 Keep the visual noise down: nothing highlighted unless it helps right now
+  (tapping outside the grid clears the selection). (v1.1, stated)
+- [ ] P4 Puzzle types with a trademarked name get a name of their own (Calcudoku, not
+  KenKen); the README may say what fans call them. (v1.0, inferred)
+- [ ] P5 The README explains things for someone who has never used a terminal (how to open
+  one, what to click in GitHub Desktop). (v1.0, inferred)
+
+## Promoted
+
+## Retired

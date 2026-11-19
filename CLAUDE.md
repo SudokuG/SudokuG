@@ -1,0 +1,49 @@
+# CLAUDE.md
+
+Osty: 0.10
+Versions: v1.1 → v1.2 → v1.3 …; constant: "version" in package.json (written as 1.1.0)
+This project uses the project-osty skill (Project Osty). Every session: read the global
+and project PREFERENCES.md and NOTES.md; read MAP.md before touching code; work from
+ROADMAP.md "Now"; update MAP/ROADMAP/CHANGELOG/ARCHIVE/NOTES/PREFERENCES in the same
+step as the code; end with the Done/Next/Roadmap report. This file wins over the skill
+for this project.
+
+## Project
+SudokuG: sudoku player and generator (human-style hints, rated puzzles without grind) plus
+lighter puzzle types (Treasure Map, Futoshiki, Calcudoku, Star Battle). Static PWA, played
+mostly on a phone. Live at https://sudokug.github.io/SudokuG/
+
+## Run & test
+- `npm ci` once; `npm run build` → dist/index.html (open it), site/ (GitHub Pages)
+- Before every commit: `npm run typecheck && npm test && npm run build`
+- Push to main = deploy (.github/workflows/deploy.yml: typecheck, test, build, Pages).
+  A failing test blocks the deploy.
+- Look at the page: build, then Playwright (installed globally) on dist/index.html at a
+  phone size (390×844) and a desktop size; screenshots for any visual change.
+
+## Technical conventions
+- TypeScript, no framework, bundled by esbuild (build.mjs inlines CSS, JS, fonts into one page).
+- src/engine/ and src/games/*/engine.ts, logic.ts: no DOM; tested in test/engine.test.ts.
+- UI text: British spelling (colour, centre), plain words.
+- README.md is the full user and developer manual: every user-visible change also updates
+  its section there (Other puzzle types, Options, …).
+- Generated data (src/daily-data.ts, src/library-data.ts): never edit by hand.
+- localStorage keys start with `sudokug-` (sudoku settings: `pattern-sudoku-settings`).
+  Never break saved games or settings: new fields get defaults when read.
+
+## Patterns
+- Puzzle type: a `LiteGame` in src/games/<type>/game.ts (+ engine.ts, logic.ts,
+  techniques.ts, examples.ts); the shared page is src/games/lite.ts. Adding a type: README
+  "Other puzzle types", last paragraph.
+- Optional behaviour of a type = an optional `LiteGame` hook, never `if (g.id === …)` in lite.ts.
+- Options: sudoku in `Settings` (app.ts) + a label in page.html; light types in
+  src/games/lite-options.ts (`LiteOptions`, `LITE_OPTION_TEXT` with `for:` to limit types).
+- Pad keys act on pointerdown (phones drop clicks); see `buildPad` in both pages.
+- Board lines and the selection outline: SVG overlays (viewBox 100 per cell,
+  non-scaling strokes, square caps), not CSS borders.
+
+## Notes for Claude
+- app.ts (~1950 lines) and lite.ts (~1700) are past the 800-line guide; a split is in
+  ROADMAP Later. Read them by section (grep the `// ----` headers).
+- The claude.ai Project has an old README copy (claude/pattern-sudoku-readme.md); the repo
+  README wins.
