@@ -18,7 +18,7 @@ Project preferences override global ones.
   one, what to click in GitHub Desktop). (v1.0, inferred)
 
 - [ ] P6 New behaviour that changes something familiar comes with an option to switch it
-  off (sweeping, candidate shading). (v1.2, asked twice) — looks general; tick to make global
+  off (sweeping, candidate shading, sweeping in digit mode). (v1.2, asked twice; again v1.4) — looks general; tick to make global
 - [ ] P7 Highlighting extras (region highlight) stay off by default; the player turns them
   on. (v1.2, stated)
 

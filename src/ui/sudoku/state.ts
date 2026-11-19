@@ -54,6 +54,8 @@ export interface Settings {
   candShade: boolean;
   /** Sliding a finger over the pad keys toggles those candidates (pairs, colours). */
   sweep: boolean;
+  /** Sweeping also works in Digit mode (the keys then go in as candidates). */
+  sweepDigit: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -75,6 +77,7 @@ export const DEFAULT_SETTINGS: Settings = {
   outline: true,
   candShade: true,
   sweep: true,
+  sweepDigit: true,
 };
 
 /** Fixed: patterns up to Expert level count as an alternative to a triple or quad. */

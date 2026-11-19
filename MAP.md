@@ -13,7 +13,8 @@
 - Puzzle switcher: type dropdown at the top of the Puzzles tab | src/ui/games.ts | remembered
 - Pad: number pad; on a phone two rows (sudoku 5+5, light types ceil(keys/2), max 5) | `buildPad` in sudoku/pad.ts and lite/pad.ts | –
 - S key: phone-only pad key, held = Shift (add cells, candidates) | `pad-sticky` | option S key stays on
-- Sweep: slide a finger over pad keys to toggle candidates in one go | lite/pad.ts `wirePad`, sudoku/pad.ts `wireSweep` | option sweep; one undo step
+- Sweep: slide a finger over pad keys to toggle candidates in one go | lite/pad.ts `wirePad`, sudoku/pad.ts `wireSweep` | options sweep, sweepDigit (also in digit mode); one undo step
+- Entry mode colours: digit blue, candidates green (sudoku also pairs, colour) on board, outline and pad | sudoku: `.board.mode-<m>`, `.pad.pad-<m> base-<m>` (render.ts renderModes); light: `.lite.mode-pencil` on the page root + `.pad-pencil`/`.base-pencil` (lite/render.ts) | CSS vars --sel --accent --b-peer --b-same
 - Digit highlight: tapping a pad key with nothing selected marks that digit and its candidates | sudoku/state.ts `S.padDigit`, lite/ctx.ts `S.padDigit` | –
 - Selection outline: one outline around each group of selected cells (not Futoshiki: a frame per cell) | board.ts `outlinePath`, lite/render.ts sel overlay | option Outline the selected cells
 - Region lines: thin grid + thick region/cage lines as SVG | lite/markup.ts `linesHtml`, lite/render.ts `placeOverlays`, `LiteGame.regions` | –

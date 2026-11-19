@@ -147,8 +147,12 @@ export function renderPart<P extends LitePuzzle>(ctx: LiteCtx<P>) {
     const mode = root.querySelector<HTMLElement>('[data-r="mode"]');
     mode?.classList.toggle("on", S.pencil);
     mode?.setAttribute("aria-pressed", String(S.pencil));
+    // Candidate entry (Candidates, Shift or S) turns the board and pad green, as in sudoku;
+    // the S key takes the colour of the Candidates button's mode.
+    root.classList.toggle("mode-pencil", ctx.pencilOn());
     const pad = el("pad");
     pad.classList.toggle("pad-pencil", ctx.pencilOn());
+    pad.classList.toggle("base-pencil", S.pencil && !noCands);
     // What is left of each value (stars, digits), and keys greyed out once all are placed.
     pad.querySelectorAll<HTMLElement>("[data-v]").forEach((k) => {
       const v = Number(k.dataset.v);

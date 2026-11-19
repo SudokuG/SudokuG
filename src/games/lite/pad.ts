@@ -16,9 +16,9 @@ export function padPart<P extends LitePuzzle>(ctx: LiteCtx<P>) {
    * The pad. Keys act on the first touch (a phone drops the click when the finger moves a
    * little, or for a second finger while S is held). Sliding the finger on over other keys
    * (a sweep) toggles those candidates too, all in one undo step: the first key decides
-   * whether the sweep adds or removes them. Holding the ring key clears every ring.
+   * whether the sweep adds or removes them. Entering digits, only with Sweep in digit mode. Holding the ring key clears every ring.
    */
-  let sweep: { id: number; keys: Set<number>; before: Snap; undoLen: number; add: boolean | null } | null = null;
+  let sweep: { id: number; keys: Set<number>; before: Snap; undoLen: number; digit: boolean; add: boolean | null } | null = null;
   const keyAt = (x: number, y: number): number | null => {
     const k = (document.elementFromPoint(x, y) as HTMLElement | null)?.closest<HTMLElement>("[data-v]");
     return k && el("pad").contains(k) ? Number(k.dataset.v) : null;
@@ -95,12 +95,12 @@ export function padPart<P extends LitePuzzle>(ctx: LiteCtx<P>) {
       } catch {
         /* synthetic event */
       }
-      sweep = { id: e.pointerId, keys: new Set([v]), before: ctx.snap(), undoLen: S.undo.length, add: null };
+      sweep = { id: e.pointerId, keys: new Set([v]), before: ctx.snap(), undoLen: S.undo.length, digit: !ctx.pencilOn(), add: null };
       if (v === RING) ctx.startRingHold();
       ctx.enter(v);
     });
     pad.addEventListener("pointermove", (e) => {
-      if (!sweep || sweep.id !== e.pointerId || !S.p || !opt.sweep) return;
+      if (!sweep || sweep.id !== e.pointerId || !S.p || !opt.sweep || (sweep.digit && !opt.sweepDigit)) return;
       const v = keyAt(e.clientX, e.clientY);
       if (v === null || sweep.keys.has(v)) return;
       ctx.stopRingHold();

@@ -3,6 +3,12 @@
 Release notes, newest first: per version, very briefly, what changed. Maintained by Claude.
 Resolved notes, answered questions and replaced files go to ARCHIVE.md, not here.
 
+## v1.4 (2026-11-19)
+- Light types: entering candidates (Candidates, Shift or S) turns the selection, its shading
+  and the pad green, as in sudoku's Candidate mode.
+- New option "Sweep in digit mode" (every type with candidates): switch it off to sweep
+  over the pad only while entering candidates.
+
 ## v1.3 (2026-11-19)
 - Nothing changes in play: the code behind the sudoku page and the light puzzle page is split
   into smaller files, so later changes are quicker and safer.

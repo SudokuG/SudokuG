@@ -485,6 +485,9 @@ html[data-game]:not([data-game="sudoku"]) .layout, html[data-game]:not([data-gam
 
 /* ---- Lighter puzzle types (Treasure Map, Futoshiki, …): laid out like the sudoku page -- */
 .lite { grid-template-columns: minmax(0, 1fr) 316px; gap: 24px; align-items: start; }
+/* Entry mode colours, as on the sudoku board: blue for digits, green for candidates (Candidates, Shift or S). */
+.lite { --sel: var(--sel-digit); --accent: var(--m-digit); --b-peer: var(--peer-digit); --b-same: var(--same-digit); }
+.lite.mode-pencil { --sel: var(--sel-pencil); --accent: var(--m-pencil); --b-peer: var(--peer-pencil); --b-same: var(--same-pencil); }
 .lite-board-wrap { min-width: 0; display: flex; flex-direction: column; align-items: center; grid-row: 1 / span 2; }
 .lite-head { display: flex; align-items: baseline; gap: 4px 14px; flex-wrap: wrap; justify-content: center; margin-bottom: 10px; color: var(--muted); }
 .lite .code-row-desktop { margin-top: 12px; }
@@ -508,12 +511,12 @@ html[data-game]:not([data-game="sudoku"]) .layout, html[data-game]:not([data-gam
 .lite-cell.given { color: var(--ink); font-weight: 700; }
 .lite-cell.x { color: var(--ink); font-size: calc(var(--cell-fs) * 0.86); }
 .lite-cell.x:not(.given) { color: var(--muted); }
-.lite-cell.peer { background: var(--peer-digit); }
-.lite-cell.same { background: var(--same-digit); }
+.lite-cell.peer { background: var(--b-peer); }
+.lite-cell.same { background: var(--b-same); }
 .lite-cell.region { background: var(--hint-soft); }
 .lite-cell.target { background: var(--place-soft); }
 .lite-cell.elim { background: var(--error-soft); }
-.lite-cell.sel { background: var(--sel-digit); }
+.lite-cell.sel { background: var(--sel); }
 .lite-cell.clash, .lite-cell.mistake { color: var(--elim); }
 .lite-cell.wrong, .lite-cell.mistake { background: var(--error-soft); }
 /* Candidates in the middle of the cell, small and framed, in the colour of entered digits. */
@@ -544,8 +547,8 @@ html[data-game]:not([data-game="sudoku"]) .layout, html[data-game]:not([data-gam
 .lite-pad button.dot-key.arming { background: linear-gradient(var(--hint-soft), var(--hint-soft)) no-repeat left / 0% 100%, var(--btn); animation: ring-arm 2s linear forwards; }
 @keyframes ring-arm { to { background-size: 100% 100%, auto; } }
 /* Candidates equal to the highlighted digit: a light shade on the cell, the candidate picked out. */
-.lite-cell.cand-same { background: color-mix(in srgb, var(--same-digit) 45%, var(--surface)); }
-.lite-cell.cand-same.sel { background: var(--sel-digit); }
+.lite-cell.cand-same { background: color-mix(in srgb, var(--b-same) 45%, var(--surface)); }
+.lite-cell.cand-same.sel { background: var(--sel); }
 .lite-pill .hl { color: var(--surface); background: var(--entry); border-radius: 999px; padding: 0 0.2em; margin: 0 0.06em; }
 .lite-pill .gone { color: var(--elim); text-decoration: line-through; text-decoration-thickness: 2px; }
 .lite-cell.target .lite-pill.ring { border-color: var(--place); }
@@ -619,9 +622,9 @@ html[data-game]:not([data-game="sudoku"]) .layout, html[data-game]:not([data-gam
 .lite-lines .thin { stroke: var(--hair); stroke-width: 1px; }
 .lite-lines .thick { stroke: var(--grid); stroke-width: 2.5px; }
 .lite-sel { z-index: 4; }
-.lite-sel path { stroke: var(--pen); stroke-width: 3px; }
-.futoshiki-board .lite-cell.sel { box-shadow: inset 0 0 0 3px var(--pen); }
-.futoshiki-board .lite-cell.cand-same { background: var(--sel-digit); }
+.lite-sel path { stroke: var(--accent); stroke-width: 3px; }
+.futoshiki-board .lite-cell.sel { box-shadow: inset 0 0 0 3px var(--accent); }
+.futoshiki-board .lite-cell.cand-same { background: var(--sel); }
 .lite.no-outline .futoshiki-board .lite-cell.sel { box-shadow: none; }
 
 /* Calcudoku: cells with thick cage borders and a label in each cage's first cell. */

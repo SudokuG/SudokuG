@@ -62,10 +62,10 @@ export function buildPad(): void {
  * Keys act on the first touch (a phone drops the click when the finger moves a little, or
  * for a second finger while S is held). With the Sweep option, sliding on over other keys
  * toggles those as candidates (pairs or colours in those modes; digit mode sweeps
- * candidates), all in one undo step; the first key decides whether the sweep adds or removes.
+ * candidates, unless the Sweep in digit mode option is off), all in one undo step; the first key decides whether the sweep adds or removes.
  */
 export function wireSweep(pad: HTMLElement): void {
-  let sw: { id: number; keys: number[]; before: Snapshot; undoLen: number; redo: Snapshot[]; mode: Mode; add: boolean | null } | null = null;
+  let sw: { id: number; keys: number[]; before: Snapshot; undoLen: number; redo: Snapshot[]; mode: Mode; digit: boolean; add: boolean | null } | null = null;
   const keyAt = (x: number, y: number): number | null => {
     const k = (document.elementFromPoint(x, y) as HTMLElement | null)?.closest<HTMLElement>("[data-d]");
     return k && pad.contains(k) ? Number(k.dataset.d) : null;
@@ -94,11 +94,11 @@ export function wireSweep(pad: HTMLElement): void {
       /* synthetic event */
     }
     const m = effectiveMode(e.shiftKey);
-    sw = S.cur ? { id: e.pointerId, keys: [d], before: clone(S.cur), undoLen: S.undo.length, redo: S.redo.slice(), mode: m === "digit" ? "pencil" : m, add: null } : null;
+    sw = S.cur ? { id: e.pointerId, keys: [d], before: clone(S.cur), undoLen: S.undo.length, redo: S.redo.slice(), mode: m === "digit" ? "pencil" : m, digit: m === "digit", add: null } : null;
     enterNumber(d, m);
   });
   pad.addEventListener("pointermove", (e) => {
-    if (!sw || sw.id !== e.pointerId || !S.settings.sweep || S.finishing || noPuzzle()) return;
+    if (!sw || sw.id !== e.pointerId || !S.settings.sweep || (sw.digit && !S.settings.sweepDigit) || S.finishing || noPuzzle()) return;
     const d = keyAt(e.clientX, e.clientY);
     if (d === null || sw.keys.includes(d) || !targets(sw.mode).length) return;
     if (sw.add === null) {

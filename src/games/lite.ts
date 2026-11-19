@@ -188,7 +188,11 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
       if (S.p) render();
     }
   });
-  window.addEventListener("blur", () => (S.shift = false));
+  window.addEventListener("blur", () => {
+    if (!S.shift) return;
+    S.shift = false;
+    if (S.p) render();
+  });
   document.addEventListener("visibilitychange", () => document.visibilityState === "hidden" && save());
   window.addEventListener("pagehide", save);
   setInterval(() => active() && save(), 15000);

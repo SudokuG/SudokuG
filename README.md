@@ -366,7 +366,9 @@ pad, Undo, Redo, Erase, Candidates, Hint, Check and Reveal.
   digits. In Treasure Map, candidates also say "not an X" unless ✕ is one of them; an empty
   ring (the ring key, `.` or `O`) means "a digit goes here" without noting which; it is drawn
   exactly like a candidate frame (an invisible digit sizes it). Holding the ring key or `O`
-  for 2 seconds clears every ring (the key fills up while you hold it). On a computer,
+  for 2 seconds clears every ring (the key fills up while you hold it). While candidates go
+  in (Candidates on, Shift or S held), the selection, its shading, the outline and the pad
+  turn green, as in sudoku's Candidate mode (`mode-pencil` on the page). On a computer,
   right-clicking a Treasure Map cell puts in an X.
 - **Selecting** works as in sudoku: a tap selects a cell, dragging adds the cells you pass.
   The S key (phones) adds more groups: the selection is kept, and so is the highlight of
@@ -383,7 +385,9 @@ pad, Undo, Redo, Erase, Candidates, Hint, Check and Reveal.
   from key to key to toggle those candidates in the selected cells, in one undo step; the
   first key decides whether the sweep adds or removes. Sudoku sweeps too: in Digit mode a
   sweep enters candidates, in Pairs and Colour mode pairs and colours ("Sweep over the
-  number pad", an option in every type, on by default). Each key shows how many of its
+  number pad", an option in every type, on by default). "Sweep in digit mode" (option, on
+  by default) decides whether a sweep also works while entering digits; off, only the
+  first key counts there, and sweeping is for candidate entry only. Each key shows how many of its
   value are left ("Show what's left on the number pad"), and a key whose value is all
   placed is greyed out. **A key with nothing selected**
   (every type) marks the cells with that digit and lightly those with it as a candidate;

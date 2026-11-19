@@ -204,7 +204,7 @@ export function render(): void {
   $("timer").hidden = !set.timer || !S.puzzle;
 
   // Options
-  (["auto", "mistakes", "tidy", "peers", "box", "same", "timer", "patterns", "stickyToggle", "padCounts", "numpadCands", "toPlay", "outline", "candShade", "sweep"] as const).forEach((k) => (($(`opt-${k}`) as HTMLInputElement).checked = set[k]));
+  (["auto", "mistakes", "tidy", "peers", "box", "same", "timer", "patterns", "stickyToggle", "padCounts", "numpadCands", "toPlay", "outline", "candShade", "sweep", "sweepDigit"] as const).forEach((k) => (($(`opt-${k}`) as HTMLInputElement).checked = set[k]));
   ($("opt-finish") as HTMLSelectElement).value = String(set.autoFinish);
   ($("opt-theme") as HTMLSelectElement).value = set.theme;
 

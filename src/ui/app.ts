@@ -196,7 +196,7 @@ function init(): void {
     saveSettings();
   });
   $("opt-auto").addEventListener("change", (e) => setAuto((e.target as HTMLInputElement).checked));
-  (["mistakes", "tidy", "peers", "box", "same", "timer", "patterns", "stickyToggle", "padCounts", "numpadCands", "toPlay", "outline", "candShade", "sweep"] as const).forEach((k) =>
+  (["mistakes", "tidy", "peers", "box", "same", "timer", "patterns", "stickyToggle", "padCounts", "numpadCands", "toPlay", "outline", "candShade", "sweep", "sweepDigit"] as const).forEach((k) =>
     $(`opt-${k}`).addEventListener("change", (e) => {
       S.settings[k] = (e.target as HTMLInputElement).checked;
       if (k === "stickyToggle") S.sticky = false;

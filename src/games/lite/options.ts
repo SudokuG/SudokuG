@@ -30,6 +30,8 @@ export interface LiteOptions {
   padCounts: boolean;
   /** Sliding a finger over the pad keys toggles those candidates. */
   sweep: boolean;
+  /** Sweeping also works when entering digits (the keys then go in as candidates). */
+  sweepDigit: boolean;
 }
 
 /** The options as they were before each type had its own (read once, as a starting point). */
@@ -50,6 +52,7 @@ const DEFAULTS: LiteOptions = {
   outline: true,
   padCounts: true,
   sweep: true,
+  sweepDigit: true,
 };
 
 const read = (key: string): Partial<LiteOptions> => {
@@ -107,6 +110,7 @@ export const LITE_OPTION_TEXT: { key: Exclude<keyof LiteOptions, "autoFinish">; 
   { key: "timer", title: "Show timer" },
   { key: "padCounts", title: "Show what's left on the number pad", text: "The small number on each key: how many of that value still have to be placed. A key whose value is all placed is greyed out either way." },
   { key: "sweep", title: "Sweep over the number pad", text: "Slide a finger (or the mouse, held down) from key to key to toggle those candidates in the selected cells, in one go.", for: "candidates" },
+  { key: "sweepDigit", title: "Sweep in digit mode", text: 'With "Sweep over the number pad": sweeping while entering digits puts the keys in as candidates. Off: only while entering candidates (Candidates, Shift or S); when entering digits only the first key counts.', for: "candidates" },
   { key: "stickyToggle", title: "S key stays on", text: "On a phone, the S key normally works only while you hold it. With this on, one tap switches it on and the next tap off." },
   { key: "numpadCands", title: "Keyboard number pad enters candidates", text: "The number pad on the right of a keyboard always enters candidates (it never overwrites a digit); the digits above the letters enter digits. Off: both work the same.", for: "candidates" },
   { key: "toPlay", title: "Go to Play after making a puzzle", text: "Switch to the Play tab as soon as a new puzzle is ready." },
