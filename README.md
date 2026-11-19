@@ -58,7 +58,10 @@ src/
     sculpt.ts        sculpting Hard and up to a recipe (RECIPES), placeSingles()
     code.ts          encodePuzzle()/decodePuzzle(): shareable puzzle codes
   ui/
-    app.ts           state, input modes, rendering, auto-finish, generator UI
+    app.ts           the sudoku page: theme, tabs, keys, wiring; its parts are in ui/sudoku/
+    sudoku/          state.ts (settings, game state), puzzles.ts (loading, saving, timer),
+                     finish.ts (stats, solved card, likes, dailies), generate.ts (generator UI,
+                     rating card), printing.ts, actions.ts (every change, undo), pad.ts, render.ts
     board.ts         the 9×9 board elements, hint highlighting, chain lines, selection outline, colour palettes
     guide-view.ts    the Techniques tab
     stats.ts         local stats (solved, best times, dailies)
@@ -72,8 +75,12 @@ src/
   guide-step.ts      turns an example position into the step to show
   page.html          page markup; build.mjs inlines fonts, CSS and JS into it
   sw.js              service worker: keeps the game on the device for offline play
-  games/lite.ts      the page shared by the lighter puzzle types (tabs, pad, hints, timer, saving, …)
-  games/lite-options.ts  their options; games/logic.ts: steps, hints and auto-finish for their solvers
+  games/lite.ts      the page shared by the lighter puzzle types: sets it up, tabs, options, timer
+  games/lite/        its parts: types.ts (LiteGame), ctx.ts (the shared context), markup.ts,
+                     puzzles.ts (start, save, stats, print), editing.ts (entries, undo, hints),
+                     render.ts, pointer.ts (selecting, smart input), pad.ts, keys.ts, guide.ts
+                     (Techniques tab), options.ts (their options)
+  games/logic.ts     steps, hints and auto-finish for their solvers
   games/latin.ts     random Latin squares and base-62 codes; games/draw.ts: print pieces
   games/sums/        Treasure Map: engine.ts (grid, clues, brute-force solver, codes),
                      logic.ts (step-by-step solver, rating, levels), game.ts (board, printing)
@@ -402,9 +409,9 @@ pad, Undo, Redo, Erase, Candidates, Hint, Check and Reveal.
 - **Highlight row and column** and **Highlight region** (Star Battle; "Highlight cage" in
   Calcudoku; off by default) are separate options, like "Highlight row and column" and
   "Highlight box" in sudoku. The thin and thick lines of Star Battle and Calcudoku are one
-  SVG over the cells (`linesHtml` in `lite.ts`, from the `regions` hook), so region corners
+  SVG over the cells (`linesHtml` in `lite/markup.ts`, from the `regions` hook), so region corners
   close cleanly. Treasure Map's clue column is only as wide as its longest row of clues.
-- **Options** are kept per puzzle type (`liteOptionsFor` in `src/games/lite-options.ts`,
+- **Options** are kept per puzzle type (`liteOptionsFor` in `src/games/lite/options.ts`,
   saved as `sudokug-lite-options-<type>`; the first time, a type starts from the old shared
   choices, with its own defaults on top: Star Battle has auto-finish off). The Options tab
   only lists what applies to the type. "Outline the selected cells" (on by default) can turn
@@ -497,7 +504,7 @@ candidates: the pad has a star and a cross (an empty cell); `1` or `*` places a 
 `X` or `.` a cross. Stars that break a rule and crosses that leave a unit without room turn
 red.
 
-*Smart input* (option, on by default; `smartDown`/`smartMove`/`smartUp` in `lite.ts`, for
+*Smart input* (option, on by default; `smartDown`/`smartMove`/`smartUp` in `lite/pointer.ts`, for
 types with `smartInput`): a tap or click crosses a cell (again: clears it; a star stays),
 dragging crosses every open cell passed, a double tap or double-click toggles a star (the
 first tap is undone, so it is one undo step), holding a cell (450 ms; it sinks a little

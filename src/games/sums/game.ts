@@ -3,7 +3,7 @@
 // The logic is in engine.ts; the page is the shared one in ../lite.ts.
 
 import { FONT, svgCell } from "../draw";
-import type { LiteGame } from "../lite";
+import type { LiteGame } from "../lite/types";
 import { SUMS_TECHNIQUES } from "./techniques";
 import { SUMS_EXAMPLES } from "./examples";
 import { SUMS_SIZES, decodeSums, encodeSums, isSumsCode, runSums } from "./engine";

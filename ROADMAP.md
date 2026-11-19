@@ -11,9 +11,10 @@
 - More sudoku techniques (finned fish, W-Wing, Unique Rectangle, ALS)
 
 ## Now
-### v1.3 – Split app.ts and lite.ts
-- Both are past ~1700 lines: input, render and options as their own modules; no behaviour change
-- Verify: typecheck, tests, the same screenshots as before
+### v1.4 – More sudoku techniques (until Q3 is answered)
+- Finned X-Wing / Swordfish, W-Wing, then Unique Rectangle; each with hint texts, a guide
+  entry with a worked example, its place in TECHNIQUES and the rating groups
+- Verify: npm test (every step checked against the brute-force solution), fewer stuck puzzles in the summary
 
 ## Next
 - (empty: write new wishes in NOTES.md)
@@ -21,11 +22,11 @@
 ## Later
 - A Str8ts-like puzzle type under its own name (Str8ts is a trademark)
 - Tectonic / Suguru as a light type (own name, e.g. themed like the others)
-- More sudoku techniques: finned fish, W-Wing, Unique Rectangle, ALS, forcing chains
+- More sudoku techniques after v1.4: ALS, forcing chains
 
 ## Done
+- ✓ v1.3 – Split app.ts and lite.ts into parts (no change in play)
 - ✓ v1.2 – Consistency between the puzzle types
 - ✓ v1.1 – Input and selection on every type
-- ✓ v1.0 – Sudoku, generator, library, dailies and four light puzzle types
 
 Older: see CHANGELOG.md

@@ -1,7 +1,7 @@
 # CLAUDE.md
 
 Osty: 0.10
-Versions: v1.1 → v1.2 → v1.3 …; constant: "version" in package.json (v1.2 written as 1.2.0)
+Versions: v1.1 → v1.2 → v1.3 …; constant: "version" in package.json (v1.3 written as 1.3.0)
 This project uses the project-osty skill (Project Osty). Every session: read the global
 and project PREFERENCES.md and NOTES.md; read MAP.md before touching code; work from
 ROADMAP.md "Now"; update MAP/ROADMAP/CHANGELOG/ARCHIVE/NOTES/PREFERENCES in the same
@@ -33,17 +33,19 @@ mostly on a phone. Live at https://sudokug.github.io/SudokuG/
 
 ## Patterns
 - Puzzle type: a `LiteGame` in src/games/<type>/game.ts (+ engine.ts, logic.ts,
-  techniques.ts, examples.ts); the shared page is src/games/lite.ts. Adding a type: README
-  "Other puzzle types", last paragraph.
-- Optional behaviour of a type = an optional `LiteGame` hook, never `if (g.id === …)` in lite.ts.
+  techniques.ts, examples.ts); the shared page is src/games/lite.ts + src/games/lite/. Adding a
+  type: README "Other puzzle types", last paragraph.
+- Optional behaviour of a type = an optional `LiteGame` hook, never `if (g.id === …)` in the light page.
+- Light page parts (src/games/lite/*.ts): `<name>Part(ctx)` returns its functions; a function
+  another part calls goes in `LiteParts` (lite/ctx.ts) and is called as `ctx.fn()`; shared state
+  lives in `ctx.S` (newState) or on `LiteBase`. Sudoku parts (src/ui/sudoku/) are plain modules.
+- Files stay under ~400 lines: a part that grows past that is split along its sections.
 - Options: sudoku in `Settings` (app.ts) + a label in page.html; light types in
-  src/games/lite-options.ts (`LiteOptions`, `LITE_OPTION_TEXT` with `for:` to limit types).
-- Pad keys act on pointerdown (phones drop clicks); see `buildPad` in both pages.
+  src/games/lite/options.ts (`LiteOptions`, `LITE_OPTION_TEXT` with `for:` to limit types).
+- Pad keys act on pointerdown (phones drop clicks); see `buildPad` in sudoku/pad.ts and lite/pad.ts.
 - Board lines and the selection outline: SVG overlays (viewBox 100 per cell,
   non-scaling strokes, square caps), not CSS borders.
 
 ## Notes for Claude
-- app.ts (~1950 lines) and lite.ts (~1700) are past the 800-line guide; a split is in
-  ROADMAP Later. Read them by section (grep the `// ----` headers).
 - The claude.ai Project has an old README copy (claude/pattern-sudoku-readme.md); the repo
   README wins.

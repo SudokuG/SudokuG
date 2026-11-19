@@ -1,6 +1,6 @@
 // The Techniques tab of Calcudoku: what each step of the solver (logic.ts) means, roughly in
 // the order you need them. The worked examples are in examples.ts (npm run lite-examples).
-import type { LiteTechnique } from "../lite";
+import type { LiteTechnique } from "../lite/types";
 
 export const CALC_TECHNIQUES: LiteTechnique[] = [
   {

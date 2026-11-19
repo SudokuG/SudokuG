@@ -8,6 +8,9 @@
 
 ## Questions for you
 <!-- Claude's questions about this project. Answer after "A:", or write "drop". -->
+- Q3 (v1.3) What comes next: more sudoku techniques (finned fish, W-Wing, Unique Rectangle;
+  the old plan, now in Now), or first a new puzzle type (Tectonic, or the Str8ts-like one)?
+  A:
 
 ## Resolved
 <!-- Moved here by Claude, each line starting with ✓ and the version that handled it.

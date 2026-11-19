@@ -3,6 +3,10 @@
 Release notes, newest first: per version, very briefly, what changed. Maintained by Claude.
 Resolved notes, answered questions and replaced files go to ARCHIVE.md, not here.
 
+## v1.3 (2026-11-19)
+- Nothing changes in play: the code behind the sudoku page and the light puzzle page is split
+  into smaller files, so later changes are quicker and safer.
+
 ## v1.2 (2026-11-19)
 - Redo in every puzzle type.
 - The light types' pad shows how many of each value are left; finished keys are greyed out.

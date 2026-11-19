@@ -1,7 +1,7 @@
 // Star Battle: the board (cells with thick region borders and a soft colour per region),
 // stars and crosses, clashes, printing. The logic is in engine.ts and logic.ts; the page is ../lite.ts.
 
-import type { LiteGame } from "../lite";
+import type { LiteGame } from "../lite/types";
 import { STAR_SIZES, around, decodeStars, encodeStars, isStarCode, starsFor } from "./engine";
 import type { StarPuzzle } from "./engine";
 import { STAR_EXAMPLES } from "./examples";

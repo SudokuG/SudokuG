@@ -5,7 +5,7 @@
 
 import { writeFileSync } from "node:fs";
 import { seededRandom } from "../src/engine";
-import type { LiteGame, LitePuzzle } from "../src/games/lite";
+import type { LiteGame, LitePuzzle } from "../src/games/lite/types";
 import type { LiteStep } from "../src/games/logic";
 import { FUTOSHIKI } from "../src/games/futoshiki/game";
 import { CALCUDOKU } from "../src/games/calcudoku/game";

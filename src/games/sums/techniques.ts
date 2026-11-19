@@ -1,6 +1,6 @@
 // The Techniques tab of Treasure Map: what each step of the solver (logic.ts) means. The
 // worked examples are in examples.ts (made by `npm run lite-examples`).
-import type { LiteTechnique } from "../lite";
+import type { LiteTechnique } from "../lite/types";
 
 export const SUMS_TECHNIQUES: LiteTechnique[] = [
   {

@@ -45,7 +45,7 @@ import { STAR_SIZES, decodeStars, encodeStars, starSolutions } from "../src/game
 import { STAR_LEVELS, logicSolveStars, makeStars, rateStars } from "../src/games/starbattle/logic";
 import type { LiteStep } from "../src/games/logic";
 import { RING, liteHint, singlesFinish } from "../src/games/logic";
-import type { LiteGame, LitePuzzle } from "../src/games/lite";
+import type { LiteGame, LitePuzzle } from "../src/games/lite/types";
 
 let failures = 0;
 const fail = (msg: string) => {

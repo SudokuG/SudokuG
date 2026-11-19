@@ -2,7 +2,7 @@
 // The logic is in engine.ts; the page is the shared one in ../lite.ts.
 
 import { FONT, svgCell } from "../draw";
-import type { LiteGame } from "../lite";
+import type { LiteGame } from "../lite/types";
 import { FUTO_TECHNIQUES } from "./techniques";
 import { FUTO_EXAMPLES } from "./examples";
 import { FUTOSHIKI_SIZES, decodeFutoshiki, encodeFutoshiki, isFutoshikiCode, pairsOf } from "./engine";

@@ -2,7 +2,7 @@
 // cage states, printing. The logic is in engine.ts and logic.ts; the page is ../lite.ts.
 
 import { FONT, svgCell } from "../draw";
-import type { LiteGame } from "../lite";
+import type { LiteGame } from "../lite/types";
 import { CALC_SIZES, decodeCalc, encodeCalc, isCalcCode, meets } from "./engine";
 import type { CalcPuzzle } from "./engine";
 import { CALC_EXAMPLES } from "./examples";
