@@ -3,6 +3,18 @@
 Release notes, newest first: per version, very briefly, what changed. Maintained by Claude.
 Resolved notes, answered questions and replaced files go to ARCHIVE.md, not here.
 
+## v1.1 (2026-11-19)
+- Number pad: keys react to the first touch; holding a key no longer selects text or opens
+  a search. On a phone the light types' pad has two rows of wide keys, as in sudoku.
+- Slide a finger over the pad keys to fill in several candidates at once (light types).
+- Tap outside the grid to select nothing (every type).
+- A digit key with nothing selected highlights that digit and its candidates (every type).
+- Selected cells get one outline around each group, as in sudoku (Futoshiki: a frame per cell).
+- Separate options: "Highlight row and column" and "Highlight box" (sudoku), "Highlight
+  region" / "Highlight cage" (Star Battle, Calcudoku).
+- Star Battle and Calcudoku: clean corners on the thick lines.
+- Treasure Map: the clue column takes only the room it needs, so the grid is bigger.
+
 ## v1.0 (2026-11-04)
 Everything up to Project Osty, in short:
 - Sudoku: playable grid, candidates, pairs, colour palettes, undo, save and resume.

@@ -78,12 +78,8 @@ export const CALCUDOKU: LiteGame<CalcPuzzle> = {
     const firsts = new Set(p.cages.map((c) => Math.min(...c.cells)));
     for (let i = 0; i < p.n * p.n; i++) {
       const wrap = document.createElement("div");
-      // Each cell draws its top and left line (thick at a cage edge); the last column and row
-      // also draw the outer edge, so no line is drawn twice.
-      const [t, , , l] = edges(p, i);
-      const lastCol = i % p.n === p.n - 1;
-      const lastRow = i >= p.n * (p.n - 1);
-      wrap.className = `calc-wrap${t ? " bt" : ""}${l ? " bl" : ""}${lastCol ? " br" : ""}${lastRow ? " bb" : ""}`;
+      // (The lines are drawn by the page, from `regions`.)
+      wrap.className = "calc-wrap";
       wrap.appendChild(cell(i));
       if (firsts.has(i) && label(p, p.cageOf[i])) {
         const tag = document.createElement("span");
@@ -104,6 +100,8 @@ export const CALCUDOKU: LiteGame<CalcPuzzle> = {
       tag.classList.toggle("bad", full && !meets(c, ds));
     });
   },
+  regions: (p) => p.cageOf,
+  regionWord: "cage",
   svg: calcSvg,
   solver: (p) => ({
     start: () => startState(p),

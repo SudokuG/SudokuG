@@ -16,7 +16,7 @@
 - Sweep: slide a finger over light-type pad keys to toggle candidates in one go | lite.ts `buildPad` | one undo step
 - Digit highlight: tapping a pad key with nothing selected marks that digit and its candidates | app.ts `S.padDigit`, lite.ts `S.padDigit` | –
 - Selection outline: one outline around each group of selected cells (not Futoshiki: a frame per cell) | board.ts `outlinePath`, lite.ts sel overlay | option Outline the selected cells
-- Region lines: thin grid + thick region/cage lines as SVG | lite.ts `drawLines`, `LiteGame.regions` | –
+- Region lines: thin grid + thick region/cage lines as SVG | lite.ts `linesHtml`, `placeOverlays`, `LiteGame.regions` | –
 - Highlight row and column / Highlight box (sudoku) / Highlight region (light types with regions): separate options | Settings.peers/box, LiteOptions.peers/region |
 - Candidates (light): framed pill in the middle of the cell | lite.ts `pillHtml` | Snap.cands bitmask
 - Ring: Treasure Map "a digit goes here" mark | RING in games/logic.ts | cands === RING

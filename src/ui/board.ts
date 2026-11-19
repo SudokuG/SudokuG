@@ -69,29 +69,9 @@ export class BoardView {
     el.appendChild(this.overlay);
   }
 
-  /**
-   * One outline around each group of selected cells, drawn just inside its outer edge.
-   * Each edge of a selected cell that borders an unselected cell (or the board edge)
-   * becomes a line; its ends are moved in at outer corners and out at inner corners so
-   * the lines join up.
-   */
+  /** One outline around each group of selected cells (see outlinePath). */
   drawSelection(sel: Set<number>): void {
-    const on = (r: number, c: number) => r >= 0 && r < 9 && c >= 0 && c < 9 && sel.has(r * 9 + c);
-    const d = 4; // inset of the line's centre, in board units (a cell is 100)
-    // End offset along an edge: inward at an outer corner, outward at an inner corner.
-    const end = (side: boolean, diag: boolean) => (!side ? d : diag ? -d : 0);
-    const parts: string[] = [];
-    for (const i of sel) {
-      const r = rowOf(i);
-      const c = colOf(i);
-      const x0 = c * 100;
-      const y0 = r * 100;
-      if (!on(r - 1, c)) parts.push(`M${x0 + end(on(r, c - 1), on(r - 1, c - 1))} ${y0 + d}H${x0 + 100 - end(on(r, c + 1), on(r - 1, c + 1))}`);
-      if (!on(r + 1, c)) parts.push(`M${x0 + end(on(r, c - 1), on(r + 1, c - 1))} ${y0 + 100 - d}H${x0 + 100 - end(on(r, c + 1), on(r + 1, c + 1))}`);
-      if (!on(r, c - 1)) parts.push(`M${x0 + d} ${y0 + end(on(r - 1, c), on(r - 1, c - 1))}V${y0 + 100 - end(on(r + 1, c), on(r + 1, c - 1))}`);
-      if (!on(r, c + 1)) parts.push(`M${x0 + 100 - d} ${y0 + end(on(r - 1, c), on(r - 1, c + 1))}V${y0 + 100 - end(on(r + 1, c), on(r + 1, c + 1))}`);
-    }
-    this.selPath.setAttribute("d", parts.join(""));
+    this.selPath.setAttribute("d", outlinePath(sel, 9, 4));
   }
 
   /** Draw the chain or coloring links of a step (or clear them). */
@@ -112,6 +92,30 @@ export class BoardView {
       this.overlay.appendChild(line);
     }
   }
+}
+
+/**
+ * One outline around each group of selected cells on an n×n board (100 units per cell),
+ * drawn `d` units inside its outer edge. Each edge of a selected cell that borders an
+ * unselected cell (or the board edge) becomes a line; its ends are moved in at outer corners
+ * and out at inner corners so the lines join up (draw with square line caps).
+ */
+export function outlinePath(sel: Set<number>, n: number, d: number): string {
+  const on = (r: number, c: number) => r >= 0 && r < n && c >= 0 && c < n && sel.has(r * n + c);
+  // End offset along an edge: inward at an outer corner, outward at an inner corner.
+  const end = (side: boolean, diag: boolean) => (!side ? d : diag ? -d : 0);
+  const parts: string[] = [];
+  for (const i of sel) {
+    const r = Math.floor(i / n);
+    const c = i % n;
+    const x0 = c * 100;
+    const y0 = r * 100;
+    if (!on(r - 1, c)) parts.push(`M${x0 + end(on(r, c - 1), on(r - 1, c - 1))} ${y0 + d}H${x0 + 100 - end(on(r, c + 1), on(r - 1, c + 1))}`);
+    if (!on(r + 1, c)) parts.push(`M${x0 + end(on(r, c - 1), on(r + 1, c - 1))} ${y0 + 100 - d}H${x0 + 100 - end(on(r, c + 1), on(r + 1, c + 1))}`);
+    if (!on(r, c - 1)) parts.push(`M${x0 + d} ${y0 + end(on(r - 1, c), on(r - 1, c - 1))}V${y0 + 100 - end(on(r + 1, c), on(r + 1, c - 1))}`);
+    if (!on(r, c + 1)) parts.push(`M${x0 + 100 - d} ${y0 + end(on(r - 1, c), on(r - 1, c + 1))}V${y0 + 100 - end(on(r + 1, c), on(r + 1, c + 1))}`);
+  }
+  return parts.join("");
 }
 
 /** Centre of a candidate in overlay coordinates (each cell is 100×100). */

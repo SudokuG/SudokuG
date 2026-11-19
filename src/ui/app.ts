@@ -75,7 +75,10 @@ interface Settings {
   auto: boolean;
   mistakes: boolean;
   tidy: boolean;
+  /** Shade the row and column of the selected cell. */
   peers: boolean;
+  /** Shade the box of the selected cell. */
+  box: boolean;
   same: boolean;
   timer: boolean;
   /** Fill in the rest when at most this many cells are left (0 = off). */
@@ -100,6 +103,7 @@ const DEFAULT_SETTINGS: Settings = {
   mistakes: false,
   tidy: true,
   peers: true,
+  box: true,
   same: true,
   timer: true,
   autoFinish: 10,
@@ -130,7 +134,10 @@ function loadSettings(): Settings {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (raw) {
-      const s = { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+      const saved = JSON.parse(raw);
+      // "Highlight row, column and box" was one option: the box keeps its old choice.
+      if (saved && saved.box === undefined && typeof saved.peers === "boolean") saved.box = saved.peers;
+      const s = { ...DEFAULT_SETTINGS, ...saved };
       // Keep only technique names that still exist.
       const known = new Set(TECHNIQUES.map((t) => t.name));
       s.genProfile = Array.isArray(s.genProfile) ? s.genProfile.filter((n: string) => known.has(n)) : DEFAULT_SETTINGS.genProfile;
@@ -193,6 +200,8 @@ const S = {
   /** Auto-finish is filling in cells; input is paused. */
   finishing: false,
   popped: new Set<number>(),
+  /** A digit tapped on the pad with no cell selected: its cells and candidates are marked. */
+  padDigit: 0,
 };
 
 const clone = (s: Snapshot): Snapshot => ({
@@ -985,6 +994,11 @@ function toggleAll(masks: number[], cells: number[], b: number, has: (i: number)
 
 function enterNumber(d: number, mode: Mode = effectiveMode()): void {
   if (S.finishing || noPuzzle()) return;
+  if (!S.selection.size) {
+    // Nothing selected: mark every cell with this digit, as a digit or a candidate.
+    S.padDigit = S.padDigit === d ? 0 : d;
+    return render();
+  }
   if (mode === "color") {
     const cells = [...S.selection];
     if (!cells.length) return;
@@ -1252,6 +1266,7 @@ function check(): void {
 }
 
 function select(i: number, extend: boolean): void {
+  S.padDigit = 0;
   if (!extend) S.selection.clear();
   S.selection.add(i);
   S.primary = i;
@@ -1281,6 +1296,7 @@ function buildBoard(): void {
     if (e.ctrlKey || e.metaKey || (S.sticky && S.selection.has(i) && S.selection.size > 1)) {
       // Ctrl, or tapping a selected cell while S is on: take it out of the selection.
       drag = "remove";
+      S.padDigit = 0;
       S.selection.delete(i);
       if (S.primary === i) S.primary = [...S.selection].pop() ?? i;
     } else {
@@ -1305,6 +1321,14 @@ function buildBoard(): void {
   const end = () => (drag = null);
   boardEl.addEventListener("pointerup", end);
   boardEl.addEventListener("pointercancel", end);
+  // Tapping outside the grid (not on a control) selects nothing, so no shading is in the way.
+  document.addEventListener("pointerdown", (e) => {
+    if (currentGame() !== "sudoku" || !S.selection.size) return;
+    const t = e.target as HTMLElement;
+    if (boardEl.contains(t) || t.closest("button, input, select, textarea, label, a, summary, dialog, .pad, .modes, .color-tools")) return;
+    S.selection.clear();
+    render();
+  });
 }
 
 const padButtons: HTMLButtonElement[] = [];
@@ -1314,21 +1338,14 @@ function buildPad(): void {
     const b = document.createElement("button");
     b.type = "button";
     b.innerHTML = `<span class="num">${d}</span><span class="left"></span>`;
-    // While the S key is held with one finger, another finger may tap the digits: act on
-    // pointerdown then, since some phones send no click for a second touch. The click that
-    // may still follow that touch is ignored; any later tap is handled normally (a flag that
-    // waited for that click swallowed the next real tap when the phone sent none).
-    let handledAt = -Infinity;
+    // Keys act on the first touch (a phone drops the click when the finger moves a little,
+    // or for a second finger while S is held). A click without a pointer (keyboard) still works.
     b.addEventListener("pointerdown", (e) => {
-      handledAt = -Infinity;
-      if (!S.sticky || S.settings.stickyToggle) return;
-      handledAt = e.timeStamp;
+      if (e.button > 0) return;
+      e.preventDefault();
       enterNumber(d, effectiveMode(e.shiftKey));
     });
-    b.addEventListener("click", (e) => {
-      if (e.timeStamp - handledAt < 1000) return void (handledAt = -Infinity);
-      enterNumber(d, effectiveMode(e.shiftKey));
-    });
+    b.addEventListener("click", (e) => e.detail === 0 && enterNumber(d, effectiveMode(e.shiftKey)));
     pad.appendChild(b);
     padButtons.push(b);
   }
@@ -1363,6 +1380,8 @@ function buildPad(): void {
     render();
   });
   pad.appendChild(sticky);
+  // Holding a key never selects its text or opens a menu or search.
+  for (const ev of ["contextmenu", "selectstart"]) pad.addEventListener(ev, (e) => e.preventDefault());
 }
 
 /**
@@ -1464,8 +1483,11 @@ function render(): void {
   const prim = S.primary;
   // The digit to highlight: that of the first selected cell with a digit, so adding
   // cells to the selection (Shift, S key, dragging) keeps the highlight you started with.
-  const hlCell = [...S.selection].find((i) => values[i]) ?? prim;
-  const primVal = values[hlCell];
+  const hlCell = S.selection.size ? [...S.selection].find((i) => values[i]) ?? prim : -1;
+  // A digit tapped on the pad with nothing selected wins (and shows even with "same digit" off).
+  const pd = S.selection.size ? 0 : S.padDigit;
+  const primVal = pd || (hlCell >= 0 ? values[hlCell] : 0);
+  const sameOn = set.same || !!pd;
   const clashes = new Grid(values, empty81()).conflicts();
   const single = S.selection.size === 1 && !!S.puzzle;
 
@@ -1478,12 +1500,13 @@ function render(): void {
   for (let i = 0; i < 81; i++) {
     const el = view.cells[i];
     const v = values[i];
-    const isPeer = set.peers && single && i !== prim && (rowOf(i) === rowOf(prim) || colOf(i) === colOf(prim) || boxOf(i) === boxOf(prim));
+    const isPeer = single && i !== prim && ((set.peers && (rowOf(i) === rowOf(prim) || colOf(i) === colOf(prim))) || (set.box && boxOf(i) === boxOf(prim)));
     el.classList.toggle("given", S.givens[i]);
     el.classList.toggle("sel", !!S.puzzle && S.selection.has(i));
     el.classList.toggle("primary", !!S.puzzle && i === prim && S.selection.has(i));
     el.classList.toggle("peer", isPeer);
-    el.classList.toggle("same", set.same && !!primVal && v === primVal && i !== hlCell);
+    el.classList.toggle("same", sameOn && !!primVal && v === primVal && i !== hlCell);
+    el.classList.toggle("cand-same", !!pd && !v && !!((shownCands(i) | centre[i]) & bit(pd)));
     el.classList.toggle("region", decor.region.has(i));
     el.classList.toggle("pattern", decor.pattern.has(i));
     el.classList.toggle("target", decor.target.has(i));
@@ -1504,7 +1527,7 @@ function render(): void {
       for (const d of cd) {
         const ds = document.createElement("span");
         ds.textContent = String(d);
-        if (set.same && primVal === d) ds.className = "hl";
+        if (sameOn && primVal === d) ds.className = "hl";
         pill.appendChild(ds);
       }
       view.centre[i].replaceChildren(pill);
@@ -1515,7 +1538,7 @@ function render(): void {
       const s = view.cands[i][d - 1];
       const on = !!(m & bit(d));
       s.textContent = on ? String(d) : "";
-      s.className = on ? decor.candClass.get(i * 10 + d) ?? (set.same && primVal === d ? "hl" : "") : "";
+      s.className = on ? decor.candClass.get(i * 10 + d) ?? (sameOn && primVal === d ? "hl" : "") : "";
     }
     el.setAttribute("aria-label", `Row ${rowOf(i) + 1}, column ${colOf(i) + 1}: ${v ? v : "empty"}`);
     el.setAttribute("aria-selected", String(S.selection.has(i)));
@@ -1537,7 +1560,7 @@ function render(): void {
   $("timer").hidden = !set.timer || !S.puzzle;
 
   // Options
-  (["auto", "mistakes", "tidy", "peers", "same", "timer", "patterns", "stickyToggle", "padCounts", "numpadCands", "toPlay"] as const).forEach((k) => (($(`opt-${k}`) as HTMLInputElement).checked = set[k]));
+  (["auto", "mistakes", "tidy", "peers", "box", "same", "timer", "patterns", "stickyToggle", "padCounts", "numpadCands", "toPlay"] as const).forEach((k) => (($(`opt-${k}`) as HTMLInputElement).checked = set[k]));
   ($("opt-finish") as HTMLSelectElement).value = String(set.autoFinish);
   ($("opt-theme") as HTMLSelectElement).value = set.theme;
 
@@ -1782,7 +1805,7 @@ function init(): void {
     saveSettings();
   });
   $("opt-auto").addEventListener("change", (e) => setAuto((e.target as HTMLInputElement).checked));
-  (["mistakes", "tidy", "peers", "same", "timer", "patterns", "stickyToggle", "padCounts", "numpadCands", "toPlay"] as const).forEach((k) =>
+  (["mistakes", "tidy", "peers", "box", "same", "timer", "patterns", "stickyToggle", "padCounts", "numpadCands", "toPlay"] as const).forEach((k) =>
     $(`opt-${k}`).addEventListener("change", (e) => {
       S.settings[k] = (e.target as HTMLInputElement).checked;
       if (k === "stickyToggle") S.sticky = false;

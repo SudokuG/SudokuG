@@ -133,6 +133,7 @@ h1 { font-family: var(--font-display); font-weight: 800; font-size: 1.6rem; lett
 .cell.r8 { border-bottom: 0; }
 .cell.peer { background-color: var(--b-peer); }
 .cell.same { background-color: var(--b-same); }
+.cell.cand-same { background-color: color-mix(in srgb, var(--b-same) 45%, var(--surface)); }
 .cell.region { background-color: var(--hint-soft); }
 .cell.pattern { background-color: var(--hint); }
 .cell.target { background-color: var(--place-soft); }
@@ -214,6 +215,8 @@ h1 { font-family: var(--font-display); font-weight: 800; font-size: 1.6rem; lett
 .mode-icon.swatch { background: conic-gradient(from 45deg, var(--c2) 0 90deg, var(--c4) 90deg 180deg, var(--c5) 180deg 270deg, var(--c7) 270deg 360deg); }
 
 .pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+/* Holding a key never selects its text or opens a menu (phones). */
+.pad, .pad button, .actions .btn { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .pad button {
   position: relative; font: inherit; font-size: 1.5rem; font-weight: 700; padding: 10px 0;
   background: var(--btn); color: var(--pen); border: 1px solid var(--btn-border); border-radius: 8px; cursor: pointer;
@@ -484,6 +487,8 @@ html[data-game]:not([data-game="sudoku"]) .layout, html[data-game]:not([data-gam
 .lite-head { display: flex; align-items: baseline; gap: 4px 14px; flex-wrap: wrap; justify-content: center; margin-bottom: 10px; color: var(--muted); }
 .lite .code-row-desktop { margin-top: 12px; }
 .lite-pad { grid-template-columns: repeat(var(--keys, 6), minmax(0, 1fr)); }
+/* Keys act on the first touch and a finger can sweep over them (lite.ts wirePad). */
+.lite-pad, .lite-pad button { touch-action: none; }
 .lite-pad button.x-key, .lite-pad button.dot-key { color: var(--ink); }
 .lite-sizes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .lite-levels { grid-template-columns: repeat(4, minmax(0, 1fr)); }
@@ -507,7 +512,6 @@ html[data-game]:not([data-game="sudoku"]) .layout, html[data-game]:not([data-gam
 .lite-cell.target { background: var(--place-soft); }
 .lite-cell.elim { background: var(--error-soft); }
 .lite-cell.sel { background: var(--sel-digit); }
-.lite-cell.primary { box-shadow: inset 0 0 0 3px var(--pen); }
 .lite-cell.clash, .lite-cell.mistake { color: var(--elim); }
 .lite-cell.wrong, .lite-cell.mistake { background: var(--error-soft); }
 /* Candidates in the middle of the cell, small and framed, in the colour of entered digits. */
@@ -528,9 +532,9 @@ html[data-game]:not([data-game="sudoku"]) .layout, html[data-game]:not([data-gam
   .lite .pane .act-edit { order: 3; }
   .lite .pane .act-hint { order: 4; }
   .lite .pane [data-r="solved"] { order: 0; }
-  .lite-pad { grid-template-columns: repeat(var(--keys-phone, 6), minmax(0, 1fr)); gap: 6px; }
-  .lite-pad button { font-size: 1.6rem; min-height: 54px; padding: 0; }
-  .lite-pad .pad-sticky { font-size: 1.4rem; }
+  .lite-pad { grid-template-columns: repeat(var(--keys-phone, 5), minmax(0, 1fr)); gap: 7px; }
+  .lite-pad button { font-size: 1.7rem; min-height: 58px; padding: 0; }
+  .lite-pad .pad-sticky { font-size: 1.5rem; grid-column: span var(--s-span, 1); }
 }
 
 /* Rings, struck candidates, the ring key, auto-finish */
@@ -561,11 +565,7 @@ html[data-game]:not([data-game="sudoku"]) .layout, html[data-game]:not([data-gam
 
 /* Star Battle: thick region borders, stars and dots. */
 .starbattle-board { --cell-fs: calc(100cqi / var(--n) * 0.62); width: min(100%, 560px); }
-.sb-wrap { position: relative; display: grid; aspect-ratio: 1; min-width: 0; border-top: 1px solid var(--hair); border-left: 1px solid var(--hair); }
-.sb-wrap.bt { border-top: 2.5px solid var(--grid); }
-.sb-wrap.bl { border-left: 2.5px solid var(--grid); }
-.sb-wrap.br { border-right: 2.5px solid var(--grid); }
-.sb-wrap.bb { border-bottom: 2.5px solid var(--grid); }
+.sb-wrap { position: relative; display: grid; aspect-ratio: 1; min-width: 0; }
 .sb-wrap > .lite-cell { aspect-ratio: auto; width: 100%; height: 100%; }
 .starbattle-board .lite-cell.x { color: var(--muted); }
 .starbattle-board .lite-cell.target, .starbattle-board .lite-cell.pop { color: var(--place); }
@@ -607,24 +607,26 @@ html[data-game]:not([data-game="sudoku"]) .layout, html[data-game]:not([data-gam
 .starbattle-board .lite-cell { transition: transform 0.12s ease-out; }
 .starbattle-board .lite-cell.holding { transform: scale(0.9); transition: transform 0.45s linear; }
 
-/* The selection outline: rounded frames around every selected cell (Star Battle, Futoshiki),
-   or the square inset frame on the main cell (the others); none with the option off. */
-.starbattle-board .lite-cell.primary { box-shadow: none; }
-.starbattle-board .lite-cell.sel::after { content: ""; position: absolute; inset: 7%; border: 2.5px solid var(--pen); border-radius: 28%; pointer-events: none; }
+/* Lines and the selection outline are SVG overlays over the cells (lite.ts placeOverlays):
+   thin grid and thick region lines with square caps, so corners close cleanly; one outline
+   around each group of selected cells, as in sudoku. Futoshiki's cells don't touch: a frame
+   per selected cell. None with the option off. */
+.lite-board { position: relative; }
+.lite-overlay { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; z-index: 3; }
+.lite-overlay path { fill: none; vector-effect: non-scaling-stroke; stroke-linecap: square; }
+.lite-lines .thin { stroke: var(--hair); stroke-width: 1px; }
+.lite-lines .thick { stroke: var(--grid); stroke-width: 2.5px; }
+.lite-sel { z-index: 4; }
+.lite-sel path { stroke: var(--pen); stroke-width: 3px; }
 .futoshiki-board .lite-cell.sel { box-shadow: inset 0 0 0 3px var(--pen); }
 .futoshiki-board .lite-cell.cand-same { background: var(--sel-digit); }
-.lite.no-outline .lite-cell.primary, .lite.no-outline .futoshiki-board .lite-cell.sel { box-shadow: none; }
-.lite.no-outline .starbattle-board .lite-cell.sel::after { display: none; }
+.lite.no-outline .futoshiki-board .lite-cell.sel { box-shadow: none; }
 
 /* Calcudoku: cells with thick cage borders and a label in each cage's first cell. */
 .calcudoku-board { --cell-fs: calc(100cqi / var(--n) * 0.56); width: min(100%, 560px); }
-.calc-wrap { position: relative; display: grid; aspect-ratio: 1; min-width: 0; border-top: 1px solid var(--hair); border-left: 1px solid var(--hair); }
-.calc-wrap.bt { border-top: 2.5px solid var(--grid); }
-.calc-wrap.bl { border-left: 2.5px solid var(--grid); }
-.calc-wrap.br { border-right: 2.5px solid var(--grid); }
-.calc-wrap.bb { border-bottom: 2.5px solid var(--grid); }
+.calc-wrap { position: relative; display: grid; aspect-ratio: 1; min-width: 0; }
 .calc-wrap > .lite-cell { aspect-ratio: auto; width: 100%; height: 100%; padding-top: 8%; box-sizing: border-box; }
-.calc-label { position: absolute; top: 4%; left: 6%; z-index: 2; pointer-events: none; line-height: 1; font-size: calc(var(--cell-fs) * 0.34); font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+.calc-label { position: absolute; top: 6%; left: 8%; z-index: 2; pointer-events: none; line-height: 1; font-size: calc(var(--cell-fs) * 0.34); font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
 .calc-label.done { color: var(--muted); opacity: 0.55; }
 .calc-label.bad { color: var(--elim); }
 
@@ -652,13 +654,13 @@ html[data-game]:not([data-game="sudoku"]) .layout, html[data-game]:not([data-gam
 .type-pick select { font: inherit; font-weight: 700; flex: 1; min-width: 0; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--btn-border); background: var(--surface); color: var(--ink); }
 
 /* Treasure Map: clues on the left and on top, then n×n cells. */
-.sums-board { grid-template-columns: 1.5fr repeat(var(--n), 1fr); --cell-fs: calc(100cqi / (var(--n) + 1.5) * 0.56); }
+.sums-board { --lw: 1.5; grid-template-columns: 1.5fr repeat(var(--n), 1fr); --cell-fs: calc(100cqi / (var(--n) + var(--lw)) * 0.56); }
 .sums-board .lite-cell { border-left: 1px solid var(--hair); border-top: 1px solid var(--hair); }
 .sums-board .lite-cell.last-col { border-right: 2.5px solid var(--grid); }
 .sums-board .lite-cell.last-row { border-bottom: 2.5px solid var(--grid); }
 .sums-clue.row + .lite-cell { border-left: 2.5px solid var(--grid); }
-.sums-corner { aspect-ratio: 1.5 / 1.5; }
-.sums-clue { display: flex; color: var(--ink); font-weight: 700; font-variant-numeric: tabular-nums; font-size: calc(100cqi / (var(--n) + 1.5) * 0.3); }
+.sums-corner { min-height: 0; }
+.sums-clue { display: flex; color: var(--ink); font-weight: 700; font-variant-numeric: tabular-nums; font-size: calc(100cqi / (var(--n) + var(--lw)) * 0.3); }
 .sums-clue.row { align-items: center; justify-content: flex-end; gap: 0.55em; padding-right: 0.55em; }
 .sums-clue.col { flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 0.25em; line-height: 1.15; border-bottom: 2.5px solid var(--grid); }
 .sums-clue.on { color: var(--pen); }

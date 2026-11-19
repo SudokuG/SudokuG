@@ -16,6 +16,7 @@ import { puzzleName } from "../names";
 import { currentGame, onGameChange, setGame } from "../ui/games";
 import type { GameId } from "../ui/games";
 import { openPrintDialog, setCurrentPrint } from "../ui/print-dialog";
+import { outlinePath } from "../ui/board";
 import type { PrintPuzzle } from "../ui/print";
 
 export interface LitePuzzle {
@@ -89,6 +90,15 @@ export interface LiteGame<P extends LitePuzzle> {
   sizeLabel?(n: number): string;
   /** The "Mouse, keyboard and touch" list items (HTML), instead of the default for digits. */
   controls?: string;
+  /**
+   * The region of each cell (Star Battle: regions, Calcudoku: cages): drawn with thick lines,
+   * and shaded around the selected cell with the "Highlight region" option.
+   */
+  regions?(p: P): number[];
+  /** What a region is called in the options ("cage"; default "region"). */
+  regionWord?: string;
+  /** The cells don't touch (Futoshiki): each selected cell gets its own frame, not one outline per group. */
+  separateCells?: boolean;
   /** The Techniques tab: rules, then one entry per technique with a worked example. */
   techniques: LiteTechnique[];
   /** Worked examples: technique name -> a puzzle code and the step number (0-based) on its solve. */
@@ -142,11 +152,44 @@ export function pillHtml(cands: number, max: number, gone = 0, hl = 0): string {
   return `<span class="lite-pill${ds.length > 3 ? " many" : ""}">${inner}</span>`;
 }
 
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+/**
+ * The grid lines of an n×n board as SVG (100 units per cell): thin lines between cells of a
+ * region, thick ones between regions and around the board. Thick lines are joined into runs
+ * and drawn with square caps over the thin ones, so corners close cleanly.
+ */
+function linesHtml(n: number, regionOf: number[]): string {
+  const thin: string[] = [];
+  const thick: string[] = [];
+  // Horizontal lines y = 0..n: thick at the edge or between two regions.
+  for (let y = 0; y <= n; y++) {
+    let run = -1;
+    for (let x = 0; x <= n; x++) {
+      const isThick = x < n && (y === 0 || y === n || regionOf[(y - 1) * n + x] !== regionOf[y * n + x]);
+      if (x < n && !isThick) thin.push(`M${x * 100} ${y * 100}h100`);
+      if (isThick && run < 0) run = x;
+      if (!isThick && run >= 0) (thick.push(`M${run * 100} ${y * 100}H${x * 100}`), (run = -1));
+    }
+  }
+  for (let x = 0; x <= n; x++) {
+    let run = -1;
+    for (let y = 0; y <= n; y++) {
+      const isThick = y < n && (x === 0 || x === n || regionOf[y * n + x - 1] !== regionOf[y * n + x]);
+      if (y < n && !isThick) thin.push(`M${x * 100} ${y * 100}v100`);
+      if (isThick && run < 0) run = y;
+      if (!isThick && run >= 0) (thick.push(`M${x * 100} ${run * 100}V${y * 100}`), (run = -1));
+    }
+  }
+  return `<path class="thin" d="${thin.join("")}"/><path class="thick" d="${thick.join("")}"/>`;
+}
+
 /** The rules and the controls, for the Rules entry of the Techniques tab. */
 function rulesHtml<P extends LitePuzzle>(g: LiteGame<P>): string {
   const controls =
     g.controls ??
-    `<li>Tap or click a cell; drag over cells to select them all. On a phone, hold <b>S</b> and tap or drag to add more cells (the selection and its digit highlight stay); tap a selected cell again to drop it; while S is held, digits go in as candidates. On a computer, <kbd>Shift</kbd> adds cells and <kbd>Ctrl</kbd> toggles them.</li>
+    `<li>Tap or click a cell; drag over cells to select them all. On a phone, hold <b>S</b> and tap or drag to add more cells (the selection and its digit highlight stay); tap a selected cell again to drop it; while S is held, digits go in as candidates. On a computer, <kbd>Shift</kbd> adds cells and <kbd>Ctrl</kbd> toggles them. Tap outside the grid to select nothing.</li>
+      <li>Slide a finger over the pad keys to toggle several candidates at once. A key with nothing selected marks every cell with that digit or candidate.</li>
       <li>Digits enter digits; with <kbd>Shift</kbd>, <b>S</b> or Candidates on, they toggle small candidates in the middle of the cell. The number pad can always enter candidates (an option).${g.xPerLine ? " <kbd>X</kbd> or <kbd>0</kbd> places an X (or right-click the cell; drag with the right button held to X every open cell you pass, or start on an X to take them away); <kbd>.</kbd> or <kbd>O</kbd> an empty ring (a digit goes here); hold the ring key or <kbd>O</kbd> for 2 seconds to clear all rings. Candidates without ✕ also mean “not an X”; add ✕ to them while it still might be one." : ""}</li>
       <li><kbd>H</kbd> hint, <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo, <kbd>Backspace</kbd> erase, <kbd>Space</kbd> switches candidates on or off, arrow keys move.</li>`;
   return `${g.rules}
@@ -165,8 +208,11 @@ function markup<P extends LitePuzzle>(g: LiteGame<P>, theme: boolean): string {
       <button data-r="copy" class="link-btn" type="button">Copy link</button>
       <button data-r="print" class="link-btn" type="button">Print</button>
     </div>`;
-  const options = LITE_OPTION_TEXT.filter((o) => (o.for === "candidates" ? g.candidates !== false : o.for === "autoDots" ? !!g.autoMarks : o.for === "smart" ? !!g.smartInput : true)).map(
-    (o) => `<label class="opt"><input data-opt="${o.key}" type="checkbox"> <span><b>${o.title}</b>${o.text ? `<small>${o.text}</small>` : ""}</span></label>`,
+  const word = g.regionWord ?? "region";
+  const forType = (o: (typeof LITE_OPTION_TEXT)[number]) =>
+    o.for === "candidates" ? g.candidates !== false : o.for === "autoDots" ? !!g.autoMarks : o.for === "smart" ? !!g.smartInput : o.for === "regions" ? !!g.regions : true;
+  const options = LITE_OPTION_TEXT.filter(forType).map(
+    (o) => `<label class="opt"><input data-opt="${o.key}" type="checkbox"> <span><b>${o.title.replace("region", word)}</b>${o.text ? `<small>${o.text.replace("region", word)}</small>` : ""}</span></label>`,
   ).join("");
   return `
     <section class="lite-board-wrap">
@@ -317,6 +363,8 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
     noteFocus: null as number | null,
     /** Smart input: the selection is just the last tapped cell, not marked on the board. */
     quiet: false,
+    /** A digit tapped on the pad with no cell selected: its cells and candidates are marked. */
+    padDigit: 0,
   };
   let cellEls: HTMLElement[] = [];
   const noCands = g.candidates === false;
@@ -605,6 +653,14 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
     if (!S.p) return;
     if ((v === 0 || v === RING) && !g.xPerLine) return;
     if (v === RING && noCands) return;
+    if (!S.selection.size && !noCands) {
+      // Nothing selected: mark every cell with this digit, as a value or a candidate.
+      if (v > 0 && v !== RING) {
+        S.padDigit = S.padDigit === v ? 0 : v;
+        render();
+      }
+      return;
+    }
     const cells = editable();
     if (!cells.length) return;
     if (v === RING) {
@@ -621,18 +677,8 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
     }
     if (pencilOn() || (asCandidate && !noCands)) {
       // Candidates (✕ is a note): remove from all if all have it, otherwise add to all.
-      const b = 1 << v;
-      const open = cells.filter((i) => S.cur.cells[i] < 0);
-      const allHave = open.every((i) => S.cur.cands[i] & b);
-      return change((s) =>
-        open.forEach((i) => {
-          const had = s.cands[i];
-          const c = allHave ? had & ~RING & ~b : (had & ~RING) | b;
-          // Removing the last candidate of a cell that said "not an X" leaves its ring.
-          const saidNotX = !!g.xPerLine && (had === RING || (had & digitMask() && !(had & 1)));
-          s.cands[i] = c || (saidNotX ? RING : 0);
-        }),
-      );
+      const add = !allHaveCand(v);
+      return change((s) => setCand(s, v, add));
     }
     const allHave = cells.every((i) => S.cur.cells[i] === v);
     change((s) => {
@@ -641,6 +687,22 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
         if (!allHave) tidy(s, i, v);
       }
     });
+  }
+
+  /** The open selected cells (where candidates go). */
+  const openCells = () => editable().filter((i) => S.cur.cells[i] < 0);
+  /** Every open selected cell has candidate v. */
+  const allHaveCand = (v: number) => openCells().every((i) => S.cur.cands[i] & (1 << v));
+  /** Add (or remove) candidate v in the open selected cells. */
+  function setCand(s: Snap, v: number, add: boolean): void {
+    const b = 1 << v;
+    for (const i of openCells()) {
+      const had = s.cands[i];
+      const c = add ? (had & ~RING) | b : had & ~RING & ~b;
+      // Removing the last candidate of a cell that said "not an X" leaves its ring.
+      const saidNotX = !!g.xPerLine && (had === RING || (had & digitMask() && !(had & 1)));
+      s.cands[i] = c || (saidNotX ? RING : 0);
+    }
   }
 
   /** Remove every empty ring (they get in the way once the X's are known). */
@@ -653,14 +715,11 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
   /** Holding the ring key (pad or keyboard) for HOLD_RING ms clears all rings. */
   const HOLD_RING = 2000;
   let ringTimer = 0;
-  let ringHeld = false;
   const ringKey = () => el("pad").querySelector<HTMLElement>(".dot-key");
   function startRingHold(): void {
     clearTimeout(ringTimer);
-    ringHeld = false;
     ringKey()?.classList.add("arming");
     ringTimer = window.setTimeout(() => {
-      ringHeld = true;
       ringKey()?.classList.remove("arming");
       clearRings();
     }, HOLD_RING);
@@ -777,7 +836,43 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
       cellEls[i] = cell;
       return cell;
     });
+    // Lines (thin grid, thick regions) and the selection outline, drawn over the cells.
+    const svg = (cls: string) => {
+      const o = document.createElementNS(SVG_NS, "svg");
+      o.setAttribute("class", `lite-overlay ${cls}`);
+      o.setAttribute("viewBox", `0 0 ${n() * 100} ${n() * 100}`);
+      o.setAttribute("preserveAspectRatio", "none");
+      o.setAttribute("aria-hidden", "true");
+      board.appendChild(o);
+      return o;
+    };
+    linesSvg = g.regions ? svg("lite-lines") : null;
+    if (linesSvg) linesSvg.innerHTML = linesHtml(n(), g.regions!(S.p!));
+    selSvg = g.separateCells ? null : svg("lite-sel");
+    selPath = selSvg ? (selSvg.appendChild(document.createElementNS(SVG_NS, "path")) as SVGPathElement) : null;
+    placeOverlays();
   }
+
+  let linesSvg: SVGSVGElement | null = null;
+  let selSvg: SVGSVGElement | null = null;
+  let selPath: SVGPathElement | null = null;
+  /** Put the overlays exactly over the cells (Treasure Map has clues around them). */
+  function placeOverlays(): void {
+    const first = cellEls[0];
+    const last = cellEls[cellEls.length - 1];
+    if (!first || !last) return;
+    const b = board.getBoundingClientRect();
+    const a = first.getBoundingClientRect();
+    const z = last.getBoundingClientRect();
+    for (const o of [linesSvg, selSvg]) {
+      if (!o) continue;
+      o.style.left = `${a.left - b.left - board.clientLeft}px`;
+      o.style.top = `${a.top - b.top - board.clientTop}px`;
+      o.style.width = `${z.right - a.left}px`;
+      o.style.height = `${z.bottom - a.top}px`;
+    }
+  }
+  new ResizeObserver(() => placeOverlays()).observe(board);
 
   /**
    * Selecting, as in sudoku: a tap selects one cell and dragging adds the cells it passes.
@@ -789,10 +884,12 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
   /** The selection in the order it was made. */
   let selOrder: number[] = [0];
   const setSelection = (cells: number[]) => {
+    if (cells.length) S.padDigit = 0;
     selOrder = cells.slice();
     S.selection = new Set(cells);
   };
   const addCell = (i: number) => {
+    S.padDigit = 0;
     if (!S.selection.has(i)) selOrder.push(i);
     S.selection.add(i);
   };
@@ -957,14 +1054,13 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
     commitFrom(m.before);
   }
 
-  // Tapping outside the grid (not on a control) drops the selection.
+  // Tapping outside the grid (not on a control) selects nothing, so no shading is in the way.
   document.addEventListener("pointerdown", (e) => {
-    if (!smartOn() || !active() || !S.p) return;
+    if (!active() || !S.p || !S.selection.size) return;
     const t = e.target as HTMLElement;
-    if (board.contains(t) || t.closest("button, input, select, textarea, label, a, summary, dialog")) return;
-    if (!S.selection.size) return;
+    if (board.contains(t) || t.closest("button, input, select, textarea, label, a, summary, dialog, .pad")) return;
     setSelection([]);
-    S.quiet = true;
+    if (smartOn()) S.quiet = true;
     render();
   });
 
@@ -1036,12 +1132,30 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
     render();
   }
 
+  /**
+   * The pad. Keys act on the first touch (a phone drops the click when the finger moves a
+   * little, or for a second finger while S is held). Sliding the finger on over other keys
+   * (a sweep) toggles those candidates too, all in one undo step: the first key decides
+   * whether the sweep adds or removes them. Holding the ring key clears every ring.
+   */
+  let sweep: { id: number; keys: Set<number>; before: Snap; undoLen: number; add: boolean | null } | null = null;
+  const keyAt = (x: number, y: number): number | null => {
+    const k = (document.elementFromPoint(x, y) as HTMLElement | null)?.closest<HTMLElement>("[data-v]");
+    return k && el("pad").contains(k) ? Number(k.dataset.v) : null;
+  };
+  /** Candidates a sweep may toggle: digits, and ✕ in types with X's. */
+  const sweepable = (v: number) => !noCands && v !== RING && (v > 0 || !!g.xPerLine);
+
   function buildPad(): void {
     const pad = el("pad");
     const keys: (number | "S")[] = [...Array.from({ length: maxDigit() }, (_, k) => k + 1), ...(g.xPerLine ? (noCands ? [0] : [0, RING]) : []), "S"];
     const visible = keys.length - 1; // the S key only shows on phones
     pad.style.setProperty("--keys", String(Math.min(visible, 8)));
-    pad.style.setProperty("--keys-phone", String(Math.min(keys.length, 8)));
+    // On a phone: one row up to 5 keys, otherwise two rows (wider keys, as in sudoku).
+    const cols = keys.length <= 5 ? keys.length : Math.min(5, Math.ceil(keys.length / 2));
+    pad.style.setProperty("--keys-phone", String(cols));
+    // The S key fills what is left of the last row, so the rows end evenly.
+    pad.style.setProperty("--s-span", String(Math.ceil(keys.length / cols) * cols - keys.length + 1));
     pad.replaceChildren(
       ...keys.map((v) => {
         const b = document.createElement("button");
@@ -1054,7 +1168,8 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
           // Held: on while the finger is down. With "S key stays on": tap on, tap off.
           b.addEventListener("pointerdown", (e) => {
             e.preventDefault();
-            if (opt.stickyToggle) return;
+            e.stopPropagation();
+            if (opt.stickyToggle) return setSticky(!S.sticky);
             try {
               b.setPointerCapture(e.pointerId);
             } catch {
@@ -1066,10 +1181,10 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
           b.addEventListener("pointerup", release);
           b.addEventListener("pointercancel", release);
           b.addEventListener("lostpointercapture", release);
-          b.addEventListener("contextmenu", (e) => e.preventDefault());
-          b.addEventListener("click", () => opt.stickyToggle && setSticky(!S.sticky));
+          b.addEventListener("click", (e) => e.detail === 0 && opt.stickyToggle && setSticky(!S.sticky));
           return b;
         }
+        b.dataset.v = String(v);
         if (v === RING) {
           b.innerHTML = `<span class="ring-key" aria-hidden="true"></span>`;
           b.setAttribute("aria-label", "Ring: a digit goes here, not an X");
@@ -1081,30 +1196,56 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
           if (g.valueName) b.setAttribute("aria-label", valueName(v));
           if (v === 0) b.classList.add("x-key");
         }
-        // While S is held with one finger, another finger taps the keys: act on pointerdown
-        // then (some phones send no click for a second touch) and skip the click that may follow.
-        let handledAt = -Infinity;
-        b.addEventListener("pointerdown", (e) => {
-          handledAt = -Infinity;
-          if (v === RING) startRingHold();
-          if (!S.sticky || opt.stickyToggle) return;
-          handledAt = e.timeStamp;
-          enter(v);
-        });
-        if (v === RING) {
-          b.addEventListener("pointerup", stopRingHold);
-          b.addEventListener("pointerleave", stopRingHold);
-          b.addEventListener("pointercancel", stopRingHold);
-          b.addEventListener("contextmenu", (e) => e.preventDefault());
-        }
-        b.addEventListener("click", (e) => {
-          if (v === RING && ringHeld) return void (ringHeld = false);
-          if (e.timeStamp - handledAt < 1000) return void (handledAt = -Infinity);
-          enter(v);
-        });
+        // A click without a pointer (keyboard: Enter or Space on the key).
+        b.addEventListener("click", (e) => e.detail === 0 && enter(v));
         return b;
       }),
     );
+  }
+
+  function wirePad(): void {
+    const pad = el("pad");
+    for (const ev of ["contextmenu", "selectstart"]) pad.addEventListener(ev, (e) => e.preventDefault());
+    pad.addEventListener("pointerdown", (e) => {
+      const v = keyAt(e.clientX, e.clientY);
+      if (v === null || e.button > 0) return;
+      e.preventDefault();
+      try {
+        pad.setPointerCapture(e.pointerId);
+      } catch {
+        /* synthetic event */
+      }
+      sweep = { id: e.pointerId, keys: new Set([v]), before: snap(), undoLen: S.undo.length, add: null };
+      if (v === RING) startRingHold();
+      enter(v);
+    });
+    pad.addEventListener("pointermove", (e) => {
+      if (!sweep || sweep.id !== e.pointerId || !S.p) return;
+      const v = keyAt(e.clientX, e.clientY);
+      if (v === null || sweep.keys.has(v)) return;
+      stopRingHold();
+      const first = [...sweep.keys][0];
+      if (!sweepable(v) || !sweepable(first) || !openCells().length || S.solved || S.finishing) return;
+      if (sweep.add === null) {
+        // The sweep starts: whatever the first key did becomes a candidate instead.
+        S.cur = { cells: sweep.before.cells.slice(), cands: sweep.before.cands.slice() };
+        S.undo.length = sweep.undoLen;
+        sweep.add = !allHaveCand(first);
+        setCand(S.cur, first, sweep.add);
+      }
+      sweep.keys.add(v);
+      setCand(S.cur, v, sweep.add);
+      render();
+    });
+    const end = (e: PointerEvent) => {
+      if (!sweep || sweep.id !== e.pointerId) return;
+      const sw = sweep;
+      sweep = null;
+      stopRingHold();
+      if (sw.add !== null) commitFrom(sw.before);
+    };
+    pad.addEventListener("pointerup", end);
+    pad.addEventListener("pointercancel", end);
   }
 
   function render(): void {
@@ -1128,10 +1269,15 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
     const region = new Set(step?.region ?? []);
     const targets = new Set(full ? step!.placements.map((x) => x.cell) : []);
     const elims = new Set(full ? step!.eliminations.map((x) => x.cell) : []);
-    // The digit to highlight: that of the first selected cell with a digit.
+    // The digit to highlight: a digit tapped on the pad with nothing selected, else that of
+    // the first selected cell with a digit.
+    const pd = S.selection.size ? 0 : S.padDigit;
     const hl = selOrder.find((x) => S.selection.has(x) && cells[x] > 0);
-    const hlVal = hl === undefined ? 0 : cells[hl];
+    const hlVal = pd || (hl === undefined ? 0 : cells[hl]);
+    const sameOn = (opt.same || !!pd) && !noCands;
     const multi = S.selection.size > 1;
+    const cursor = !S.quiet && S.selection.has(S.sel);
+    const regionOf = g.regions && opt.region ? g.regions(S.p) : null;
     for (let i = 0; i < N * N; i++) {
       const c = cellEls[i];
       const v = cells[i];
@@ -1140,10 +1286,11 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
       c.classList.toggle("given", S.p.givens[i]);
       c.classList.toggle("sel", S.selection.has(i) && !S.quiet);
       c.classList.toggle("primary", i === S.sel && S.selection.has(i) && !S.quiet);
-      c.classList.toggle("peer", opt.peers && !multi && !S.quiet && i !== S.sel && (r === sr || col === sc));
-      c.classList.toggle("same", opt.same && !noCands && hlVal > 0 && v === hlVal && i !== hl);
+      const peer = cursor && !multi && i !== S.sel && ((opt.peers && (r === sr || col === sc)) || (!!regionOf && regionOf[i] === regionOf[S.sel]));
+      c.classList.toggle("peer", peer);
+      c.classList.toggle("same", sameOn && hlVal > 0 && v === hlVal && i !== hl);
       // Cells with the highlighted digit among their candidates: a lighter mark, to see patterns.
-      const candHl = opt.same && !noCands && hlVal > 0 && v < 0 && cands[i] !== RING && !!(cands[i] & (1 << hlVal));
+      const candHl = sameOn && hlVal > 0 && v < 0 && cands[i] !== RING && !!(cands[i] & (1 << hlVal));
       c.classList.toggle("cand-same", candHl);
       c.classList.toggle("x", v === 0);
       c.classList.toggle("has-value", v > 0);
@@ -1179,7 +1326,8 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
       setTimeout(() => done.forEach((i) => cellEls[i]?.style.removeProperty("--d")), wait);
     }
     root.classList.toggle("no-outline", !opt.outline);
-    g.decorate(board, S.p, cells, S.sel);
+    selPath?.setAttribute("d", opt.outline && !S.quiet ? outlinePath(S.selection, N, 4) : "");
+    g.decorate(board, S.p, cells, S.selection.has(S.sel) ? S.sel : -1);
     el("name").textContent = nameOf(S.code, S.level);
     el("label").textContent = `${g.title} · ${S.level} · ${N}×${N}`;
     all("code").forEach((x) => (x.textContent = S.code));
@@ -1222,9 +1370,9 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
     const list = el("note-list");
     if (!nt || !list || !S.p) return;
     const p = S.p;
-    const active = nt.regionOf(p, S.sel);
+    const active = S.selection.has(S.sel) ? nt.regionOf(p, S.sel) : -1;
     const want = new Set(Object.keys(S.notes).map(Number).filter((k) => S.notes[k]));
-    if (!nt.skip(p, active)) want.add(active);
+    if (active >= 0 && !nt.skip(p, active)) want.add(active);
     if (S.noteFocus !== null) want.add(S.noteFocus);
     const order = [...want].sort((a, b) => a - b);
     const have = new Map([...list.querySelectorAll<HTMLElement>(".note")].map((x) => [Number(x.dataset.k), x]));
@@ -1610,6 +1758,7 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
       el("load-msg").textContent = (e as Error).message;
     }
   });
+  wirePad();
   document.addEventListener("keydown", onKey);
   document.addEventListener("keyup", (e) => {
     if (active() && (e.key === "." || e.key === "o" || e.key === "O" || e.code === "NumpadDecimal")) stopRingHold();

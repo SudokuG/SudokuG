@@ -167,17 +167,14 @@ export const STAR_BATTLE: LiteGame<StarPuzzle> = {
     for (let i = 0; i < p.n * p.n; i++) {
       const wrap = document.createElement("div");
       wrap.style.setProperty("--rh", String(hues[p.regionOf[i]]));
-      // Each cell draws its top and left line (thick at a region edge); the last column and
-      // row also draw the outer edge, so no line is drawn twice.
-      const [t, , , l] = edges(p, i);
-      const lastCol = i % p.n === p.n - 1;
-      const lastRow = i >= p.n * (p.n - 1);
-      wrap.className = `sb-wrap${t ? " bt" : ""}${l ? " bl" : ""}${lastCol ? " br" : ""}${lastRow ? " bb" : ""}`;
+      // (The lines are drawn by the page, from `regions`.)
+      wrap.className = "sb-wrap";
       wrap.appendChild(cell(i));
       board.appendChild(wrap);
     }
   },
   decorate() {},
+  regions: (p) => p.regionOf,
   svg: (p, entries) => starSvg(p, entries),
   solver: (p) => ({
     start: () => startState(p),

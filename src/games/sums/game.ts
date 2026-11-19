@@ -77,6 +77,12 @@ export const TREASURE_MAP: LiteGame<SumsPuzzle> = {
   isCode: isSumsCode,
   layout(board, p, cell) {
     const N = p.n;
+    // The row clues' column is only as wide as its longest clue line (in cells; clue text is
+    // 0.3 of a cell: about 0.6 em per digit, 0.55 em between clues and at the right).
+    const em = Math.max(...p.rowClues.map((cl) => cl.join("").length * 0.62 + cl.length * 0.55 + 0.3));
+    const lw = Math.max(0.8, Math.round(em * 0.3 * 100) / 100);
+    board.style.setProperty("--lw", String(lw));
+    board.style.gridTemplateColumns = `${lw}fr repeat(${N}, 1fr)`;
     board.appendChild(Object.assign(document.createElement("div"), { className: "sums-corner" }));
     for (let c = 0; c < N; c++) {
       const el = document.createElement("div");

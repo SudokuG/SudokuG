@@ -364,8 +364,19 @@ pad, Undo, Erase, Candidates, Hint, Check and Reveal.
 - **Selecting** works as in sudoku: a tap selects a cell, dragging adds the cells you pass.
   The S key (phones) adds more groups: the selection is kept, and so is the highlight of
   the first selected digit; tapping a selected cell drops it; while S is held, digits go in
-  as candidates (the keys act on the touch itself, since phones often send no click for a
-  second finger). On a computer Shift adds cells and Ctrl toggles them.
+  as candidates. On a computer Shift adds cells and Ctrl toggles them. Every group of
+  selected cells gets one outline around it, as in sudoku (`outlinePath` in
+  `src/ui/board.ts`, drawn as an SVG over the cells); Futoshiki's cells don't touch, so each
+  selected cell gets its own frame. **Tapping outside the grid** (not on a control) selects
+  nothing, in every puzzle type, so no shading is in the way.
+- **Pad**: the keys act on the first touch (phones drop the click when the finger moves a
+  little, or for a second finger while S is held), and holding a key never selects text or
+  opens a search. On a phone the keys sit in two rows when there are more than five, as in
+  sudoku; the S key fills the rest of the last row. **Sweep** (light types): slide a finger
+  from key to key to toggle those candidates in the selected cells, in one undo step; the
+  first key decides whether the sweep adds or removes. **A key with nothing selected**
+  (every type) marks the cells with that digit and lightly those with it as a candidate;
+  the same key again, or selecting a cell, ends it.
 - **Number pad**: Shift+number pad enters candidates (on Windows it arrives as an arrow
   key, so the number pad is read by its key code before the arrows). The option "Keyboard number
   pad enters candidates" (sudoku and the light types) makes the number pad always enter
@@ -381,6 +392,11 @@ pad, Undo, Erase, Candidates, Hint, Check and Reveal.
   One undo step. A long press on a phone puts in an X.
 - **Check** counts only your own entries. **Auto-finish** (option, default the last 8
   cells): when everything entered is right and the rest follows from singles, it fills in.
+- **Highlight row and column** and **Highlight region** (Star Battle; "Highlight cage" in
+  Calcudoku; off by default) are separate options, like "Highlight row and column" and
+  "Highlight box" in sudoku. The thin and thick lines of Star Battle and Calcudoku are one
+  SVG over the cells (`linesHtml` in `lite.ts`, from the `regions` hook), so region corners
+  close cleanly. Treasure Map's clue column is only as wide as its longest row of clues.
 - **Options** are kept per puzzle type (`liteOptionsFor` in `src/games/lite-options.ts`,
   saved as `sudokug-lite-options-<type>`; the first time, a type starts from the old shared
   choices, with its own defaults on top: Star Battle has auto-finish off). The Options tab

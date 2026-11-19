@@ -3,6 +3,8 @@
 export interface LiteOptions {
   /** Shade the row and column of the selected cell. */
   peers: boolean;
+  /** Shade the region (Calcudoku: cage) of the selected cell (types with regions). */
+  region: boolean;
   /** Mark the same digit elsewhere. */
   same: boolean;
   /** Mark a wrong entry as soon as it is made. */
@@ -30,6 +32,7 @@ export interface LiteOptions {
 const OLD_KEY = "sudokug-lite-options";
 const DEFAULTS: LiteOptions = {
   peers: true,
+  region: false,
   same: true,
   mistakes: false,
   tidy: true,
@@ -85,11 +88,12 @@ export function liteOptionsFor(id: string, typeDefaults: Partial<LiteOptions> = 
 
 export const AUTO_FINISH_CHOICES = [0, 5, 8, 12];
 
-/** Which puzzle types an option is for: with candidates, with automatic dots, with smart input (Star Battle). Unset: all. */
-export type OptionFor = "candidates" | "autoDots" | "smart";
+/** Which puzzle types an option is for: with candidates, with automatic dots, with smart input (Star Battle), with regions. Unset: all. */
+export type OptionFor = "candidates" | "autoDots" | "smart" | "regions";
 
 export const LITE_OPTION_TEXT: { key: Exclude<keyof LiteOptions, "autoFinish">; title: string; text?: string; for?: OptionFor }[] = [
   { key: "peers", title: "Highlight row and column", text: "Shade the cells in the row and column of the selected cell." },
+  { key: "region", title: "Highlight region", text: "Shade the cells in the region of the selected cell.", for: "regions" },
   { key: "same", title: "Highlight the same digit", text: "Mark digits equal to the one in the selected cell, and lightly mark the cells that have it as a candidate (with that candidate picked out).", for: "candidates" },
   { key: "autoDots", title: "Cross automatically", text: "Placing a star crosses the cells around it, and the rest of its row, column or region once that has all its stars. Taking the star away again removes those crosses.", for: "autoDots" },
   { key: "mistakes", title: "Highlight mistakes", text: "Mark an entry red as soon as it doesn't match the solution." },
@@ -104,5 +108,5 @@ export const LITE_OPTION_TEXT: { key: Exclude<keyof LiteOptions, "autoFinish">; 
     text: "Tap or drag over cells to cross them, double-tap (double-click) for a star, hold (or right-click) to clear. Hold S or Shift to select cells instead, then use the star and cross keys; tap outside the grid to drop the selection.",
     for: "smart",
   },
-  { key: "outline", title: "Outline the selected cells", text: "A rounded frame around the selected cells (the shading stays either way)." },
+  { key: "outline", title: "Outline the selected cells", text: "A frame around the selected cells (the shading stays either way)." },
 ];

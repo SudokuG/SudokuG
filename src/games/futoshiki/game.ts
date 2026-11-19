@@ -120,5 +120,6 @@ export const FUTOSHIKI: LiteGame<FutoshikiPuzzle> = {
       el.classList.toggle("bad", va > 0 && vb > 0 && va < vb !== want);
     });
   },
+  separateCells: true,
   svg: futoshikiSvg,
 };

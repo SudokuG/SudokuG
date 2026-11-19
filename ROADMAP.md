@@ -11,31 +11,25 @@
 - More sudoku techniques (finned fish, W-Wing, Unique Rectangle, ALS)
 
 ## Now
-### v1.1 – Input and selection on every type
-- Pad: two rows on a phone for the light types; keys act on the first touch; no text
-  selection or search pop-up when holding a key
-- Sweep over the light pad keys to toggle candidates (one undo step)
-- Tap outside the grid: nothing selected (all types)
-- A pad key with nothing selected highlights that digit and its candidates (all types)
-- Selection outline around each group of selected cells, every selected cell outlined
-  (light types except Futoshiki, which keeps a frame per cell)
-- Separate options: row/column and box (sudoku) or region (Star Battle, Calcudoku)
-- Star Battle and Calcudoku region lines drawn as SVG (clean corners)
-- Treasure Map: clue column only as wide as its clues
-- Verify: phone and desktop screenshots of each type; typecheck, tests, build
+### v1.2 – Consistency between the puzzle types
+- The alignments agreed in Q1 (outline option, Redo, button rows, candidates, digits
+  left, region default, Star Battle cursor, candidate shading in sudoku)
+- Sweep on the sudoku pad, if wanted (Q2)
+- Verify: phone and desktop screenshots of every type side by side
+- Waiting for: Q1, Q2
 
 ## Next
-### v1.2 – Consistency between the puzzle types
-- The alignments agreed in Q1 (pad layout, button rows, options, colours)
-- Sweep on the sudoku pad, if wanted (Q2)
+### v1.3 – Split app.ts and lite.ts
+- Both are past ~1700 lines: input, render and options as their own modules; no behaviour change
+- Verify: typecheck, tests, the same screenshots as before
 
 ## Later
-- Split app.ts and lite.ts (both past ~1700 lines): input, render and options as modules
 - A Str8ts-like puzzle type under its own name (Str8ts is a trademark)
 - Tectonic / Suguru as a light type (own name, e.g. themed like the others)
 - More sudoku techniques: finned fish, W-Wing, Unique Rectangle, ALS, forcing chains
 
 ## Done
+- ✓ v1.1 – Input and selection on every type
 - ✓ v1.0 – Sudoku, generator, library, dailies and four light puzzle types
 
 Older: see CHANGELOG.md

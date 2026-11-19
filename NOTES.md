@@ -21,6 +21,8 @@
      sudoku (on). It is off there now, so their look doesn't change unasked.
   g. Star Battle cell selection with smart input: the same blue cursor as the other types
      instead of no mark.
+  h. Sudoku shades cells that have the selected digit as a candidate, like the light types
+     do (now sudoku only colours the candidate itself).
   A:
 - Q2 (v1.1) Sweeping over the pad to toggle candidates now works in the light types. Also
   on the sudoku pad (there it would enter candidates in the current mode)?
@@ -30,3 +32,11 @@
 <!-- Moved here by Claude, each line starting with ✓ and the version that handled it.
      The last three versions stay here; older ones move to ARCHIVE.md. -->
 - ✓ v1.1 – I want project osty integrated into sudokug.
+- ✓ v1.1 – In futoshiki the numbers row should be two rows with wider buttons for mobile just like it is for sudoku.
+- ✓ v1.1 – treasure map has to much empty space to the left side of the screen unused.
+- ✓ v1.1 – puzzles that have touching cells (so all except futoshiki) should have their selection borders melt together when selecting multiple cells. A selected cell always has a border, not only one cell. When disabled, no cells have it of course. - Toggle for highlight region and highlight rows and columns should be separated
+- ✓ v1.1 – in futoshiki especially I often have to press buttons a second time. It also selects the s button when holding or rather it then searches something. This should not happen.
+- ✓ v1.1 – In futoshiki i would like to be able to sweep my finger across the buttons to quickly fill in candidates.
+- ✓ v1.1 – i also think that pressing or clicking outside the grid makes it so no cell is selected. This helps so that no highlighting is visually in the way.
+- ✓ v1.1 – when pressing on a digit-button while no cells are active, all cells containing that digit or have that digit as candidate should get highlighted.
+- ✓ v1.1 – The borders in star battle have rather weird corners. These should be drawn more nicely.
