@@ -1,8 +1,10 @@
-// The number pad: keys (acting on the first touch), the S key, sweeping over keys.
+// The number pad: keys (acting on the first touch), the S key, sweeping over keys (the last two
+// shared with sudoku: ../../ui/pad-common.ts).
 
 import { RING } from "../logic";
 import type { LiteCtx } from "./ctx";
 import type { LitePuzzle, Snap } from "./types";
+import { wireSKey, wireSweep } from "../../ui/pad-common";
 
 export function padPart<P extends LitePuzzle>(ctx: LiteCtx<P>) {
   const { g, el, opt, S, noCands, show, valueName, maxDigit } = ctx;
@@ -12,17 +14,6 @@ export function padPart<P extends LitePuzzle>(ctx: LiteCtx<P>) {
     ctx.render();
   }
 
-  /**
-   * The pad. Keys act on the first touch (a phone drops the click when the finger moves a
-   * little, or for a second finger while S is held). Sliding the finger on over other keys
-   * (a sweep) toggles those candidates too, all in one undo step: the first key decides
-   * whether the sweep adds or removes them. Entering digits, only with Sweep in digit mode. Holding the ring key clears every ring.
-   */
-  let sweep: { id: number; keys: Set<number>; before: Snap; undoLen: number; digit: boolean; add: boolean | null } | null = null;
-  const keyAt = (x: number, y: number): number | null => {
-    const k = (document.elementFromPoint(x, y) as HTMLElement | null)?.closest<HTMLElement>("[data-v]");
-    return k && el("pad").contains(k) ? Number(k.dataset.v) : null;
-  };
   /** Candidates a sweep may toggle: digits, and ✕ in types with X's. */
   const sweepable = (v: number) => !noCands && v !== RING && (v > 0 || !!g.xPerLine);
 
@@ -45,23 +36,7 @@ export function padPart<P extends LitePuzzle>(ctx: LiteCtx<P>) {
           b.className = "pad-sticky";
           b.title = noCands ? "Hold to select several cells" : "Hold to select several cells and enter candidates";
           b.setAttribute("aria-label", noCands ? "S: select several cells" : "S: select several cells, enter candidates");
-          // Held: on while the finger is down. With "S key stays on": tap on, tap off.
-          b.addEventListener("pointerdown", (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            if (opt.stickyToggle) return setSticky(!S.sticky);
-            try {
-              b.setPointerCapture(e.pointerId);
-            } catch {
-              /* no active pointer (synthetic event): S stays on until pointerup anyway */
-            }
-            setSticky(true);
-          });
-          const release = () => !opt.stickyToggle && S.sticky && setSticky(false);
-          b.addEventListener("pointerup", release);
-          b.addEventListener("pointercancel", release);
-          b.addEventListener("lostpointercapture", release);
-          b.addEventListener("click", (e) => e.detail === 0 && opt.stickyToggle && setSticky(!S.sticky));
+          wireSKey(b, { staysOn: () => opt.stickyToggle, isOn: () => S.sticky, set: setSticky });
           return b;
         }
         b.dataset.v = String(v);
@@ -83,51 +58,43 @@ export function padPart<P extends LitePuzzle>(ctx: LiteCtx<P>) {
     );
   }
 
+  /**
+   * Sweeping over the pad (../../ui/pad-common.ts wireSweep): toggles those candidates;
+   * entering digits, only with Sweep in digit mode. Holding the ring key clears every ring.
+   */
   function wirePad(): void {
     const pad = el("pad");
     for (const ev of ["contextmenu", "selectstart"]) pad.addEventListener(ev, (e) => e.preventDefault());
-    pad.addEventListener("pointerdown", (e) => {
-      const v = keyAt(e.clientX, e.clientY);
-      if (v === null || e.button > 0) return;
-      e.preventDefault();
-      try {
-        pad.setPointerCapture(e.pointerId);
-      } catch {
-        /* synthetic event */
-      }
-      sweep = { id: e.pointerId, keys: new Set([v]), before: ctx.snap(), undoLen: S.undo.length, digit: !ctx.pencilOn(), add: null };
-      if (v === RING) ctx.startRingHold();
-      ctx.enter(v);
+    type Start = { before: Snap; undoLen: number; digit: boolean };
+    wireSweep<Start>(pad, "v", {
+      down(v) {
+        const t = { before: ctx.snap(), undoLen: S.undo.length, digit: !ctx.pencilOn() };
+        if (v === RING) ctx.startRingHold();
+        ctx.enter(v);
+        return t;
+      },
+      allowed(t, first, v) {
+        if (!S.p || !opt.sweep || (t.digit && !opt.sweepDigit)) return false;
+        ctx.stopRingHold();
+        // (Open cells as before the first key, which may have put a digit in.)
+        const open = ctx.editable().some((i) => t.before.cells[i] < 0);
+        return sweepable(v) && sweepable(first) && open && !S.solved && !S.finishing;
+      },
+      start(t, first) {
+        // Whatever the first key did becomes a candidate instead.
+        S.cur = { cells: t.before.cells.slice(), cands: t.before.cands.slice() };
+        S.undo.length = t.undoLen;
+        const add = !ctx.allHaveCand(first);
+        ctx.setCand(S.cur, first, add);
+        return add;
+      },
+      toggle: (_t, v, add) => ctx.setCand(S.cur, v, add),
+      render: () => ctx.render(),
+      end(t, started) {
+        ctx.stopRingHold();
+        if (started) ctx.commitFrom(t.before);
+      },
     });
-    pad.addEventListener("pointermove", (e) => {
-      if (!sweep || sweep.id !== e.pointerId || !S.p || !opt.sweep || (sweep.digit && !opt.sweepDigit)) return;
-      const v = keyAt(e.clientX, e.clientY);
-      if (v === null || sweep.keys.has(v)) return;
-      ctx.stopRingHold();
-      const first = [...sweep.keys][0];
-      // (Open cells as before the first key, which may have put a digit in.)
-      const open = ctx.editable().some((i) => sweep!.before.cells[i] < 0);
-      if (!sweepable(v) || !sweepable(first) || !open || S.solved || S.finishing) return;
-      if (sweep.add === null) {
-        // The sweep starts: whatever the first key did becomes a candidate instead.
-        S.cur = { cells: sweep.before.cells.slice(), cands: sweep.before.cands.slice() };
-        S.undo.length = sweep.undoLen;
-        sweep.add = !ctx.allHaveCand(first);
-        ctx.setCand(S.cur, first, sweep.add);
-      }
-      sweep.keys.add(v);
-      ctx.setCand(S.cur, v, sweep.add);
-      ctx.render();
-    });
-    const end = (e: PointerEvent) => {
-      if (!sweep || sweep.id !== e.pointerId) return;
-      const sw = sweep;
-      sweep = null;
-      ctx.stopRingHold();
-      if (sw.add !== null) ctx.commitFrom(sw.before);
-    };
-    pad.addEventListener("pointerup", end);
-    pad.addEventListener("pointercancel", end);
   }
 
   return { buildPad, wirePad };

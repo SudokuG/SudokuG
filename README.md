@@ -61,7 +61,10 @@ src/
     app.ts           the sudoku page: theme, tabs, keys, wiring; its parts are in ui/sudoku/
     sudoku/          state.ts (settings, game state), puzzles.ts (loading, saving, timer),
                      finish.ts (stats, solved card, likes, dailies), generate.ts (generator UI,
-                     rating card), printing.ts, actions.ts (every change, undo), pad.ts, render.ts
+                     rating card), printing.ts, actions.ts (every change, undo), pad.ts, render.ts,
+                     options.ts (the Options tab: one table of options)
+    pad-common.ts    what both number pads share: sweeping over the keys, the S key
+    option-label.ts  one option's checkbox and text (sudoku and the light types)
     board.ts         the 9×9 board elements, hint highlighting, chain lines, selection outline, colour palettes
     guide-view.ts    the Techniques tab
     stats.ts         local stats (solved, best times, dailies)
@@ -69,11 +72,13 @@ src/
     likes.ts         liked puzzles
     print.ts         printing: puzzle SVGs and page layouts
     played.ts        puzzles played in this browser, browser id for shared likes
-    style.css        styles (light and dark theme)
   guide.ts           texts of the Techniques tab
   guide-examples.ts  example positions for each technique (found by search, checked by tests)
   guide-step.ts      turns an example position into the step to show
   page.html          page markup; build.mjs inlines fonts, CSS and JS into it
+  styles/            styles (light and dark theme), joined in the order of their number:
+                     1-base, 2-board (and the entry-mode colours), 3-panel (pad, modes),
+                     4-tabs, 5-sudoku-phone, 6-cards, 7-lite, 8-lite-types, 9-print
   sw.js              service worker: keeps the game on the device for offline play
   games/lite.ts      the page shared by the lighter puzzle types: sets it up, tabs, options, timer
   games/lite/        its parts: types.ts (LiteGame), ctx.ts (the shared context), markup.ts,
@@ -87,7 +92,9 @@ src/
   games/futoshiki/   Futoshiki: the same three files; all also have techniques.ts (the
                      Techniques tab) and examples.ts (worked examples, npm run lite-examples)
   games/calcudoku/   Calcudoku: the same
-  games/starbattle/  Star Battle: the same (engine.ts also grows the regions)
+  games/starbattle/  Star Battle: the same (engine.ts also grows the regions); its solver is
+                     split into state.ts (units, state), steps.ts (the steps) and logic.ts
+                     (chains, trial, rating, making); Treasure Map keeps its lines in lines.ts
   games/latin-steps.ts  steps shared by the Latin-square puzzles (singles, pairs, triples)
   ui/games.ts        the puzzle-type switcher in the header
   ui/print-dialog.ts the print dialog, shared by all puzzle types

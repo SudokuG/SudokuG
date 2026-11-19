@@ -20,9 +20,12 @@ mostly on a phone. Live at https://sudokug.github.io/SudokuG/
   A failing test blocks the deploy.
 - Look at the page: build, then Playwright (installed globally) on dist/index.html at a
   phone size (390×844) and a desktop size; screenshots for any visual change.
+- A change that should not change the page (refactoring): screenshot every type and tab
+  (light/dark, phone/desktop, fixed puzzle codes via #code) before and after; compare pixels.
 
 ## Technical conventions
 - TypeScript, no framework, bundled by esbuild (build.mjs inlines CSS, JS, fonts into one page).
+  noUnusedLocals/Parameters on: unused code fails the typecheck (`_` for an unused parameter).
 - src/engine/ and src/games/*/engine.ts, logic.ts: no DOM; tested in test/engine.test.ts.
 - UI text: British spelling (colour, centre), plain words.
 - README.md is the full user and developer manual: every user-visible change also updates
@@ -40,9 +43,13 @@ mostly on a phone. Live at https://sudokug.github.io/SudokuG/
   another part calls goes in `LiteParts` (lite/ctx.ts) and is called as `ctx.fn()`; shared state
   lives in `ctx.S` (newState) or on `LiteBase`. Sudoku parts (src/ui/sudoku/) are plain modules.
 - Files stay under ~400 lines: a part that grows past that is split along its sections.
-- Options: sudoku in `Settings` (app.ts) + a label in page.html; light types in
-  src/games/lite/options.ts (`LiteOptions`, `LITE_OPTION_TEXT` with `for:` to limit types).
-- Pad keys act on pointerdown (phones drop clicks); see `buildPad` in sudoku/pad.ts and lite/pad.ts.
+- Options: sudoku in `Settings` (sudoku/state.ts) + a line in `SUDOKU_OPTIONS` (sudoku/options.ts);
+  light types in src/games/lite/options.ts (`LiteOptions`, `LITE_OPTION_TEXT` with `for:` to limit
+  types). New fields get a default.
+- Pad keys act on pointerdown (phones drop clicks). Sweep and the S key: src/ui/pad-common.ts,
+  each page gives hooks (sudoku/pad.ts, lite/pad.ts); change behaviour there, once.
+- Styles: src/styles/N-*.css, joined by number (order = cascade); entry-mode colours are one
+  rule set for `.board` and `.lite`.
 - Board lines and the selection outline: SVG overlays (viewBox 100 per cell,
   non-scaling strokes, square caps), not CSS borders.
 

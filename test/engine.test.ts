@@ -24,7 +24,7 @@ import {
   hardestGroup,
   templateOf,
 } from "../src/engine";
-import type { Rating, Step, Technique } from "../src/engine";
+import type { Rating, Technique } from "../src/engine";
 import { SAMPLES } from "../src/samples";
 import { GUIDE } from "../src/guide";
 import { exampleStep } from "../src/guide-step";

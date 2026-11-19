@@ -3,6 +3,13 @@
 Release notes, newest first: per version, very briefly, what changed. Maintained by Claude.
 Resolved notes, answered questions and replaced files go to ARCHIVE.md, not here.
 
+## v1.5 (2026-11-19)
+- Refactoring round, nothing else changes in play: the sudoku page and the light puzzle page
+  now share one implementation of sweeping and the S key, and the styles and the two
+  largest solvers are split into smaller files.
+- Sudoku: with "S key stays on", the S key now switches on at the touch, like every other
+  key (it used to wait for the finger to lift).
+
 ## v1.4 (2026-11-19)
 - Light types: entering candidates (Candidates, Shift or S) turns the selection, its shading
   and the pad green, as in sudoku's Candidate mode.

@@ -1,0 +1,103 @@
+/* ---- Panel ---- */
+.panel { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+
+.btn {
+  font: inherit; font-weight: 700; color: var(--ink); background: var(--btn);
+  border: 1px solid var(--btn-border); border-radius: 8px; padding: 9px 12px; cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+.btn:hover { border-color: var(--pen); }
+.btn:disabled { opacity: 0.45; cursor: default; border-color: var(--btn-border); }
+.btn.primary { background: var(--pen); color: var(--surface); border-color: var(--pen); }
+.btn:focus-visible, .mode-btn:focus-visible, .pad button:focus-visible, .link-btn:focus-visible, .icon-btn:focus-visible, .guide-item:focus-visible { outline: 3px solid var(--pen); outline-offset: 2px; }
+
+.actions { display: flex; gap: 8px; }
+.actions .btn { flex: 1; }
+.actions .wide { flex: 2; }
+
+/* Entry modes, one row above the number pad */
+.modes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.mode-btn {
+  --accent: var(--m-digit);
+  display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0;
+  font: inherit; font-size: 0.78rem; font-weight: 700; color: var(--muted);
+  background: var(--btn); border: 1px solid var(--btn-border); border-radius: 8px; padding: 6px 2px 5px; cursor: pointer;
+}
+.mode-btn.m-pencil { --accent: var(--m-pencil); }
+.mode-btn.m-centre { --accent: var(--m-centre); }
+.mode-btn.m-color { --accent: var(--m-color); }
+.mode-btn:hover { border-color: var(--accent); }
+.mode-btn.on { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.mode-icon {
+  display: grid; place-items: center; width: 30px; height: 30px; border-radius: 5px;
+  border: 1.5px solid currentColor; font-size: 1.05rem; line-height: 1; font-weight: 700;
+}
+.mode-icon.corner { font-size: 0.55rem; line-height: 1.25; font-weight: 400; place-items: start; padding: 3px; text-align: left; }
+.mode-icon.pairs { font-size: 0.72rem; }
+.mode-icon.swatch { background: conic-gradient(from 45deg, var(--c2) 0 90deg, var(--c4) 90deg 180deg, var(--c5) 180deg 270deg, var(--c7) 270deg 360deg); }
+
+.pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+/* Holding a key never selects its text or opens a menu (phones). */
+.pad, .pad button, .actions .btn { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.pad button {
+  position: relative; font: inherit; font-size: 1.5rem; font-weight: 700; padding: 10px 0;
+  background: var(--btn); color: var(--pen); border: 1px solid var(--btn-border); border-radius: 8px; cursor: pointer;
+  min-width: 0;
+}
+.pad.pad-pencil button { font-size: 1.05rem; color: var(--m-pencil); }
+.pad.pad-centre button { font-size: 1.05rem; color: var(--m-centre); }
+.pad.pad-color button:not(.pad-sticky) { background: var(--swatch), var(--btn); border-color: var(--btn-border); color: var(--ink); }
+.pad.pad-color.pal-hidden button:not(.pad-sticky) { opacity: 0.55; }
+.pad.pad-color button .num { position: absolute; left: 7px; top: 4px; font-size: 0.75rem; opacity: 0.75; }
+.pad button .left { position: absolute; right: 7px; bottom: 4px; font-size: 0.68rem; color: var(--muted); font-weight: 400; }
+.pad button.done { opacity: 0.35; }
+.pad button:hover { border-color: var(--pen); }
+.pad.pad-color button { min-height: 52px; }
+/* The S key takes the colour of the entry mode it is used in */
+.pad .pad-sticky { display: none; color: var(--accent); border-color: var(--accent); font-weight: 800; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.pad .pad-sticky.on { background: var(--accent); color: var(--surface); }
+.pad { --accent: var(--m-digit); }
+/* Swiping up or down over the buttons scrolls the page, but no pinch zoom: holding S with
+   one finger and tapping with another must not be taken for a pinch, which would cancel
+   the held key. The S key itself takes no gestures at all, and a two-finger touch that
+   starts on it gets none either (browsers combine the rules of all touching fingers). */
+.pad, .pad button, .modes, .act-edit, .color-tools { touch-action: pan-y; }
+/* Pad keys act on the first touch and a finger can sweep over them (wireSweep, wirePad). */
+#pad, #pad button { touch-action: none; }
+.pad.base-pencil { --accent: var(--m-pencil); }
+.pad.base-centre { --accent: var(--m-centre); }
+.pad.base-color { --accent: var(--m-color); }
+
+.hint-card { background: var(--surface); border: 1px solid var(--btn-border); border-left: 4px solid var(--hint); border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.hint-card.error { border-left-color: var(--elim); }
+.hint-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.hint-tech { font-family: var(--font-display); font-weight: 800; font-size: 1.05rem; }
+.hint-text { margin: 0; }
+.hint-actions { display: flex; gap: 8px; }
+.icon-btn { font: inherit; font-size: 1.3rem; line-height: 1; background: none; border: 0; color: var(--muted); cursor: pointer; padding: 2px 6px; border-radius: 6px; }
+.link-btn { font: inherit; background: none; border: 0; color: var(--pen); cursor: pointer; padding: 2px 0; text-decoration: underline; text-underline-offset: 3px; }
+
+details { border-top: 1px solid var(--btn-border); padding-top: 10px; }
+summary { cursor: pointer; font-weight: 700; }
+.samples { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.chip { font: inherit; font-size: 0.85rem; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--btn-border); background: var(--btn); color: var(--ink); cursor: pointer; }
+.chip.on { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.small-label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 4px; }
+textarea { width: 100%; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 0.8rem; padding: 8px; border-radius: 8px; border: 1px solid var(--btn-border); background: var(--surface); color: var(--ink); resize: vertical; word-break: break-all; }
+.row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.row .btn { font-size: 0.85rem; padding: 7px 10px; }
+.small { font-size: 0.88rem; color: var(--muted); margin: 8px 0 0; }
+.keys { padding-left: 18px; }
+.keys li { margin-bottom: 4px; }
+kbd { font-family: inherit; font-size: 0.8em; border: 1px solid var(--btn-border); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; background: var(--btn); color: var(--ink); }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* Chain lines drawn over the board */
+.overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; overflow: visible; }
+.overlay line { stroke: var(--chain); stroke-width: 3.2; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.overlay line.weak { stroke-dasharray: 5 5; stroke-width: 2.4; }
+/* Outline around the selected cells */
+.sel-overlay { z-index: 2; }
+.sel-overlay path { fill: none; stroke: var(--accent); stroke-width: 6; stroke-linecap: square; }
+

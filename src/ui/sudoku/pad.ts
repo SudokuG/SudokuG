@@ -1,4 +1,4 @@
-// The number pad: keys, sweeping over keys for candidates, the Erase / Clear colour button.
+// The number pad: keys, the S key and sweeping (shared with the light page: ../pad-common.ts), the Erase / Clear colour button.
 
 import { bit } from "../../engine";
 import { paletteBit } from "../board";
@@ -6,6 +6,7 @@ import { afterChange, clearAllColors, editable, enterNumber, erase } from "./act
 import { noPuzzle } from "./puzzles";
 import { $, render, renderModes, setStatus } from "./render";
 import { S, clone, effectiveMode, shownCands } from "./state";
+import { wireSKey, wireSweep } from "../pad-common";
 import type { Mode, Snapshot } from "./state";
 
 export const padButtons: HTMLButtonElement[] = [];
@@ -30,101 +31,67 @@ export function buildPad(): void {
   sticky.className = "pad-sticky";
   sticky.textContent = "S";
   sticky.title = "Like holding Shift: select several cells, enter candidates";
-  // Default: active only while held. With the toggle option: tap on, tap off.
-  sticky.addEventListener("pointerdown", (e) => {
-    if (S.settings.stickyToggle) return;
-    e.preventDefault();
-    sticky.setPointerCapture(e.pointerId);
-    S.sticky = true;
-    render();
-  });
-  const release = () => {
-    if (S.settings.stickyToggle || !S.sticky) return;
-    S.sticky = false;
-    render();
-  };
-  sticky.addEventListener("pointerup", release);
-  sticky.addEventListener("pointercancel", release);
-  sticky.addEventListener("lostpointercapture", release);
-  sticky.addEventListener("contextmenu", (e) => e.preventDefault());
-  sticky.addEventListener("click", () => {
-    if (!S.settings.stickyToggle) return;
-    S.sticky = !S.sticky;
-    render();
+  wireSKey(sticky, {
+    staysOn: () => S.settings.stickyToggle,
+    isOn: () => S.sticky,
+    set(on) {
+      S.sticky = on;
+      render();
+    },
   });
   pad.appendChild(sticky);
   // Holding a key never selects its text or opens a menu or search.
   for (const ev of ["contextmenu", "selectstart"]) pad.addEventListener(ev, (e) => e.preventDefault());
-  wireSweep(pad);
+  wirePadSweep(pad);
 }
 
 /**
- * Keys act on the first touch (a phone drops the click when the finger moves a little, or
- * for a second finger while S is held). With the Sweep option, sliding on over other keys
- * toggles those as candidates (pairs or colours in those modes; digit mode sweeps
- * candidates, unless the Sweep in digit mode option is off), all in one undo step; the first key decides whether the sweep adds or removes.
+ * Sweeping over the pad (pad-common.ts wireSweep): toggles those keys as candidates, or as
+ * pairs or colours in those modes. Digit mode sweeps candidates, unless the Sweep in digit
+ * mode option is off.
  */
-export function wireSweep(pad: HTMLElement): void {
-  let sw: { id: number; keys: number[]; before: Snapshot; undoLen: number; redo: Snapshot[]; mode: Mode; digit: boolean; add: boolean | null } | null = null;
-  const keyAt = (x: number, y: number): number | null => {
-    const k = (document.elementFromPoint(x, y) as HTMLElement | null)?.closest<HTMLElement>("[data-d]");
-    return k && pad.contains(k) ? Number(k.dataset.d) : null;
-  };
-  /** The cells a sweep changes, whether all have digit d, and adding or removing it. */
-  // (Judged on the state before the first key, which may have put a digit in.)
-  const targets = (mode: Mode) => (mode === "color" ? [...S.selection] : editable().filter((i) => !sw!.before.values[i]));
+function wirePadSweep(pad: HTMLElement): void {
+  type Start = { before: Snapshot; undoLen: number; redo: Snapshot[]; mode: Mode; digit: boolean };
+  /** The cells a sweep changes (judged on the state before the first key, which may have put a digit in). */
+  const targets = (t: Start) => (t.mode === "color" ? [...S.selection] : editable().filter((i) => !t.before.values[i]));
   const has = (mode: Mode, i: number, d: number) =>
     mode === "color" ? !!(S.cur.colors[i] & paletteBit(S.palette, d)) : mode === "centre" ? !!(S.cur.centre[i] & bit(d)) : !!(shownCands(i) & bit(d));
-  const put = (mode: Mode, d: number, add: boolean) => {
-    for (const i of targets(mode)) {
+  const put = (t: Start, d: number, add: boolean) => {
+    for (const i of targets(t)) {
       const s = S.cur;
-      if (mode === "color") s.colors[i] = add ? s.colors[i] | paletteBit(S.palette, d) : s.colors[i] & ~paletteBit(S.palette, d);
-      else if (mode === "centre") s.centre[i] = add ? s.centre[i] | bit(d) : s.centre[i] & ~bit(d);
+      if (t.mode === "color") s.colors[i] = add ? s.colors[i] | paletteBit(S.palette, d) : s.colors[i] & ~paletteBit(S.palette, d);
+      else if (t.mode === "centre") s.centre[i] = add ? s.centre[i] | bit(d) : s.centre[i] & ~bit(d);
       else if (S.settings.auto) s.removed[i] = add ? s.removed[i] & ~bit(d) : s.removed[i] | bit(d);
       else s.pencil[i] = add ? s.pencil[i] | bit(d) : s.pencil[i] & ~bit(d);
     }
   };
-  pad.addEventListener("pointerdown", (e) => {
-    const d = keyAt(e.clientX, e.clientY);
-    if (d === null || e.button > 0) return;
-    e.preventDefault();
-    try {
-      pad.setPointerCapture(e.pointerId);
-    } catch {
-      /* synthetic event */
-    }
-    const m = effectiveMode(e.shiftKey);
-    sw = S.cur ? { id: e.pointerId, keys: [d], before: clone(S.cur), undoLen: S.undo.length, redo: S.redo.slice(), mode: m === "digit" ? "pencil" : m, digit: m === "digit", add: null } : null;
-    enterNumber(d, m);
+  wireSweep<Start>(pad, "d", {
+    down(d, e) {
+      const m = effectiveMode(e.shiftKey);
+      const t = S.cur ? { before: clone(S.cur), undoLen: S.undo.length, redo: S.redo.slice(), mode: m === "digit" ? ("pencil" as Mode) : m, digit: m === "digit" } : null;
+      enterNumber(d, m);
+      return t;
+    },
+    allowed: (t) => S.settings.sweep && !(t.digit && !S.settings.sweepDigit) && !S.finishing && !noPuzzle() && targets(t).length > 0,
+    start(t, first) {
+      // Whatever the first key did becomes a candidate (pair, colour) instead.
+      S.cur = clone(t.before);
+      S.undo.length = t.undoLen;
+      S.redo = t.redo;
+      const add = !targets(t).every((i) => has(t.mode, i, first));
+      put(t, first, add);
+      return add;
+    },
+    toggle: put,
+    render,
+    end(t, started) {
+      if (!started || JSON.stringify(t.before) === JSON.stringify(S.cur)) return;
+      S.undo.push(t.before);
+      if (S.undo.length > 500) S.undo.shift();
+      S.redo = [];
+      afterChange();
+    },
   });
-  pad.addEventListener("pointermove", (e) => {
-    if (!sw || sw.id !== e.pointerId || !S.settings.sweep || (sw.digit && !S.settings.sweepDigit) || S.finishing || noPuzzle()) return;
-    const d = keyAt(e.clientX, e.clientY);
-    if (d === null || sw.keys.includes(d) || !targets(sw.mode).length) return;
-    if (sw.add === null) {
-      // The sweep starts: whatever the first key did becomes a candidate (pair, colour) instead.
-      S.cur = clone(sw.before);
-      S.undo.length = sw.undoLen;
-      S.redo = sw.redo;
-      sw.add = !targets(sw.mode).every((i) => has(sw!.mode, i, sw!.keys[0]));
-      put(sw.mode, sw.keys[0], sw.add);
-    }
-    sw.keys.push(d);
-    put(sw.mode, d, sw.add);
-    render();
-  });
-  const end = (e: PointerEvent) => {
-    if (!sw || sw.id !== e.pointerId) return;
-    const done = sw;
-    sw = null;
-    if (done.add === null || JSON.stringify(done.before) === JSON.stringify(S.cur)) return;
-    S.undo.push(done.before);
-    if (S.undo.length > 500) S.undo.shift();
-    S.redo = [];
-    afterChange();
-  };
-  pad.addEventListener("pointerup", end);
-  pad.addEventListener("pointercancel", end);
 }
 
 /**

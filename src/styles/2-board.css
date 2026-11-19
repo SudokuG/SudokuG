@@ -1,0 +1,72 @@
+/* ---- Board ---- */
+.board-wrap { min-width: 0; }
+.board {
+  container-type: inline-size;
+  width: 100%; max-width: 600px; aspect-ratio: 1; margin: 0 auto;
+  display: grid; grid-template-columns: repeat(9, 1fr); grid-template-rows: repeat(9, 1fr);
+  background: var(--grid); border: 2.5px solid var(--grid-border); border-radius: 4px;
+  user-select: none; -webkit-user-select: none; touch-action: none; position: relative;
+}
+/* Entry mode colours (selection, accent, row/column and same-digit shading), the same for
+   the sudoku board and the light page (.lite): blue digits, green candidates; sudoku also
+   pairs and colour. */
+.board, .lite { --sel: var(--sel-digit); --accent: var(--m-digit); --b-peer: var(--peer-digit); --b-same: var(--same-digit); }
+.board.mode-pencil, .lite.mode-pencil { --sel: var(--sel-pencil); --accent: var(--m-pencil); --b-peer: var(--peer-pencil); --b-same: var(--same-pencil); }
+.board.mode-centre { --sel: var(--sel-centre); --accent: var(--m-centre); --b-peer: var(--peer-centre); --b-same: var(--same-centre); }
+.board.mode-color { --sel: var(--sel-color); --accent: var(--m-color); --b-peer: var(--peer-color); --b-same: var(--same-color); }
+.board:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.board.static { touch-action: auto; }
+.cell {
+  position: relative; display: grid; place-items: center; cursor: pointer;
+  border-right: 1px solid var(--hair); border-bottom: 1px solid var(--hair);
+  background-color: var(--surface); background-clip: padding-box;
+}
+.board.static .cell { cursor: default; }
+.cell.bx { border-right: 2px solid var(--grid-border); }
+.cell.by { border-bottom: 2px solid var(--grid-border); }
+.cell.c8 { border-right: 0; }
+.cell.r8 { border-bottom: 0; }
+.cell.peer { background-color: var(--b-peer); }
+.cell.same { background-color: var(--b-same); }
+.cell.cand-same { background-color: color-mix(in srgb, var(--b-same) 45%, var(--surface)); }
+.cell.region { background-color: var(--hint-soft); }
+.cell.pattern { background-color: var(--hint); }
+.cell.target { background-color: var(--place-soft); }
+.cell.error { background-color: var(--error-soft); }
+.cell.sel { background-color: var(--sel); }
+.cell.mistake { background-color: var(--error-soft); }
+.cell.mistake .val { color: var(--elim); }
+
+/* Painted colours sit above the cell's own shading; a selected cell lets the selection show through. */
+.paint { position: absolute; inset: 0; opacity: var(--paint-op); pointer-events: none; }
+.cell.sel .paint { opacity: calc(var(--paint-op) * 0.55); }
+
+.val { position: relative; z-index: 1; font-size: 7.2cqi; line-height: 1; font-weight: 400; color: var(--entry); }
+.cell.given .val { color: var(--ink); font-weight: 700; }
+.cell.clash .val { color: var(--elim); }
+.cell.pop .val { animation: pop 0.4s ease-out; color: var(--place); }
+@keyframes pop { 0% { transform: scale(0.3); opacity: 0; } 70% { transform: scale(1.18); opacity: 1; } 100% { transform: scale(1); } }
+
+.cands { position: absolute; inset: 4%; z-index: 1; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); }
+.cands span {
+  display: grid; place-items: center; font-size: 2.45cqi; line-height: 1; color: var(--pencil);
+  border-radius: 50%; margin: 6%; font-variant-numeric: tabular-nums;
+}
+.cands span.hl { color: var(--ink); font-weight: 700; background: var(--b-same); }
+.cands span.pat { color: var(--surface); font-weight: 700; background: var(--pat); }
+.cands span.elim { color: var(--surface); font-weight: 700; background: var(--elim); text-decoration: line-through; }
+.cands span.ca { color: var(--surface); font-weight: 700; background: var(--col-a); }
+.cands span.cb { color: var(--surface); font-weight: 700; background: var(--col-b); }
+.cands span.put { color: var(--surface); font-weight: 700; background: var(--place); }
+
+/* Pairs: digits in the middle of the cell, inside a rounded outline */
+.cell .centre { position: absolute; inset: 0; display: grid; place-items: center; z-index: 1; font-size: 2.9cqi; line-height: 1; color: var(--ink); font-variant-numeric: tabular-nums; }
+.cell .centre .pill { display: inline-flex; align-items: center; gap: 0.08em; padding: 0.22em 0.3em; border: 1.5px solid var(--pencil); border-radius: 999px; background: var(--surface); }
+.cell .centre .pill span { display: grid; place-items: center; min-width: 1.15em; height: 1.15em; border-radius: 50%; }
+.cell .centre .pill span.hl { background: var(--b-same); font-weight: 700; }
+.cell .centre.many { font-size: 2.3cqi; }
+
+.status { min-height: 1.5em; margin: 10px auto 0; max-width: 600px; text-align: center; color: var(--muted); }
+.status.good { color: var(--place); font-weight: 700; }
+.status.bad { color: var(--elim); }
+

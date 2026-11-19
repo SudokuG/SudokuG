@@ -1,0 +1,47 @@
+/* ---- Printing: the dialog ------------------------------------------------------ */
+.print-row { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.print-row .small { margin: 0; }
+.dialog { border: 1px solid var(--btn-border); border-radius: 12px; padding: 0; background: var(--surface); color: var(--ink); width: min(420px, calc(100vw - 32px)); box-shadow: 0 12px 40px var(--shadow); }
+.dialog::backdrop { background: rgba(10, 15, 20, 0.45); }
+.dialog-body { display: flex; flex-direction: column; gap: 10px; padding: 18px 18px 16px; margin: 0; }
+.dialog-body .pane-title { font-size: 1.2rem; margin: 0; }
+.dialog-body .small { margin: 0; }
+.print-field { display: flex; flex-direction: column; gap: 6px; }
+.print-field input[type="number"] { font: inherit; width: 6em; padding: 7px 8px; border-radius: 8px; border: 1px solid var(--btn-border); background: var(--surface); color: var(--ink); }
+.print-checks { display: flex; flex-wrap: wrap; gap: 0 16px; }
+.print-checks .opt span { flex-direction: row; }
+.print-choice { display: flex; flex-direction: column; border: 1px solid var(--btn-border); border-radius: 8px; padding: 2px 10px; }
+.seg { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--btn-border); border-radius: 8px; overflow: hidden; background: var(--btn); max-width: 260px; }
+.seg button { font: inherit; font-weight: 700; padding: 7px 2px; border: 0; border-right: 1px solid var(--btn-border); background: transparent; color: var(--muted); cursor: pointer; }
+.seg button:last-child { border-right: 0; }
+.seg button.on { background: var(--ink); color: var(--surface); }
+.seg button:focus-visible { outline: 3px solid var(--pen); outline-offset: -3px; }
+.dialog-actions { margin-top: 2px; }
+.dialog-actions .btn { font-size: 0.95rem; padding: 9px 16px; }
+
+/* ---- Printing: the pages (always light, whatever the theme) --------------------- */
+#print-root { display: none; }
+@media print {
+  @page { margin: 12mm; }
+  html, body { background: #fff !important; color: #000 !important; }
+  .app { display: none !important; }
+  #print-root { display: block; color-scheme: light; color: #000; background: #fff; font-family: var(--font-ui); }
+  .pp { display: grid; justify-content: center; align-content: start; gap: 10mm 12mm; break-after: page; page-break-after: always; }
+  .pp:last-child { break-after: auto; page-break-after: auto; }
+  .pp-1 { --g: 160mm; padding-top: 10mm; }
+  .pp-2 { --g: 104mm; }
+  .pp-4 { --g: 84mm; gap: 14mm 12mm; padding-top: 4mm; }
+  .pp-6 { --g: 63mm; gap: 7mm 14mm; }
+  .pp-4, .pp-6 { grid-template-columns: repeat(2, auto); }
+  .pz { margin: 0; width: var(--g); display: flex; flex-direction: column; justify-content: flex-end; gap: 2mm; break-inside: avoid; page-break-inside: avoid; }
+  .pz figcaption { display: flex; flex-direction: column; gap: 0.6mm; min-width: 0; }
+  .pp-1 .pz figcaption { flex-direction: row; align-items: baseline; justify-content: space-between; gap: 4mm; }
+  .pz-name { font-family: var(--font-display); font-weight: 800; font-size: 11pt; line-height: 1.15; color: #000; }
+  .pz-meta { font-size: 8pt; color: #555; letter-spacing: 0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pp-1 .pz-name { font-size: 17pt; }
+  .pp-1 .pz-meta { font-size: 10pt; }
+  .pp-6 .pz-name { font-size: 10pt; }
+  .pp-6 .pz-meta { font-size: 7.5pt; }
+  .pz-grid { display: block; width: var(--g); height: var(--g); }
+  .pz-grid { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+}

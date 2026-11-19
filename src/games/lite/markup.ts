@@ -1,6 +1,7 @@
 // The HTML of the light puzzle page (built once per type), the grid lines, candidate pills,
 // and small text helpers.
 
+import { optionLabel } from "../../ui/option-label";
 import { RING } from "../logic";
 import { AUTO_FINISH_CHOICES, LITE_OPTION_TEXT } from "./options";
 import type { LiteGame, LitePuzzle, Tab } from "./types";
@@ -91,9 +92,9 @@ export function markup<P extends LitePuzzle>(g: LiteGame<P>, theme: boolean): st
   const word = g.regionWord ?? "region";
   const forType = (o: (typeof LITE_OPTION_TEXT)[number]) =>
     o.for === "candidates" ? g.candidates !== false : o.for === "autoDots" ? !!g.autoMarks : o.for === "smart" ? !!g.smartInput : o.for === "regions" ? !!g.regions : true;
-  const options = LITE_OPTION_TEXT.filter(forType).map(
-    (o) => `<label class="opt"><input data-opt="${o.key}" type="checkbox"> <span><b>${o.title.replace("region", word)}</b>${o.text ? `<small>${o.text.replace("region", word)}</small>` : ""}</span></label>`,
-  ).join("");
+  const options = LITE_OPTION_TEXT.filter(forType)
+    .map((o) => optionLabel(`data-opt="${o.key}"`, o.title.replace("region", word), o.text?.replace("region", word)))
+    .join("");
   return `
     <section class="lite-board-wrap">
       <div data-r="guide" class="lite-guide" hidden>

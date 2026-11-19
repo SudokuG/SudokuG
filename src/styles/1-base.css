@@ -1,0 +1,108 @@
+/* Layout: board as the hero on the left, a narrow tool panel on the right; stacks to one column on phones. */
+:root {
+  --paper: #eef2f6;      /* page ground: cool grid-paper blue-grey */
+  --surface: #ffffff;    /* board and cards */
+  --ink: #16212c;        /* givens, box lines, text */
+  --pen: #1f55b0;        /* digits the player writes */
+  --pencil: #5d6976;     /* candidates */
+  --hair: #c6cfd9;       /* thin cell lines */
+  --muted: #5d6976;
+  --peer: #e6edf6;
+  --same: #a9c6ef;
+  --hint: #f3c766;       /* pattern */
+  --hint-soft: #fbedc6;  /* hint region */
+  --pat: #2563c9;        /* pattern candidates */
+  --amber: #a8650f;      /* "hard" and "slightly grindy" badges */
+  --col-a: #2f6fd0;      /* coloring technique: blue */
+  --col-b: #c2468f;      /* coloring technique: pink */
+  --chain: #b0600d;      /* chain lines */
+  --elim: #c33a2c;
+  --place: #2b8a57;
+  --place-soft: #cde9d8;
+  --error-soft: #f7d3cf;
+  --btn: #ffffff;
+  --btn-border: #c6cfd9;
+  --shadow: rgba(22, 33, 44, 0.14);
+
+  /* Entry modes: accent, and the tints for selection, row/column/box and same digit */
+  --m-digit: #1f55b0;  --sel-digit: #c9dcf6;  --peer-digit: #e6edf6;  --same-digit: #a9c6ef;
+  --m-pencil: #23824e; --sel-pencil: #cdebd5; --peer-pencil: #e6f3ea; --same-pencil: #a8dbb7;
+  --m-centre: #6b47b8; --sel-centre: #e3d8f7; --peer-centre: #efe9fa; --same-centre: #cdbcf0;
+  --m-color: #a87600;  --sel-color: #f5e4b3;  --peer-color: #f8f1dc;  --same-color: #ebd283;
+  --entry: #a06e00;      /* digits the player enters: gold */
+  --grid: var(--ink);    /* 3×3 box lines and the board edge */
+  --grid-border: var(--grid);
+
+  /* Cell colours 1-9 */
+  --c1: #b7bcc2; --c2: #f4978e; --c3: #f8b878; --c4: #f6dc6e; --c5: #9bd8a5;
+  --c6: #84d4cf; --c7: #93b8f5; --c8: #c4a7f0; --c9: #f3a6c8;
+  --paint-op: 0.75;
+
+  --font-ui: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Bricolage Grotesque", "Atkinson Hyperlegible", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #10151b; --surface: #182029; --ink: #e3e9ef; --pen: #8db4ff; --pencil: #93a0ad;
+    --hair: #2c3743; --muted: #93a0ad; --peer: #1d2732; --same: #355684;
+    --hint: #6e5419; --hint-soft: #2e2819; --pat: #7fb0ff; --amber: #f0b54a; --col-a: #6aa5ff; --col-b: #f07cc0; --chain: #f0b54a;
+    --elim: #ff7a6b; --place: #5fd394; --place-soft: #1f4231; --error-soft: #4a2420;
+    --btn: #1d2631; --btn-border: #34414f; --shadow: rgba(0, 0, 0, 0.5);
+    --m-digit: #8db4ff;  --sel-digit: #2e4d75;  --peer-digit: #223142;  --same-digit: #3d659e;
+    --m-pencil: #5fd394; --sel-pencil: #255a3e; --peer-pencil: #1f3529; --same-pencil: #317150;
+    --m-centre: #b69cff; --sel-centre: #46386e; --peer-centre: #2b2643; --same-centre: #5a478c;
+    --m-color: #f2c14e;  --sel-color: #5c4818;  --peer-color: #302a1a;  --same-color: #7d6322;
+    --entry: #f2c14e;
+    /* Box lines are the board's background showing through transparent borders: phone
+       browsers that darken pages on their own (Samsung Internet) dim border colours but
+       leave background colours of this brightness alone. */
+    --grid: #b1bcc8; --grid-border: transparent;
+    --c1: #5b636c; --c2: #a3443c; --c3: #a8652a; --c4: #9a8628; --c5: #3f7f4d;
+    --c6: #2f7c78; --c7: #3b5f9e; --c8: #6a4ea1; --c9: #9c4a72;
+    --paint-op: 0.85;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #10151b; --surface: #182029; --ink: #e3e9ef; --pen: #8db4ff; --pencil: #93a0ad;
+  --hair: #2c3743; --muted: #93a0ad; --peer: #1d2732; --same: #355684;
+  --hint: #6e5419; --hint-soft: #2e2819; --pat: #7fb0ff; --amber: #f0b54a; --col-a: #6aa5ff; --col-b: #f07cc0; --chain: #f0b54a;
+  --elim: #ff7a6b; --place: #5fd394; --place-soft: #1f4231; --error-soft: #4a2420;
+  --btn: #1d2631; --btn-border: #34414f; --shadow: rgba(0, 0, 0, 0.5);
+  --m-digit: #8db4ff;  --sel-digit: #2e4d75;  --peer-digit: #223142;  --same-digit: #3d659e;
+  --m-pencil: #5fd394; --sel-pencil: #255a3e; --peer-pencil: #1f3529; --same-pencil: #317150;
+  --m-centre: #b69cff; --sel-centre: #46386e; --peer-centre: #2b2643; --same-centre: #5a478c;
+  --m-color: #f2c14e;  --sel-color: #5c4818;  --peer-color: #302a1a;  --same-color: #7d6322;
+  --entry: #f2c14e;
+    /* Box lines are the board's background showing through transparent borders: phone
+       browsers that darken pages on their own (Samsung Internet) dim border colours but
+       leave background colours of this brightness alone. */
+    --grid: #b1bcc8; --grid-border: transparent;
+  --c1: #5b636c; --c2: #a3443c; --c3: #a8652a; --c4: #9a8628; --c5: #3f7f4d;
+  --c6: #2f7c78; --c7: #3b5f9e; --c8: #6a4ea1; --c9: #9c4a72;
+  --paint-op: 0.85;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+/* Holding a button must not select its text or open the phone's search/translate popup. */
+button { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+[hidden] { display: none !important; }
+html, body { background: var(--paper); color: var(--ink); }
+body { font-family: var(--font-ui); font-size: 15px; line-height: 1.45; }
+
+.app { max-width: 960px; margin: 0 auto; padding-inline: 16px; padding-block: 16px 40px; }
+
+.top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+h1 { font-family: var(--font-display); font-weight: 800; font-size: 1.6rem; letter-spacing: -0.02em; margin: 0; }
+.meta { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; color: var(--muted); }
+.puzzle-label { text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.78rem; font-weight: 700; }
+.timer { font-variant-numeric: tabular-nums; font-size: 1rem; }
+.timer.paused { opacity: 0.55; }
+.timer.paused::after { content: " paused"; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; }
+.puzzle-author { font-size: 0.85rem; font-style: italic; }
+.puzzle-name { color: var(--ink); font-weight: 700; font-size: 1rem; }
+
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) 316px; gap: 24px; align-items: start; }
+.code-row.code-row-mobile { display: none; }
+

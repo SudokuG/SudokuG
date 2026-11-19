@@ -5,7 +5,7 @@
 //                         service worker for offline use, icons)
 import { build } from "esbuild";
 import { createHash } from "node:crypto";
-import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 
 const APP_NAME = "SudokuG";
 
@@ -18,7 +18,12 @@ const js = await build({
   write: false,
 });
 const script = js.outputFiles[0].text.replace(/<\/script/gi, "<\\/script");
-const css = readFileSync("src/ui/style.css", "utf8");
+// Styles: src/styles/*.css, joined in the order of their number (the cascade depends on it).
+const css = readdirSync("src/styles")
+  .filter((f) => f.endsWith(".css"))
+  .sort((a, b) => parseInt(a) - parseInt(b))
+  .map((f) => readFileSync(`src/styles/${f}`, "utf8"))
+  .join("");
 
 // Fonts are embedded as data URIs, so the page needs no internet connection.
 const font = (family, weight, file) => {

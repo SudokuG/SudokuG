@@ -15,7 +15,7 @@
 ## Resolved
 <!-- Moved here by Claude, each line starting with ✓ and the version that handled it.
      The last three versions stay here; older ones move to ARCHIVE.md. -->
+- ✓ v1.5 – I want to do a general refactoring round.
 - ✓ v1.4 – Candidate mode should turn the UI elements green like in sudoku (light types).
 - ✓ v1.4 – The sweeping candidate fill in should be toggleable for in digit mode.
 - ✓ v1.4 – Highlight rows and columns and highlight region separate in all puzzles: already so since v1.1 (sudoku: Highlight box; Calcudoku: Highlight cage; Star Battle: Highlight region; Treasure Map and Futoshiki have no regions).
-- ✓ v1.2 – it should be a rule that the puzzles design elements or aspects are the same where they can and where that makes sense. Let me know what you would change based on this before you do.

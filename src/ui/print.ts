@@ -1,6 +1,6 @@
 // Printing: puzzles laid out on paper pages, printed (or saved as PDF) with the browser's
 // own print dialog. The pages are built in #print-root, which only shows when printing
-// (see the @media print rules in style.css); everything else on the page is hidden then.
+// (see the @media print rules in src/styles/9-print.css); everything else on the page is hidden then.
 //
 // Printouts always use light colours, whatever the theme: black lines and digits on white,
 // so dark mode never empties an ink cartridge. Each puzzle is an SVG, which prints crisply

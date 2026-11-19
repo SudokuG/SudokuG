@@ -1,0 +1,82 @@
+/* ---- Lighter puzzle types (Treasure Map, Futoshiki, …): laid out like the sudoku page -- */
+.lite { grid-template-columns: minmax(0, 1fr) 316px; gap: 24px; align-items: start; }
+.lite-board-wrap { min-width: 0; display: flex; flex-direction: column; align-items: center; grid-row: 1 / span 2; }
+.lite-head { display: flex; align-items: baseline; gap: 4px 14px; flex-wrap: wrap; justify-content: center; margin-bottom: 10px; color: var(--muted); }
+.lite .code-row-desktop { margin-top: 12px; }
+.lite-pad { grid-template-columns: repeat(var(--keys, 6), minmax(0, 1fr)); }
+/* Keys act on the first touch and a finger can sweep over them (lite.ts wirePad). */
+.lite-pad, .lite-pad button { touch-action: none; }
+.lite-pad button.x-key, .lite-pad button.dot-key { color: var(--ink); }
+.lite-sizes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.lite-levels { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.lite-panel .small-label { margin: 8px 0 4px; }
+.lite-mode.on { background: var(--m-pencil); border-color: var(--m-pencil); color: var(--surface); }
+.rules p { margin: 6px 0 0; }
+.rules .aside { font-style: italic; }
+.code-input { font: 0.85rem ui-monospace, "SF Mono", Menlo, Consolas, monospace; flex: 1; min-width: 0; padding: 7px 8px; border-radius: 8px; border: 1px solid var(--btn-border); background: var(--surface); color: var(--ink); }
+
+.lite-board { display: grid; width: min(100%, 600px); container-type: inline-size; outline: none; user-select: none; -webkit-user-select: none; touch-action: none; --n: 7; }
+.lite-cell {
+  aspect-ratio: 1; display: grid; place-items: center; background: var(--surface); color: var(--entry);
+  cursor: pointer; position: relative; font-size: var(--cell-fs); line-height: 1; min-width: 0;
+}
+.lite-cell.given { color: var(--ink); font-weight: 700; }
+.lite-cell.x { color: var(--ink); font-size: calc(var(--cell-fs) * 0.86); }
+.lite-cell.x:not(.given) { color: var(--muted); }
+.lite-cell.peer { background: var(--b-peer); }
+.lite-cell.same { background: var(--b-same); }
+.lite-cell.region { background: var(--hint-soft); }
+.lite-cell.target { background: var(--place-soft); }
+.lite-cell.elim { background: var(--error-soft); }
+.lite-cell.sel { background: var(--sel); }
+.lite-cell.clash, .lite-cell.mistake { color: var(--elim); }
+.lite-cell.wrong, .lite-cell.mistake { background: var(--error-soft); }
+/* Candidates in the middle of the cell, small and framed, in the colour of entered digits. */
+.lite-pill {
+  display: inline-flex; align-items: center; padding: 0.22em 0.34em; border: 1.5px solid var(--entry); border-radius: 999px;
+  background: var(--surface); color: var(--entry); font-weight: 700; font-size: calc(var(--cell-fs) * 0.42); letter-spacing: 0.04em; font-variant-numeric: tabular-nums;
+}
+.lite-pill.many { font-size: calc(var(--cell-fs) * 0.32); padding: 0.2em 0.28em; }
+/* A dot: "a digit goes here" (not an X). */
+.lite-dot { width: calc(var(--cell-fs) * 0.24); height: calc(var(--cell-fs) * 0.24); border-radius: 50%; background: var(--entry); }
+.lite-dot.small { position: absolute; bottom: 9%; left: 50%; width: calc(var(--cell-fs) * 0.13); height: calc(var(--cell-fs) * 0.13); transform: translateX(-50%); }
+
+@media (max-width: 760px) {
+  .lite { grid-template-columns: minmax(0, 1fr); grid-template-areas: "tabs" "board" "pane" "code"; gap: 12px; }
+  .lite-board-wrap { grid-area: board; grid-row: auto; }
+  .lite .pane [data-r="hint-card"] { order: 1; }
+  .lite .pane [data-r="pad"] { order: 2; }
+  .lite .pane .act-edit { order: 3; }
+  .lite .pane .act-hint { order: 4; }
+  .lite .pane [data-r="solved"] { order: 0; }
+  .lite-pad { grid-template-columns: repeat(var(--keys-phone, 5), minmax(0, 1fr)); gap: 7px; }
+  .lite-pad button { font-size: 1.7rem; min-height: 58px; padding: 0; }
+  .lite-pad .pad-sticky { font-size: 1.5rem; grid-column: span var(--s-span, 1); }
+}
+
+/* Rings, struck candidates, the ring key, auto-finish */
+.lite-pill .ghost { visibility: hidden; }
+.lite-pad button.dot-key.arming { background: linear-gradient(var(--hint-soft), var(--hint-soft)) no-repeat left / 0% 100%, var(--btn); animation: ring-arm 2s linear forwards; }
+@keyframes ring-arm { to { background-size: 100% 100%, auto; } }
+/* Candidates equal to the highlighted digit: a light shade on the cell, the candidate picked out. */
+.lite-cell.cand-same { background: color-mix(in srgb, var(--b-same) 45%, var(--surface)); }
+.lite-cell.cand-same.sel { background: var(--sel); }
+.lite-pill .hl { color: var(--surface); background: var(--entry); border-radius: 999px; padding: 0 0.2em; margin: 0 0.06em; }
+.lite-pill .gone { color: var(--elim); text-decoration: line-through; text-decoration-thickness: 2px; }
+.lite-cell.target .lite-pill.ring { border-color: var(--place); }
+.lite-cell.target { color: var(--place); }
+.ring-key { display: inline-block; width: 0.7em; height: 0.7em; border: 2.5px solid currentColor; border-radius: 50%; vertical-align: -0.05em; }
+.lite-cell.pop { animation: pop 0.4s ease-out; color: var(--place); }
+
+/* Techniques tab: the worked example takes the board's place. */
+.lite-guide { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.lite-guide .guide-title { align-self: stretch; text-align: center; }
+.lite-guide [data-r="guide-example"] { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.lite-guide .rules h3 { font-size: 0.74rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 16px 0 4px; }
+.lite-guide .rules { font-size: 0.95rem; color: var(--ink); }
+.lite-board.static { pointer-events: none; width: min(100%, 460px); }
+.lite.guiding .lite-board-wrap > :not(.lite-guide), .lite.guiding .code-row-mobile { display: none !important; }
+.key.k-region { background: var(--hint-soft); border: 1px solid var(--hint); }
+.key.k-put { background: var(--place-soft); border: 1px solid var(--place); }
+.key.k-gone { background: var(--error-soft); border: 1px solid var(--elim); }
+

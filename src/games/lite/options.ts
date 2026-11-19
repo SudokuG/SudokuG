@@ -1,5 +1,7 @@
 // Options for the lighter puzzle types: each type keeps its own (sudoku has its own too).
 
+import type { OptionText } from "../../ui/option-label";
+
 export interface LiteOptions {
   /** Shade the row and column of the selected cell. */
   peers: boolean;
@@ -100,7 +102,7 @@ export const AUTO_FINISH_CHOICES = [0, 5, 8, 12];
 /** Which puzzle types an option is for: with candidates, with automatic dots, with smart input (Star Battle), with regions. Unset: all. */
 export type OptionFor = "candidates" | "autoDots" | "smart" | "regions";
 
-export const LITE_OPTION_TEXT: { key: Exclude<keyof LiteOptions, "autoFinish">; title: string; text?: string; for?: OptionFor }[] = [
+export const LITE_OPTION_TEXT: (OptionText<Exclude<keyof LiteOptions, "autoFinish">> & { for?: OptionFor })[] = [
   { key: "peers", title: "Highlight row and column", text: "Shade the cells in the row and column of the selected cell." },
   { key: "region", title: "Highlight region", text: "Shade the cells in the region of the selected cell.", for: "regions" },
   { key: "same", title: "Highlight the same digit", text: "Mark digits equal to the one in the selected cell, and lightly mark the cells that have it as a candidate (with that candidate picked out).", for: "candidates" },

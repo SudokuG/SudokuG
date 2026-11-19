@@ -103,7 +103,7 @@ function stateFrom<S extends { dom: number[]; placed: boolean[] }>(o: LiteSolver
   const s = o.start();
   e.cells.forEach((v, i) => !e.givens[i] && v >= 0 && o.place(s, i, v));
   if (useCands)
-    e.cells.forEach((v, i) => {
+    e.cells.forEach((_, i) => {
       if (s.placed[i]) return;
       const allowed = allowedBy(e.cands[i], e.digits);
       if (allowed !== null) s.dom[i] &= allowed;

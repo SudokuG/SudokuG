@@ -4,6 +4,11 @@ Everything resolved, newest first, under the version that resolved it: resolved 
 answered questions, dropped plans, and files that were replaced (kept whole).
 Maintained by Claude. Not read at session start.
 
+## v1.2
+
+### Resolved notes
+- ✓ v1.2 – it should be a rule that the puzzles design elements or aspects are the same where they can and where that makes sense. Let me know what you would change based on this before you do.
+
 ## v1.1
 
 ### Resolved notes and answered questions

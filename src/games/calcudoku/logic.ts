@@ -13,7 +13,7 @@
 import { randomLatin } from "../latin";
 import { cloneLatin, hiddenSingle, latinTrial, latinWhy, linesOf, placeLatin, single, subsets, xWing } from "../latin-steps";
 import type { LatinState } from "../latin-steps";
-import { bitsOf, cellName, describeEliminations, listJoin, popcount } from "../logic";
+import { bitsOf, cellName, describeEliminations, listJoin } from "../logic";
 import type { CellValue, LiteStep } from "../logic";
 import { meets, randomCages } from "./engine";
 import type { CalcPuzzle, Cage } from "./engine";

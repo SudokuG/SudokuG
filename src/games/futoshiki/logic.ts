@@ -11,7 +11,7 @@
 //      cells). 3.5 Triple: the same with three.
 //   5. Trial: assume a digit; if the steps above then run into a contradiction, it can go.
 
-import { bitsOf, cellName, describeEliminations, listJoin, onlyBit, popcount } from "../logic";
+import { bitsOf, cellName, describeEliminations, listJoin } from "../logic";
 import type { CellValue, LiteStep } from "../logic";
 import { shuffle } from "../latin";
 import { cloneLatin, hiddenSingle, latinTrial, latinWhy, placeLatin, single, subsets, xWing } from "../latin-steps";

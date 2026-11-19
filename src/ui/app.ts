@@ -15,9 +15,10 @@ import { currentGame, initGamePicker } from "./games";
 import { initGuide, moveGuide } from "./guide-view";
 import { toggleLike } from "./likes";
 import { resetStats } from "./stats";
-import { applyHint, check, clearCandidates, clearColorsOfSelection, doRedo, doUndo, enterNumber, erase, fillCandidates, select, setAuto, showHint } from "./sudoku/actions";
+import { applyHint, check, clearCandidates, clearColorsOfSelection, doRedo, doUndo, enterNumber, erase, fillCandidates, select, showHint } from "./sudoku/actions";
 import { nextProfile, openDaily, renderDaily, renderLikeButton, renderLikes, renderStats } from "./sudoku/finish";
 import { buildTechniqueToggles, cancelGenerate, renderGen, setProfile, startGenerate } from "./sudoku/generate";
+import { buildOptions } from "./sudoku/options";
 import { buildPad, wireEraseButton } from "./sudoku/pad";
 import { wirePrinting } from "./sudoku/printing";
 import { clearPuzzle, loadPuzzle, noPuzzle, openPuzzle, parsePuzzle, restoreGame, saveGame, startTimer } from "./sudoku/puzzles";
@@ -195,15 +196,7 @@ function init(): void {
     S.settings.autoFinish = Number((e.target as HTMLSelectElement).value);
     saveSettings();
   });
-  $("opt-auto").addEventListener("change", (e) => setAuto((e.target as HTMLInputElement).checked));
-  (["mistakes", "tidy", "peers", "box", "same", "timer", "patterns", "stickyToggle", "padCounts", "numpadCands", "toPlay", "outline", "candShade", "sweep", "sweepDigit"] as const).forEach((k) =>
-    $(`opt-${k}`).addEventListener("change", (e) => {
-      S.settings[k] = (e.target as HTMLInputElement).checked;
-      if (k === "stickyToggle") S.sticky = false;
-      saveSettings();
-      render();
-    }),
-  );
+  buildOptions();
 
   $("load").addEventListener("click", () => {
     const text = ($("import") as HTMLTextAreaElement).value;

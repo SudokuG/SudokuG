@@ -1,0 +1,115 @@
+/* Star Battle: thick region borders, stars and dots. */
+.starbattle-board { --cell-fs: calc(100cqi / var(--n) * 0.62); width: min(100%, 560px); }
+.sb-wrap { position: relative; display: grid; aspect-ratio: 1; min-width: 0; }
+.sb-wrap > .lite-cell { aspect-ratio: auto; width: 100%; height: 100%; }
+.starbattle-board .lite-cell.x { color: var(--muted); }
+.starbattle-board .lite-cell.target, .starbattle-board .lite-cell.pop { color: var(--place); }
+.starbattle-board .lite-cell.clash, .starbattle-board .lite-cell.mistake { color: var(--elim); }
+
+/* Star Battle colours: a soft colour per region (hue set per cell as --rh), crossed cells a
+   little darker, starred cells lit up a little. */
+:root { --sb-sat: 58%; --sb-light: 90%; --sb-x: rgb(25 35 55 / 0.075); --sb-glow: rgb(255 243 190 / 0.85); --sb-glow-edge: rgb(255 236 160 / 0); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --sb-sat: 30%; --sb-light: 25%; --sb-x: rgb(0 0 0 / 0.24); --sb-glow: rgb(255 214 120 / 0.2); --sb-glow-edge: rgb(255 214 120 / 0); }
+}
+:root[data-theme="dark"] { --sb-sat: 30%; --sb-light: 25%; --sb-x: rgb(0 0 0 / 0.24); --sb-glow: rgb(255 214 120 / 0.2); --sb-glow-edge: rgb(255 214 120 / 0); }
+.sb-wrap { background: hsl(var(--rh, 210) var(--sb-sat) var(--sb-light)); }
+.starbattle-board .lite-cell { background: transparent; }
+.starbattle-board .lite-cell.x { background: var(--sb-x); transition: background-color 0.15s ease-out var(--d, 0ms), transform 0.12s ease-out; }
+.starbattle-board .lite-cell.has-value { background: radial-gradient(circle at 50% 45%, var(--sb-glow), var(--sb-glow-edge) 72%); }
+.starbattle-board .lite-cell.peer { background: color-mix(in srgb, var(--peer-digit) 55%, transparent); }
+.starbattle-board .lite-cell.x.peer { background: color-mix(in srgb, var(--peer-digit) 55%, var(--sb-x)); }
+.starbattle-board .lite-cell.sel { background: color-mix(in srgb, var(--sel-digit) 75%, transparent); }
+.starbattle-board .lite-cell.region { background: color-mix(in srgb, var(--hint-soft) 80%, transparent); }
+.starbattle-board .lite-cell.target { background: color-mix(in srgb, var(--place-soft) 85%, transparent); }
+.starbattle-board .lite-cell.wrong, .starbattle-board .lite-cell.mistake { background: color-mix(in srgb, var(--error-soft) 85%, transparent); }
+/* Stars: rounded tips (a round-joined stroke) and a soft shine; crosses with round ends. */
+.sb-star { width: 74%; height: 74%; display: block; overflow: visible; }
+.sb-star .body { fill: currentColor; stroke: currentColor; stroke-width: 2.6; stroke-linejoin: round; }
+.sb-star .shine { fill: #fff; opacity: 0.22; }
+.sb-cross { width: 46%; height: 46%; display: block; }
+.sb-cross path { fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; }
+.lite-pad .sb-star { width: 1.15em; height: 1.15em; margin: auto; }
+.lite-pad .sb-cross { width: 0.8em; height: 0.8em; margin: auto; }
+/* Marks appear with a little pop; crosses placed by a star come in a quick wave (--d). */
+.lite-board:not(.static) .sb-cross { animation: sb-pop 0.17s ease-out both; animation-delay: var(--d, 0ms); }
+.lite-board:not(.static) .sb-star { animation: sb-star-pop 0.26s cubic-bezier(0.3, 1.5, 0.55, 1) both; }
+@keyframes sb-pop { from { transform: scale(0.3); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes sb-star-pop { from { transform: scale(0.4) rotate(-25deg); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .lite-board .sb-cross, .lite-board .sb-star { animation: none; } }
+
+/* Smart input: a cell being held sinks a little until it clears. */
+.starbattle-board .lite-cell { transition: transform 0.12s ease-out; }
+.starbattle-board .lite-cell.holding { transform: scale(0.9); transition: transform 0.45s linear; }
+
+/* Lines and the selection outline are SVG overlays over the cells (lite.ts placeOverlays):
+   thin grid and thick region lines with square caps, so corners close cleanly; one outline
+   around each group of selected cells, as in sudoku. Futoshiki's cells don't touch: a frame
+   per selected cell. None with the option off. */
+.lite-board { position: relative; }
+.lite-overlay { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; z-index: 3; }
+.lite-overlay path { fill: none; vector-effect: non-scaling-stroke; stroke-linecap: square; }
+.lite-lines .thin { stroke: var(--hair); stroke-width: 1px; }
+.lite-lines .thick { stroke: var(--grid); stroke-width: 2.5px; }
+.lite-sel { z-index: 4; }
+.lite-sel path { stroke: var(--accent); stroke-width: 3px; }
+.futoshiki-board .lite-cell.sel { box-shadow: inset 0 0 0 3px var(--accent); }
+.futoshiki-board .lite-cell.cand-same { background: var(--sel); }
+.lite.no-outline .futoshiki-board .lite-cell.sel { box-shadow: none; }
+
+/* Calcudoku: cells with thick cage borders and a label in each cage's first cell. */
+.calcudoku-board { --cell-fs: calc(100cqi / var(--n) * 0.56); width: min(100%, 560px); }
+.calc-wrap { position: relative; display: grid; aspect-ratio: 1; min-width: 0; }
+.calc-wrap > .lite-cell { aspect-ratio: auto; width: 100%; height: 100%; padding-top: 8%; box-sizing: border-box; }
+.calc-label { position: absolute; top: 6%; left: 8%; z-index: 2; pointer-events: none; line-height: 1; font-size: calc(var(--cell-fs) * 0.34); font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+.calc-label.done { color: var(--muted); opacity: 0.55; }
+.calc-label.bad { color: var(--elim); }
+
+/* Notes per cage (Calcudoku): a list beside the grid; on a phone, a bar under the grid. */
+.lite-notes { display: flex; flex-direction: column; gap: 8px; }
+.note-list { display: flex; flex-direction: column; gap: 6px; }
+.note { display: flex; flex-direction: column; gap: 3px; }
+.note-name { font-size: 0.78rem; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+.note.active .note-name { color: var(--pen); }
+.note textarea { font: inherit; font-size: 0.92rem; resize: none; overflow: hidden; min-height: 2.2em; padding: 6px 9px; border-radius: 8px; border: 1px solid var(--btn-border); background: var(--surface); color: var(--ink); word-break: normal; }
+.note.active textarea { border-color: var(--pen); }
+.lite-cell.note-region { background: var(--hint-soft); }
+@media (max-width: 760px) {
+  .lite .pane [data-r="notes"] { order: -1; }
+  .lite-notes .notes-title { display: none; }
+  .lite-notes .note:not(.active):not(:focus-within) { display: none; }
+  .note { flex-direction: row; align-items: center; gap: 8px; }
+  .note-name { flex: none; min-width: 4.5em; }
+  .note textarea { flex: 1; min-width: 0; }
+}
+
+/* The puzzle-type dropdown at the top of each Puzzles tab */
+.type-pick { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.type-pick label { font-weight: 700; }
+.type-pick select { font: inherit; font-weight: 700; flex: 1; min-width: 0; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--btn-border); background: var(--surface); color: var(--ink); }
+
+/* Treasure Map: clues on the left and on top, then n×n cells. */
+.sums-board { --lw: 1.5; grid-template-columns: 1.5fr repeat(var(--n), 1fr); --cell-fs: calc(100cqi / (var(--n) + var(--lw)) * 0.56); }
+.sums-board .lite-cell { border-left: 1px solid var(--hair); border-top: 1px solid var(--hair); }
+.sums-board .lite-cell.last-col { border-right: 2.5px solid var(--grid); }
+.sums-board .lite-cell.last-row { border-bottom: 2.5px solid var(--grid); }
+.sums-clue.row + .lite-cell { border-left: 2.5px solid var(--grid); }
+.sums-corner { min-height: 0; }
+.sums-clue { display: flex; color: var(--ink); font-weight: 700; font-variant-numeric: tabular-nums; font-size: calc(100cqi / (var(--n) + var(--lw)) * 0.3); }
+.sums-clue.row { align-items: center; justify-content: flex-end; gap: 0.55em; padding-right: 0.55em; }
+.sums-clue.col { flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 0.25em; line-height: 1.15; border-bottom: 2.5px solid var(--grid); }
+.sums-clue.on { color: var(--pen); }
+.sums-clue.done { color: var(--muted); opacity: 0.5; }
+.sums-clue.bad { color: var(--elim); }
+
+/* Futoshiki: cells with gaps for the signs. */
+.futoshiki-board { --gap: 0.42; --cw: calc(100cqi / (var(--n) + (var(--n) - 1) * var(--gap))); --cell-fs: calc(var(--cw) * 0.56); width: min(100%, 560px); }
+.futoshiki-board .lite-cell { border: 2px solid var(--grid); border-radius: 8px; }
+.futoshiki-board .lite-cell.given { border-width: 3px; }
+.futo-sign { display: grid; place-items: center; min-width: 0; }
+.futo-sign.v { aspect-ratio: 1 / 0.42; }
+.futo-sign svg { width: calc(var(--cw) * 0.42); height: calc(var(--cw) * 0.42); overflow: visible; }
+.futo-sign path { fill: none; stroke: var(--ink); stroke-width: 1.05; stroke-linecap: round; stroke-linejoin: round; }
+.futo-sign.bad path { stroke: var(--elim); stroke-width: 1.4; }
+
+

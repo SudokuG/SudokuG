@@ -1,0 +1,29 @@
+/* ---- Phone layout ----
+   Order: title, tabs, grid, (hint), number pad (2 rows of 5), entry modes, buttons, puzzle code. */
+@media (max-width: 760px) {
+  .layout { grid-template-columns: minmax(0, 1fr); grid-template-areas: "tabs" "board" "pane" "code"; gap: 12px; }
+  .panel { display: contents; }
+  .tabs { grid-area: tabs; }
+  .pane { grid-area: pane; }
+  #play-view, #guide-view { grid-area: board; }
+  .code-row-desktop { display: none; }
+  .code-row.code-row-mobile { display: flex; grid-area: code; margin-top: 4px; }
+  .status { margin-top: 8px; min-height: 0; }
+
+  #pane-play .hint-card { order: 1; }
+  #pane-play .pad { order: 2; }
+  #pane-play .modes { order: 3; }
+  #pane-play .color-tools { order: 3; }
+  #pane-play .act-edit { order: 4; }
+  #pane-play .act-hint { order: 5; }
+  #pane-play .act-cands { order: 6; }
+  #pane-play .solved-card { order: 0; }
+
+  .pad { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 7px; }
+  .pad button { font-size: 1.7rem; padding: 0; min-height: 58px; }
+  .pad.pad-pencil button, .pad.pad-centre button { font-size: 1.3rem; }
+  .pad .pad-sticky { display: block; font-size: 1.5rem; }
+  .pad button .left { right: 6px; bottom: 3px; }
+  .pad.pad-color button { min-height: 58px; }
+}
+

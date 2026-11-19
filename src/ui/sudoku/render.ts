@@ -7,6 +7,7 @@ import { currentGame } from "../games";
 import { showGuide } from "../guide-view";
 import { select } from "./actions";
 import { renderLikes, renderSolved } from "./finish";
+import { renderOptions } from "./options";
 import { padButtons } from "./pad";
 import { currentName } from "./puzzles";
 import { S, TABS, effectiveMode, empty81, engineCands, shownCands } from "./state";
@@ -204,7 +205,7 @@ export function render(): void {
   $("timer").hidden = !set.timer || !S.puzzle;
 
   // Options
-  (["auto", "mistakes", "tidy", "peers", "box", "same", "timer", "patterns", "stickyToggle", "padCounts", "numpadCands", "toPlay", "outline", "candShade", "sweep", "sweepDigit"] as const).forEach((k) => (($(`opt-${k}`) as HTMLInputElement).checked = set[k]));
+  renderOptions();
   ($("opt-finish") as HTMLSelectElement).value = String(set.autoFinish);
   ($("opt-theme") as HTMLSelectElement).value = set.theme;
 

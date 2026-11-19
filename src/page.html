@@ -194,23 +194,7 @@
             <option value="dark">Dark</option>
           </select>
         </div>
-        <div class="options">
-          <label class="opt"><input id="opt-auto" type="checkbox"> <span><b>Auto-candidates</b><small>Show all candidates and keep them up to date as you place digits. Turning this off clears them.</small></span></label>
-          <label class="opt"><input id="opt-mistakes" type="checkbox"> <span><b>Highlight mistakes</b><small>Mark a digit red as soon as it does not match the solution.</small></span></label>
-          <label class="opt"><input id="opt-tidy" type="checkbox"> <span><b>Remove candidates automatically</b><small>Placing a digit removes it from the candidates and pairs in its row, column and box.</small></span></label>
-          <label class="opt"><input id="opt-peers" type="checkbox"> <span><b>Highlight row and column</b><small>Shade the row and column of the selected cell.</small></span></label>
-          <label class="opt"><input id="opt-box" type="checkbox"> <span><b>Highlight box</b><small>Shade the box of the selected cell.</small></span></label>
-          <label class="opt"><input id="opt-same" type="checkbox"> <span><b>Highlight the same digit</b><small>Mark digits and candidates equal to the selected cell's digit.</small></span></label>
-          <label class="opt"><input id="opt-candShade" type="checkbox"> <span><b>Shade cells with the candidate</b><small>With "Highlight the same digit": also lightly shade the cells that have that digit as a candidate or pair. Off: only the candidate itself is marked.</small></span></label>
-          <label class="opt"><input id="opt-outline" type="checkbox"> <span><b>Outline the selected cells</b><small>A frame around each group of selected cells (the shading stays either way).</small></span></label>
-          <label class="opt"><input id="opt-timer" type="checkbox"> <span><b>Show timer</b></span></label>
-          <label class="opt"><input id="opt-padCounts" type="checkbox"> <span><b>Show digits left on the number pad</b><small>The small number on each key: how many of that digit still have to be placed.</small></span></label>
-          <label class="opt"><input id="opt-sweep" type="checkbox"> <span><b>Sweep over the number pad</b><small>Slide a finger (or the mouse, held down) from key to key to toggle those candidates in the selected cells in one go (pairs or colours in those modes).</small></span></label>
-          <label class="opt"><input id="opt-sweepDigit" type="checkbox"> <span><b>Sweep in digit mode</b><small>With "Sweep over the number pad": sweeping in Digit mode puts the keys in as candidates. Off: in Digit mode only the first key counts.</small></span></label>
-          <label class="opt"><input id="opt-numpadCands" type="checkbox"> <span><b>Keyboard number pad enters candidates</b><small>The number pad on the right of a keyboard always enters candidates (it never overwrites a digit); the digits above the letters enter digits. Off: both work the same.</small></span></label>
-          <label class="opt"><input id="opt-toPlay" type="checkbox"> <span><b>Go to Play after making a puzzle</b><small>Switch to the Play tab as soon as a new puzzle is ready.</small></span></label>
-          <label class="opt"><input id="opt-stickyToggle" type="checkbox"> <span><b>S key stays on</b><small>On a phone, the S key normally works only while you hold it. With this on, one tap switches it on and the next tap off.</small></span></label>
-        </div>
+        <div class="options" id="opt-list"></div>
         <div class="opt-select">
           <label for="opt-finish"><b>Auto-finish</b></label>
           <select id="opt-finish">
@@ -223,10 +207,7 @@
         </div>
 
         <h2 class="pane-title">Hints</h2>
-        <div class="options">
-          <label class="opt"><input id="opt-patterns" type="checkbox"> <span><b>Prefer patterns over triples and quads</b><small>Hints show a fish, wing, kite, coloring or short chain before a triple, quad or long chain, when one exists.</small></span></label>
-
-        </div>
+        <div class="options" id="opt-hints"></div>
 
         <h2 class="pane-title">Mouse and keyboard</h2>
         <ul class="keys small">
