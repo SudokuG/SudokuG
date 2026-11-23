@@ -26,6 +26,8 @@ import {
 } from "../src/engine";
 import type { Rating, Technique } from "../src/engine";
 import { SAMPLES } from "../src/samples";
+import { TEXTS } from "../src/ui/i18n";
+import { readFileSync, readdirSync, statSync } from "node:fs";
 import { GUIDE } from "../src/guide";
 import { exampleStep } from "../src/guide-step";
 import { DAILY, DAILY_START } from "../src/daily-data";
@@ -533,6 +535,35 @@ const RECIPE_FROM = Math.round((Date.parse("2026-11-02T12:00:00Z") - Date.parse(
       }
   console.log(`Star Battle: ${stars} puzzles made and checked. Steps used: ${JSON.stringify(starTech)}`);
   console.log(`Step-by-step solvers: ${maps} treasure maps and ${futos} futoshikis checked. Steps used: ${JSON.stringify(seenTech)}`);
+}
+
+// ---- Languages: every text the code translates has a row, every row is complete ----
+{
+  const seen = new Set<string>();
+  for (const row of TEXTS) {
+    if (row.length !== 3 || row.some((x) => !x)) fail(`language row incomplete: ${row[0]}`);
+    if (seen.has(row[0])) fail(`language row twice: ${row[0]}`);
+    seen.add(row[0]);
+    const holes = (x: string) => (x.match(/\{\w+\}/g) ?? []).sort().join();
+    for (const x of row.slice(1)) if (holes(x) !== holes(row[0])) fail(`language row placeholders differ: ${row[0]} / ${x}`);
+  }
+  // t("…") in the code, also both sides of t(a ? "…" : "…"). Templates with ${…} are checked by hand.
+  const files: string[] = [];
+  const scan = (d: string) => readdirSync(d).forEach((f) => (statSync(`${d}/${f}`).isDirectory() ? scan(`${d}/${f}`) : f.endsWith(".ts") && files.push(`${d}/${f}`)));
+  scan("src");
+  let calls = 0;
+  for (const f of files) {
+    if (f.includes("/lang/")) continue;
+    const src = readFileSync(f, "utf8");
+    for (const m of src.matchAll(/\b(?:t|tr)\(\s*(?:[^()"`]*\?\s*)?"((?:[^"\\]|\\.)*)"(?:\s*:\s*"((?:[^"\\]|\\.)*)")?/g))
+      for (const key of [m[1], m[2]]) {
+        if (key === undefined) continue;
+        calls++;
+        const text = JSON.parse(`"${key}"`);
+        if (!seen.has(text)) fail(`${f}: no language row for "${text}"`);
+      }
+  }
+  console.log(`Languages: ${TEXTS.length} rows, ${calls} translated texts in the code checked.`);
 }
 
 if (failures) {

@@ -7,6 +7,7 @@ import { DIFFICULTIES, Grid, TEMPLATES, colOf, rowOf } from "../engine";
 import { CALCUDOKU } from "../games/calcudoku/game";
 import { FUTOSHIKI } from "../games/futoshiki/game";
 import { initLite } from "../games/lite";
+import { initLanguage, langSelectHtml, lowerFirst, t, translateTree } from "./i18n";
 import { STAR_BATTLE } from "../games/starbattle/game";
 import { TREASURE_MAP } from "../games/sums/game";
 import { SAMPLES } from "../samples";
@@ -124,23 +125,25 @@ function copyText(text: string, msgEl: HTMLElement, selectEl?: HTMLElement): voi
       const sel = window.getSelection();
       sel?.removeAllRanges();
       sel?.addRange(range);
-      msgEl.textContent = "Code selected; press Ctrl+C (or Cmd+C) to copy.";
+      msgEl.textContent = t("Code selected; press Ctrl+C (or Cmd+C) to copy.");
       return;
     }
     const ta = $("import") as HTMLTextAreaElement;
     ta.value = text;
     ta.focus();
     ta.select();
-    msgEl.textContent = "Selected in the box above; press Ctrl+C (or Cmd+C) to copy.";
+    msgEl.textContent = t("Selected in the box above; press Ctrl+C (or Cmd+C) to copy.");
   };
   try {
-    navigator.clipboard.writeText(text).then(() => (msgEl.textContent = "Copied to the clipboard."), fallback);
+    navigator.clipboard.writeText(text).then(() => (msgEl.textContent = t("Copied to the clipboard.")), fallback);
   } catch {
     fallback();
   }
 }
 
 function init(): void {
+  $("lang-pick").outerHTML = langSelectHtml("opt-lang");
+  translateTree(document.body);
   applyTheme();
   buildBoard();
   buildPad();
@@ -153,11 +156,11 @@ function init(): void {
     b.type = "button";
     b.className = "chip";
     b.dataset.puzzle = s.puzzle;
-    b.title = s.note;
-    b.textContent = s.name;
+    b.title = t(s.note);
+    b.textContent = t(s.name);
     b.addEventListener("click", () => {
       openPuzzle(s.puzzle, s.name);
-      $("puzzle-msg").textContent = `Loaded “${s.name}”: ${s.note.toLowerCase()}.`;
+      $("puzzle-msg").textContent = t("Loaded “{name}”: {note}.", { name: t(s.name), note: lowerFirst(t(s.note)) });
     });
     samples.appendChild(b);
   }
@@ -202,7 +205,7 @@ function init(): void {
     const text = ($("import") as HTMLTextAreaElement).value;
     const err = openPuzzle(text, "Imported");
     if (!err) setTab("play");
-    $("puzzle-msg").textContent = err ?? "Puzzle loaded.";
+    $("puzzle-msg").textContent = err ?? t("Puzzle loaded.");
   });
   $("copy").addEventListener("click", () => copyText(S.puzzle, $("puzzle-msg")));
   document.querySelectorAll<HTMLElement>(".copy-code").forEach((b) =>
@@ -220,7 +223,7 @@ function init(): void {
     const b = document.createElement("button");
     b.type = "button";
     b.dataset.d = d;
-    b.textContent = d;
+    b.textContent = t(d);
     b.setAttribute("role", "radio");
     b.addEventListener("click", () => setProfile(TEMPLATES[d]));
     pick.appendChild(b);
@@ -257,7 +260,7 @@ function init(): void {
   $("solved-like").addEventListener("click", () => {
     if (!S.puzzle) return;
     const label = S.daily
-      ? `Daily ${S.daily.difficulty}, ${new Date(`${S.daily.date}T12:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short" })}`
+      ? `Daily ${S.daily.difficulty}, ${new Date(`${S.daily.date}T12:00:00`).toLocaleDateString("en", { day: "numeric", month: "short" })}`
       : S.label;
     toggleLike(S.puzzle, { code: S.code, label, time: S.solved ? S.elapsed : null });
     renderLikeButton();
@@ -274,12 +277,23 @@ function init(): void {
     S.author = meta.author;
     render();
     saveGame();
-    $("puzzle-msg").textContent = "Restarted.";
+    $("puzzle-msg").textContent = t("Restarted.");
   });
   // A long press on a button opens no context menu (it would get in the way of holding).
   document.addEventListener("contextmenu", (e) => {
     if ((e.target as HTMLElement).closest?.("button")) e.preventDefault();
   });
+  // A button tapped on a touch screen lets go of the focus, so no focus ring lingers on it
+  // (the focus comes with the click, after the finger lifts).
+  let touched = false;
+  document.addEventListener("pointerdown", (e) => (touched = e.pointerType !== "mouse"), { capture: true });
+  document.addEventListener("keydown", () => (touched = false), { capture: true });
+  const letGo = () => {
+    const a = document.activeElement;
+    if (touched && a instanceof HTMLButtonElement) a.blur();
+  };
+  document.addEventListener("click", letGo);
+  document.addEventListener("focusin", () => touched && setTimeout(letGo));
   document.addEventListener("keydown", onKey);
   document.addEventListener("keyup", onKeyUp);
   window.addEventListener("blur", () => {
@@ -331,6 +345,7 @@ function init(): void {
   initLite(STAR_BATTLE, $("game-starbattle"), theme);
   // The puzzle-type dropdowns (one in each Puzzles tab), now that every page is built.
   initGamePicker();
+  initLanguage();
 }
 
 /**

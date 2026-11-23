@@ -3,6 +3,7 @@
 
 import { RING, liteHint, singlesFinish } from "../logic";
 import { fmtTime } from "./markup";
+import { t } from "../../ui/i18n";
 import type { LiteCtx } from "./ctx";
 import type { LitePuzzle, Snap } from "./types";
 
@@ -18,6 +19,7 @@ export function editingPart<P extends LitePuzzle>(ctx: LiteCtx<P>) {
     if (S.solved || !S.p || S.finishing) return;
     const before: Snap = { cells: S.cur.cells.slice(), cands: S.cur.cands.slice() };
     fn(S.cur);
+    untidy(before, S.cur);
     autoDots(before, S.cur);
     if (JSON.stringify(before) === JSON.stringify(S.cur)) return;
     pushUndo(before);
@@ -78,7 +80,7 @@ export function editingPart<P extends LitePuzzle>(ctx: LiteCtx<P>) {
       ripple(S.selOrder.filter((i) => S.cur.cells[i] > 0).slice(-1), open);
       S.solved = true;
       el("solved-text").textContent = ctx.recordSolve();
-      status(`Solved in ${fmtTime(S.elapsed)}.`, "good");
+      status(t("Solved in {time}.", { time: fmtTime(S.elapsed) }), "good");
     }
     ctx.render();
     ctx.save();
@@ -98,7 +100,7 @@ export function editingPart<P extends LitePuzzle>(ctx: LiteCtx<P>) {
     const order = g.isSolved ? all.filter((x) => x.value > 0) : all;
     S.finishing = true;
     const before: Snap = { cells: S.cur.cells.slice(), cands: S.cur.cands.slice() };
-    status("The rest follows from singles: filling it in.");
+    status(t("The rest follows from singles: filling it in."));
     let k = 0;
     const tick = () => {
       if (k < order.length && S.p) {
@@ -130,6 +132,36 @@ export function editingPart<P extends LitePuzzle>(ctx: LiteCtx<P>) {
         if (!(s.cands[j] & ~RING)) s.cands[j] = g.xPerLine ? RING : 0;
       }
   };
+
+  /**
+   * A digit taken out again (erased, or replaced by another) gives back the candidates that
+   * placing it removed: those its row and column had just before it went in (the last undo
+   * step without it), unless another cell in their lines got the digit since.
+   */
+  function untidy(before: Snap, s: Snap): void {
+    if (!opt.tidy) return;
+    const N = n();
+    const lines = (j: number) => {
+      const r = Math.floor(j / N);
+      const c = j % N;
+      return Array.from({ length: N }, (_, k) => [r * N + k, k * N + c]).flat();
+    };
+    for (let i = 0; i < N * N; i++) {
+      const v = before.cells[i];
+      if (v <= 0 || s.cells[i] === v) continue;
+      let k = S.undo.length - 1;
+      while (k >= 0 && S.undo[k].cells[i] === v) k--;
+      const prev = S.undo[k];
+      if (!prev) continue;
+      const b = 1 << v;
+      for (const j of lines(i)) {
+        if (j === i || s.cells[j] !== -1 || !(prev.cands[j] & b) || prev.cands[j] === RING || s.cands[j] & b) continue;
+        // (A cell that got the digit since then also took it from j.)
+        if (lines(j).some((x) => s.cells[x] === v && prev.cells[x] !== v)) continue;
+        s.cands[j] = (s.cands[j] === RING ? 0 : s.cands[j]) | b;
+      }
+    }
+  }
 
   const pencilOn = () => !noCands && (S.pencil || S.shift || S.sticky);
 
@@ -197,7 +229,7 @@ export function editingPart<P extends LitePuzzle>(ctx: LiteCtx<P>) {
   function clearRings(): void {
     if (!S.cur.cands.some((c) => c === RING)) return;
     change((s) => s.cands.forEach((c, i) => c === RING && (s.cands[i] = 0)));
-    status("All rings removed.");
+    status(t("All rings removed."));
   }
 
   /** Holding the ring key (pad or keyboard) for HOLD_RING ms clears all rings. */
@@ -257,16 +289,16 @@ export function editingPart<P extends LitePuzzle>(ctx: LiteCtx<P>) {
         .filter((i) => i >= 0),
     );
     const mine = S.cur.cells.filter((v, i) => v >= 0 && !p.givens[i]).length;
-    if (S.wrong.size) status(`${S.wrong.size} cell${S.wrong.size === 1 ? " is" : "s are"} not right.`, "bad");
-    else if (!mine) status("Nothing filled in yet.");
-    else status(mine === 1 ? "The one cell you filled in is right." : `All ${mine} cells you filled in are right.`, "good");
+    if (S.wrong.size) status(t(S.wrong.size === 1 ? "1 cell is not right." : "{n} cells are not right.", { n: S.wrong.size }), "bad");
+    else if (!mine) status(t("Nothing filled in yet."));
+    else status(t(mine === 1 ? "The one cell you filled in is right." : "All {n} cells you filled in are right.", { n: mine }), "good");
     ctx.render();
   }
 
   function reveal(): void {
     if (!S.p || S.solved) return;
     const cells = editable().filter((i) => S.cur.cells[i] !== S.p!.solution[i]);
-    if (!cells.length) return status(editable().length ? "The selected cells are already right." : "Select a cell to reveal.");
+    if (!cells.length) return status(t(editable().length ? "The selected cells are already right." : "Select a cell to reveal."));
     S.hints += cells.length;
     change((s) => cells.forEach((i) => ((s.cells[i] = S.p!.solution[i]), tidy(s, i, S.p!.solution[i]))));
   }

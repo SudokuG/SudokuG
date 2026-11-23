@@ -3,6 +3,7 @@
 import { RING } from "../logic";
 import type { LiteStep } from "../logic";
 import { pillHtml, rulesHtml } from "./markup";
+import { t as tr, translateTree } from "../../ui/i18n";
 import type { LiteCtx } from "./ctx";
 import type { LitePuzzle, LiteTechnique } from "./types";
 
@@ -18,7 +19,7 @@ export function guidePart<P extends LitePuzzle>(ctx: LiteCtx<P>) {
         b.className = "guide-item";
         b.dataset.name = name;
         b.setAttribute("role", "tab");
-        b.textContent = name;
+        b.textContent = tr(name);
         b.addEventListener("click", () => showGuide(name));
         return b;
       }),
@@ -32,12 +33,13 @@ export function guidePart<P extends LitePuzzle>(ctx: LiteCtx<P>) {
       b.classList.toggle("on", b.dataset.name === name);
       b.setAttribute("aria-selected", String(b.dataset.name === name));
     });
-    el("guide-title").textContent = name === "Rules" ? `How to play ${g.title}` : name;
+    el("guide-title").textContent = name === "Rules" ? tr("How to play {title}", { title: g.title }) : name;
     const t = g.techniques.find((x) => x.name === name);
     el("guide-rules").hidden = !!t;
     el("guide-example").hidden = !t;
     if (!t) {
       el("guide-rules").innerHTML = rulesHtml(g);
+      translateTree(el("guide-rules"));
       return;
     }
     el("guide-idea").textContent = t.idea;
@@ -46,7 +48,7 @@ export function guidePart<P extends LitePuzzle>(ctx: LiteCtx<P>) {
     el("guide-spot").textContent = t.spot;
     const ex = g.examples[name];
     const shown = ex && drawExample(t, ex);
-    el("guide-step").textContent = shown || "No example for this one yet.";
+    el("guide-step").textContent = shown || tr("No example for this one yet.");
   }
 
   /** Replay the example's solve to its step and draw the position with the step marked. */

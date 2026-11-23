@@ -97,6 +97,8 @@ src/
                      (chains, trial, rating, making); Treasure Map keeps its lines in lines.ts
   games/latin-steps.ts  steps shared by the Latin-square puzzles (singles, pairs, triples)
   ui/games.ts        the puzzle-type switcher in the header
+  ui/i18n.ts         the page's language: t(), translateTree(), the Language choice
+  ui/lang/           the interface text in every language, one row per text (texts-ui.ts, texts-help.ts)
   ui/print-dialog.ts the print dialog, shared by all puzzle types
   samples.ts         built-in puzzles
   daily-data.ts      generated daily puzzles (do not edit by hand)
@@ -284,6 +286,15 @@ Everything is stored in the player's own browser (localStorage); nothing is sent
   in this browser (`src/ui/played.ts`); see Puzzle library.
 - **Timer:** counts only while the page is visible and you have clicked or typed in the
   last 2 minutes.
+- **Language:** English, German or Dutch, or "Same as my device" (the default: the first
+  of the device's languages the page has, else English), under Options › Language on every
+  page (`sudokug-language`). The page translates itself and asks browsers not to (their
+  automatic translation garbled it and hid buttons). Every text goes through `t()` in
+  `src/ui/i18n.ts`, with the English as key; the rows are in `src/ui/lang/` and the tests
+  check that every `t("…")` has one. Static markup is translated once by `translateTree()`
+  (text, `title`, `aria-label`, `placeholder`, and whole paragraphs with markup); changing
+  the language reloads the page. Names (puzzle types, techniques, puzzles) stay English, and
+  so do, for now, the technique explanations, the hint texts and the Rating card.
 - **Updates:** the service worker fetches a new version in the background; players keep
   the version they started with and get a small "new version ready" notice.
 
@@ -383,7 +394,8 @@ pad, Undo, Redo, Erase, Candidates, Hint, Check and Reveal.
   as candidates. On a computer Shift adds cells and Ctrl toggles them. Every group of
   selected cells gets one outline around it, as in sudoku (`outlinePath` in
   `src/ui/board.ts`, drawn as an SVG over the cells); Futoshiki's cells don't touch, so each
-  selected cell gets its own frame. **Tapping outside the grid** (not on a control) selects
+  selected cell gets its own frame; a tap in the gap between two cells (where Futoshiki's
+  signs are) selects the nearest cell. **Tapping outside the grid** (not on a control) selects
   nothing, in every puzzle type, so no shading is in the way.
 - **Pad**: the keys act on the first touch (phones drop the click when the finger moves a
   little, or for a second finger while S is held), and holding a key never selects text or
@@ -398,13 +410,21 @@ pad, Undo, Redo, Erase, Candidates, Hint, Check and Reveal.
   value are left ("Show what's left on the number pad"), and a key whose value is all
   placed is greyed out. **A key with nothing selected**
   (every type) marks the cells with that digit and lightly those with it as a candidate;
-  the same key again, or selecting a cell, ends it.
+  the same key again, selecting a cell, or a touch anywhere outside the pad (controls too)
+  ends it. The key of the highlighted digit is shaded like those cells, whether the digit
+  came from the pad or from a selected cell. Hover effects only show with a mouse, and a
+  button tapped on a touch screen lets go of the focus, so nothing lingers on a key.
 - **Number pad**: Shift+number pad enters candidates (on Windows it arrives as an arrow
   key, so the number pad is read by its key code before the arrows). The option "Keyboard number
   pad enters candidates" (sudoku and the light types) makes the number pad always enter
   candidates, which never overwrite digits; off, it works like the other digit keys.
 - **Go to Play after making a puzzle** (option, on by default, sudoku too): a newly made puzzle opens the Play tab.
 - **Undo and Redo** in every type (Ctrl+Z, Ctrl+Y or Ctrl+Shift+Z).
+- **Remove candidates automatically** (option, on by default, sudoku too): placing a digit
+  takes it out of the candidates in its row and column (sudoku: and box, and pairs). Erasing
+  the digit or replacing it gives those candidates back: the ones those cells had just
+  before it went in (found in the undo history, so on the light types only within this
+  visit), unless another cell in their lines got that digit since.
 - **Highlight the same digit** (option): selecting a digit also lightly shades the cells that
   have it as a candidate, with that candidate picked out in the pill, to see patterns.
   Candidates removed again leave nothing behind (the ring is only for Treasure Map). In
@@ -426,7 +446,7 @@ pad, Undo, Redo, Erase, Candidates, Hint, Check and Reveal.
   saved as `sudokug-lite-options-<type>`; the first time, a type starts from the old shared
   choices, with its own defaults on top: Star Battle has auto-finish off). The Options tab
   only lists what applies to the type. "Outline the selected cells" (on by default) can turn
-  the selection frame off. The theme is the site-wide one.
+  the selection frame off. The theme and the language are site-wide.
 - **Techniques**: the rules, then each technique of the solver with what it is, why it
   works, how to spot it, and a worked example from a real puzzle (shown in place of the board, with where to
   look, what follows and what is ruled out). The examples (`src/games/<type>/examples.ts`)

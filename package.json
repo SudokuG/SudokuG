@@ -1,6 +1,6 @@
 {
   "name": "sudokug",
-  "version": "1.5.0",
+  "version": "1.7.0",
   "description": "SudokuG: sudoku player and generator with human-style hints and puzzles without grind",
   "main": "index.js",
   "scripts": {

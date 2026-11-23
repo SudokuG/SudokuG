@@ -1,5 +1,6 @@
 // Printing the sudoku (the dialog is ui/print-dialog.ts, the layout ui/print.ts).
 
+import { t, tLabel, tLevel } from "../i18n";
 import { Grid, encodePuzzle } from "../../engine";
 import { puzzleName } from "../../names";
 import { currentGame, onGameChange } from "../games";
@@ -21,7 +22,7 @@ export function hasProgress(): boolean {
 /** The current puzzle for printing, empty or with progress. */
 export function currentPrintPuzzle(progress: boolean): PrintPuzzle {
   const givens = S.cur.values.map((v, i) => (S.givens[i] ? v : 0));
-  const p: PrintPuzzle = { givens, name: currentName(), difficulty: S.label, code: S.code };
+  const p: PrintPuzzle = { givens, name: currentName(), difficulty: tLabel(S.label), code: S.code };
   if (progress) {
     p.values = S.cur.values.slice();
     p.cands = S.cur.values.map((_, i) => shownCands(i));
@@ -35,8 +36,8 @@ export function openPrint(kind: "current" | "batch"): void {
   if (kind === "current") {
     if (noPuzzle()) return;
     return openPrintDialog({
-      title: "Print this puzzle",
-      what: `${currentName()} · ${S.label}`,
+      title: t("Print this puzzle"),
+      what: `${currentName()} · ${tLabel(S.label)}`,
       offerProgress: hasProgress(),
       many: false,
       collect: (choice, _msg, done) => done([currentPrintPuzzle(choice.progress)]),
@@ -45,8 +46,8 @@ export function openPrint(kind: "current" | "batch"): void {
   const label = profileName();
   const profile = S.settings.genProfile.slice();
   openPrintDialog({
-    title: `Print ${label.toLowerCase()} puzzles`,
-    what: `Puzzles you haven't played yet, from the library first; new ones are made when needed (about ${MAKE_MS / 1000} seconds each). Printed puzzles count as played, so Generate won't hand them out again.`,
+    title: t("Print {level} puzzles", { level: tLevel(label) }),
+    what: t("Puzzles you haven't played yet, from the library first; new ones are made when needed (about {s} seconds each). Printed puzzles count as played, so Generate won't hand them out again.", { s: MAKE_MS / 1000 }),
     offerProgress: false,
     many: true,
     collect: (choice, msg, done, run) => {
@@ -58,7 +59,7 @@ export function openPrint(kind: "current" | "batch"): void {
           for (const p of out) markPlayed(p.code!);
           return done(out);
         }
-        const head = `Gathering puzzles: ${out.length + 1} of ${choice.count}`;
+        const head = t("Gathering puzzles: {k} of {n}", { k: out.length + 1, n: choice.count });
         msg(`${head}…`);
         findPuzzle(profile, label, false, taken, run, (m) => msg(`${head}. ${m}`), (f) => {
           if (!f) {
@@ -66,12 +67,12 @@ export function openPrint(kind: "current" | "batch"): void {
               for (const p of out) markPlayed(p.code!);
               return done(out);
             }
-            return done(null, "No puzzle found for this mix of techniques; try ticking a few more.");
+            return done(null, t("No puzzle found for this mix of techniques; try ticking a few more."));
           }
           const givens = Grid.fromString(f.puzzle).values;
           const code = encodePuzzle(givens);
           taken.add(code);
-          out.push({ givens, code, name: puzzleName(Grid.fromString(f.puzzle).toString(), label), difficulty: label });
+          out.push({ givens, code, name: puzzleName(Grid.fromString(f.puzzle).toString(), label), difficulty: t(label) });
           setTimeout(next, 0);
         });
       };

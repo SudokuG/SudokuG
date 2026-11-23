@@ -6,6 +6,7 @@
 // Ctrl+P (or the browser's own Print) prints the current puzzle of the game on screen,
 // through the provider that game registers with setCurrentPrint().
 
+import { t } from "./i18n";
 import { PER_PAGE, renderPrint } from "./print";
 import type { PerPage, PrintLayout, PrintPuzzle } from "./print";
 
@@ -139,7 +140,7 @@ function start(): void {
       run = null;
       if (puzzles && puzzles.length) return printNow(puzzles);
       ($("print-go") as HTMLButtonElement).disabled = false;
-      $("print-msg").textContent = error ?? "Nothing to print.";
+      $("print-msg").textContent = error ?? t("Nothing to print.");
     },
     r,
   );
@@ -163,7 +164,7 @@ export function wirePrintDialog(): void {
     if (prepared) return;
     const cur = currentProvider();
     if (cur) renderPrint($("print-root"), [cur.puzzle], { ...layout(), perPage: prefs.perPageOne });
-    else $("print-root").innerHTML = `<p style="font: 12pt sans-serif">Open a puzzle to print it.</p>`;
+    else $("print-root").innerHTML = `<p style="font: 12pt sans-serif">${t("Open a puzzle to print it.")}</p>`;
   });
   window.addEventListener("afterprint", () => {
     prepared = false;

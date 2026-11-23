@@ -6,7 +6,7 @@
   border: 1px solid var(--btn-border); border-radius: 8px; padding: 9px 12px; cursor: pointer;
   transition: background 0.12s, border-color 0.12s;
 }
-.btn:hover { border-color: var(--pen); }
+@media (hover: hover) and (pointer: fine) { .btn:hover { border-color: var(--pen); } }
 .btn:disabled { opacity: 0.45; cursor: default; border-color: var(--btn-border); }
 .btn.primary { background: var(--pen); color: var(--surface); border-color: var(--pen); }
 .btn:focus-visible, .mode-btn:focus-visible, .pad button:focus-visible, .link-btn:focus-visible, .icon-btn:focus-visible, .guide-item:focus-visible { outline: 3px solid var(--pen); outline-offset: 2px; }
@@ -26,7 +26,7 @@
 .mode-btn.m-pencil { --accent: var(--m-pencil); }
 .mode-btn.m-centre { --accent: var(--m-centre); }
 .mode-btn.m-color { --accent: var(--m-color); }
-.mode-btn:hover { border-color: var(--accent); }
+@media (hover: hover) and (pointer: fine) { .mode-btn:hover { border-color: var(--accent); } }
 .mode-btn.on { background: var(--accent); border-color: var(--accent); color: var(--surface); }
 .mode-icon {
   display: grid; place-items: center; width: 30px; height: 30px; border-radius: 5px;
@@ -51,7 +51,12 @@
 .pad.pad-color button .num { position: absolute; left: 7px; top: 4px; font-size: 0.75rem; opacity: 0.75; }
 .pad button .left { position: absolute; right: 7px; bottom: 4px; font-size: 0.68rem; color: var(--muted); font-weight: 400; }
 .pad button.done { opacity: 0.35; }
-.pad button:hover { border-color: var(--pen); }
+@media (hover: hover) and (pointer: fine) { .pad button:hover { border-color: var(--pen); } }
+/* The key of the highlighted digit, in the shade of the cells that hold it. */
+.pad { --k-same: var(--same-digit); }
+.pad.pad-pencil { --k-same: var(--same-pencil); }
+.pad.pad-centre { --k-same: var(--same-centre); }
+.pad button.hl { background: var(--k-same); border-color: var(--k-same); }
 .pad.pad-color button { min-height: 52px; }
 /* The S key takes the colour of the entry mode it is used in */
 .pad .pad-sticky { display: none; color: var(--accent); border-color: var(--accent); font-weight: 800; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }

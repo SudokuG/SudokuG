@@ -2,6 +2,8 @@
 // types live in src/games/<type>/ and are made on the spot when you ask for one.
 // The choice is remembered in this browser; a puzzle link opens its own type.
 
+import { t } from "./i18n";
+
 export type GameId = "sudoku" | "sums" | "futoshiki" | "calcudoku" | "starbattle";
 
 export interface GameInfo {
@@ -64,7 +66,7 @@ export function initGamePicker(): void {
     const id = `type-pick-${++pickers}`;
     const label = document.createElement("label");
     label.htmlFor = id;
-    label.textContent = "Puzzle";
+    label.textContent = t("Puzzle");
     const sel = document.createElement("select");
     sel.id = id;
     sel.dataset.typeSelect = "";

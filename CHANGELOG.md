@@ -3,6 +3,21 @@
 Release notes, newest first: per version, very briefly, what changed. Maintained by Claude.
 Resolved notes, answered questions and replaced files go to ARCHIVE.md, not here.
 
+## v1.7 (2026-11-23)
+- Language option (Options › Language): English, German or Dutch, or the same as your device
+  (the default). The whole interface is translated; technique explanations and hint texts
+  are still in English. Browsers no longer translate the page themselves (that garbled it
+  and could hide the Candidates button).
+
+## v1.6 (2026-11-23)
+- Erasing a digit, or replacing it with another, gives back the candidates that placing it
+  removed (every type with candidates).
+- Futoshiki: a tap between two cells (on a sign) selects the nearest cell instead of nothing.
+- A digit highlighted from the pad ends with a touch anywhere outside the pad.
+- The pad key of the highlighted digit is shaded too, whether you tapped the key or a cell
+  with that digit.
+- On a phone, no border lingers on a key or button after tapping it.
+
 ## v1.5 (2026-11-19)
 - Refactoring round, nothing else changes in play: the sudoku page and the light puzzle page
   now share one implementation of sweeping and the S key, and the styles and the two

@@ -11,7 +11,26 @@ export function pointerPart<P extends LitePuzzle>(ctx: LiteCtx<P>) {
   function cellAt(e: PointerEvent, underPointer = false): number {
     const from = underPointer ? (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null) : (e.target as HTMLElement | null);
     const t = from?.closest<HTMLElement>(".lite-cell");
-    return t && board.contains(t) ? Number(t.dataset.i) : -1;
+    if (t && board.contains(t)) return Number(t.dataset.i);
+    return from && board.contains(from) ? nearestCell(e.clientX, e.clientY) : -1;
+  }
+  /**
+   * A touch between cells (Futoshiki's gaps hold the signs) goes to the nearest cell, so a
+   * slightly missed tap still selects. Outside the cells (Treasure Map's clues): none.
+   */
+  function nearestCell(x: number, y: number): number {
+    const cells = ctx.cellEls;
+    const a = cells[0]?.getBoundingClientRect();
+    const z = cells[cells.length - 1]?.getBoundingClientRect();
+    if (!a || !z || x < a.left || x > z.right || y < a.top || y > z.bottom) return -1;
+    let best = -1;
+    let bestD = Infinity;
+    cells.forEach((c, i) => {
+      const r = c.getBoundingClientRect();
+      const d = Math.hypot(Math.max(r.left - x, 0, x - r.right), Math.max(r.top - y, 0, y - r.bottom));
+      if (d < bestD) [best, bestD] = [i, d];
+    });
+    return best;
   }
   /**
    * Selecting, as in sudoku: a tap selects one cell and dragging adds the cells it passes.
@@ -182,9 +201,15 @@ export function pointerPart<P extends LitePuzzle>(ctx: LiteCtx<P>) {
   }
 
   // Tapping outside the grid (not on a control) selects nothing, so no shading is in the way.
+  // A digit highlighted from the pad goes with any touch outside the pad, controls too.
   document.addEventListener("pointerdown", (e) => {
-    if (!active() || !S.p || !S.selection.size) return;
+    if (!active() || !S.p) return;
     const t = e.target as HTMLElement;
+    if (S.padDigit && !t.closest(".pad")) {
+      S.padDigit = 0;
+      ctx.render();
+    }
+    if (!S.selection.size) return;
     if (board.contains(t) || t.closest("button, input, select, textarea, label, a, summary, dialog, .pad")) return;
     setSelection([]);
     if (smartOn()) S.quiet = true;

@@ -1,5 +1,6 @@
 // Actions: every change to the game goes through change() (undo step), then afterChange().
 
+import { t } from "../i18n";
 import { Grid, PEERS, TECHNIQUES, bit, boxOf, colOf, getHint, logicalSolve, patternFirst, rowOf } from "../../engine";
 import { PALETTES, paletteBit } from "../board";
 import { recordSolve } from "./finish";
@@ -12,12 +13,36 @@ import type { Mode, Snapshot } from "./state";
 export function change(fn: (s: Snapshot) => void): boolean {
   const before = clone(S.cur);
   fn(S.cur);
+  untidy(before, S.cur);
   if (JSON.stringify(before) === JSON.stringify(S.cur)) return false;
   S.undo.push(before);
   if (S.undo.length > 500) S.undo.shift();
   S.redo = [];
   afterChange();
   return true;
+}
+
+/**
+ * A digit taken out again (erased, or replaced by another) gives back the candidates and pairs
+ * that placing it removed: those its row, column and box had just before it went in (the last
+ * undo step without it), unless a cell they see got the digit since.
+ */
+function untidy(before: Snapshot, s: Snapshot): void {
+  if (!S.settings.tidy) return;
+  for (let i = 0; i < 81; i++) {
+    const d = before.values[i];
+    if (!d || s.values[i] === d) continue;
+    let k = S.undo.length - 1;
+    while (k >= 0 && S.undo[k].values[i] === d) k--;
+    const prev = S.undo[k];
+    if (!prev) continue;
+    const b = bit(d);
+    for (const j of PEERS[i]) {
+      if (s.values[j] || PEERS[j].some((x) => s.values[x] === d && prev.values[x] !== d)) continue;
+      if (prev.pencil[j] & b) s.pencil[j] |= b;
+      if (prev.centre[j] & b) s.centre[j] |= b;
+    }
+  }
 }
 
 export function afterChange(): void {
@@ -82,7 +107,7 @@ export function enterNumber(d: number, mode: Mode = effectiveMode()): void {
     if (!allSame) {
       // One digit in two cells of the same row, column or box is never right: a misclick.
       const shared = sharedUnit(cells);
-      if (shared) return setStatus(`These cells share a ${shared}, so they can't all be ${d}.`, "bad");
+      if (shared) return setStatus(t(`These cells share a ${shared}, so they can't all be {d}.`, { d }), "bad");
     }
     const changed = change((s) => {
       for (const i of cells) {
@@ -250,7 +275,7 @@ export function maybeAutoFinish(): void {
     else {
       S.finishing = false;
       afterChange();
-      if (S.solved) setStatus(`The last ${order.length} cells were filled in for you.`, "good");
+      if (S.solved) setStatus(t("The last {n} cells were filled in for you.", { n: order.length }), "good");
       setTimeout(() => {
         S.popped.clear();
         render();
@@ -303,7 +328,7 @@ export function applyHint(): void {
 export function check(): void {
   if (noPuzzle()) return;
   S.flash.clear();
-  if (!S.solution) return setStatus("Check needs a puzzle with exactly one solution.", "bad");
+  if (!S.solution) return setStatus(t("Check needs a puzzle with exactly one solution."), "bad");
   const wrong: number[] = [];
   let empty = 0;
   S.cur.values.forEach((v, i) => {
@@ -311,8 +336,8 @@ export function check(): void {
     else if (v !== S.solution![i]) wrong.push(i);
   });
   wrong.forEach((c) => S.flash.add(c));
-  if (wrong.length) setStatus(`${wrong.length} ${wrong.length === 1 ? "digit is" : "digits are"} wrong (marked red).`, "bad");
-  else if (empty) setStatus(`Everything is correct so far. ${empty} ${empty === 1 ? "cell" : "cells"} to go.`, "good");
+  if (wrong.length) setStatus(t(wrong.length === 1 ? "1 digit is wrong (marked red)." : "{n} digits are wrong (marked red).", { n: wrong.length }), "bad");
+  else if (empty) setStatus(t(empty === 1 ? "Everything is correct so far. 1 cell to go." : "Everything is correct so far. {n} cells to go.", { n: empty }), "good");
   render();
 }
 

@@ -25,6 +25,6 @@ export function dailyPuzzle(date: string, difficulty: string): { code: string; a
   return { code: row.split(" ")[k], author: "" };
 }
 
-export function formatDay(date: string): string {
-  return new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" });
+export function formatDay(date: string, locale?: string): string {
+  return new Date(`${date}T12:00:00`).toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long" });
 }

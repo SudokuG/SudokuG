@@ -27,7 +27,11 @@ mostly on a phone. Live at https://sudokug.github.io/SudokuG/
 - TypeScript, no framework, bundled by esbuild (build.mjs inlines CSS, JS, fonts into one page).
   noUnusedLocals/Parameters on: unused code fails the typecheck (`_` for an unused parameter).
 - src/engine/ and src/games/*/engine.ts, logic.ts: no DOM; tested in test/engine.test.ts.
-- UI text: British spelling (colour, centre), plain words.
+- UI text: British spelling (colour, centre), plain words. Every text the player sees goes
+  through `t("English")` (src/ui/i18n.ts) and gets a row [English, German, Dutch] in
+  src/ui/lang/texts-*.ts (the tests fail on a missing row); static markup is translated by
+  `translateTree`. Names of types, techniques and puzzles stay English. Not yet translated:
+  technique explanations, hint texts, Rating card.
 - README.md is the full user and developer manual: every user-visible change also updates
   its section there (Other puzzle types, Options, …).
 - Generated data (src/daily-data.ts, src/library-data.ts): never edit by hand.

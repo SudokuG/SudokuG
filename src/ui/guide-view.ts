@@ -1,6 +1,7 @@
 // The Techniques tab: a list of all techniques on the right, and on the left an
 // example board with the move highlighted and explained.
 
+import { t } from "./i18n";
 import { bit } from "../engine";
 import { GUIDE } from "../guide";
 import { exampleStep } from "../guide-step";
@@ -18,7 +19,7 @@ export function initGuide(): void {
       group = entry.group;
       const h = document.createElement("div");
       h.className = "guide-group";
-      h.textContent = group;
+      h.textContent = t(group);
       list.appendChild(h);
     }
     const b = document.createElement("button");
@@ -56,14 +57,14 @@ export function showGuide(name = current): void {
   });
 
   $("guide-title").textContent = entry.name;
-  $("guide-badges").innerHTML = `<span class="badge diff-${entry.group.toLowerCase()}">${entry.group}</span>`;
+  $("guide-badges").innerHTML = `<span class="badge diff-${entry.group.toLowerCase()}">${t(entry.group)}</span>`;
   $("guide-idea").textContent = entry.idea;
   $("guide-spot").textContent = entry.spot;
 
   const ex = exampleStep(name);
   const chain = $("guide-chain");
   if (!ex) {
-    $("guide-example").textContent = "No example available.";
+    $("guide-example").textContent = t("No example available.");
     chain.hidden = true;
     return;
   }

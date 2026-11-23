@@ -22,6 +22,10 @@ Project preferences override global ones.
 - [ ] P7 Highlighting extras (region highlight) stay off by default; the player turns them
   on. (v1.2, stated)
 
+- [ ] P8 Translations keep the words players already use: loanwords such as Puzzle stay
+  (German "Puzzle", not "Rätsel"); names of puzzle types and techniques stay English.
+  (v1.7, stated for "Puzzle", rest inferred)
+
 ## Promoted
 
 ## Retired

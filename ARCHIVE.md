@@ -4,6 +4,13 @@ Everything resolved, newest first, under the version that resolved it: resolved 
 answered questions, dropped plans, and files that were replaced (kept whole).
 Maintained by Claude. Not read at session start.
 
+## v1.4
+
+### Resolved notes
+- ✓ v1.4 – Candidate mode should turn the UI elements green like in sudoku (light types).
+- ✓ v1.4 – The sweeping candidate fill in should be toggleable for in digit mode.
+- ✓ v1.4 – Highlight rows and columns and highlight region separate in all puzzles: already so since v1.1 (sudoku: Highlight box; Calcudoku: Highlight cage; Star Battle: Highlight region; Treasure Map and Futoshiki have no regions).
+
 ## v1.2
 
 ### Resolved notes

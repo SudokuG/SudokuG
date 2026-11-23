@@ -2,6 +2,7 @@
 // shared with sudoku: ../../ui/pad-common.ts).
 
 import { RING } from "../logic";
+import { t } from "../../ui/i18n";
 import type { LiteCtx } from "./ctx";
 import type { LitePuzzle, Snap } from "./types";
 import { wireSKey, wireSweep } from "../../ui/pad-common";
@@ -34,20 +35,20 @@ export function padPart<P extends LitePuzzle>(ctx: LiteCtx<P>) {
         if (v === "S") {
           b.textContent = "S";
           b.className = "pad-sticky";
-          b.title = noCands ? "Hold to select several cells" : "Hold to select several cells and enter candidates";
-          b.setAttribute("aria-label", noCands ? "S: select several cells" : "S: select several cells, enter candidates");
+          b.title = t(noCands ? "Hold to select several cells" : "Hold to select several cells and enter candidates");
+          b.setAttribute("aria-label", t(noCands ? "S: select several cells" : "S: select several cells, enter candidates"));
           wireSKey(b, { staysOn: () => opt.stickyToggle, isOn: () => S.sticky, set: setSticky });
           return b;
         }
         b.dataset.v = String(v);
         if (v === RING) {
           b.innerHTML = `<span class="ring-key" aria-hidden="true"></span>`;
-          b.setAttribute("aria-label", "Ring: a digit goes here, not an X");
-          b.title = "Ring: a digit goes here, not an X (O or full stop). Hold 2 seconds to clear all rings";
+          b.setAttribute("aria-label", t("Ring: a digit goes here, not an X"));
+          b.title = t("Ring: a digit goes here, not an X (O or full stop). Hold 2 seconds to clear all rings");
           b.classList.add("dot-key");
         } else {
           b.innerHTML = show(v) + (v > 0 ? `<span class="left"></span>` : "");
-          b.title = g.valueName ? `${valueName(v)} (${v ? "1" : "0 or X"})` : v === 0 ? "X: a cell without a digit (X or 0)" : String(v);
+          b.title = g.valueName ? `${valueName(v)} (${v ? "1" : t("0 or X")})` : v === 0 ? t("X: a cell without a digit (X or 0)") : String(v);
           if (g.valueName) b.setAttribute("aria-label", valueName(v));
           if (v === 0) b.classList.add("x-key");
         }

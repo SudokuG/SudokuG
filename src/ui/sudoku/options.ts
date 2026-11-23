@@ -14,7 +14,7 @@ type CheckboxKey = { [K in keyof Settings]: Settings[K] extends boolean ? K : ne
 export const SUDOKU_OPTIONS: OptionText<CheckboxKey>[] = [
   { key: "auto", title: "Auto-candidates", text: "Show all candidates and keep them up to date as you place digits. Turning this off clears them." },
   { key: "mistakes", title: "Highlight mistakes", text: "Mark a digit red as soon as it does not match the solution." },
-  { key: "tidy", title: "Remove candidates automatically", text: "Placing a digit removes it from the candidates and pairs in its row, column and box." },
+  { key: "tidy", title: "Remove candidates automatically", text: "Placing a digit removes it from the candidates and pairs in its row, column and box; taking the digit out again brings them back." },
   { key: "peers", title: "Highlight row and column", text: "Shade the row and column of the selected cell." },
   { key: "box", title: "Highlight box", text: "Shade the box of the selected cell." },
   { key: "same", title: "Highlight the same digit", text: "Mark digits and candidates equal to the selected cell's digit." },

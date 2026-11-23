@@ -1,6 +1,7 @@
 // Drawing the board: building the cells and the SVG overlays, render(), the notes list.
 
 import { RING } from "../logic";
+import { t, tLevel } from "../../ui/i18n";
 import { outlinePath } from "../../ui/board";
 import { SVG_NS, fmtTime, linesHtml, pillHtml } from "./markup";
 import type { LiteCtx } from "./ctx";
@@ -120,7 +121,7 @@ export function renderPart<P extends LitePuzzle>(ctx: LiteCtx<P>) {
         c.innerHTML = html;
         c.dataset.h = html;
       }
-      c.setAttribute("aria-label", `Row ${r + 1}, column ${col + 1}: ${v >= 0 ? valueName(v) : cands[i] === RING ? "a digit" : "open"}`);
+      c.setAttribute("aria-label", t("Row {r}, column {c}: {what}", { r: r + 1, c: col + 1, what: v >= 0 ? valueName(v) : t(cands[i] === RING ? "a digit" : "open") }));
       c.setAttribute("aria-selected", String(S.selection.has(i)));
     }
     if (g.notes) {
@@ -139,7 +140,7 @@ export function renderPart<P extends LitePuzzle>(ctx: LiteCtx<P>) {
     selPath?.setAttribute("d", opt.outline && !S.quiet ? outlinePath(S.selection, N, 4) : "");
     g.decorate(board, S.p, cells, S.selection.has(S.sel) ? S.sel : -1);
     el("name").textContent = nameOf(S.code, S.level);
-    el("label").textContent = `${g.title} · ${S.level} · ${N}×${N}`;
+    el("label").textContent = `${g.title} · ${t(S.level)} · ${N}×${N}`;
     all("code").forEach((x) => (x.textContent = S.code));
     el("timer").hidden = !opt.timer;
     btn("undo").disabled = !S.undo.length || S.solved;
@@ -156,6 +157,8 @@ export function renderPart<P extends LitePuzzle>(ctx: LiteCtx<P>) {
     // What is left of each value (stars, digits), and keys greyed out once all are placed.
     pad.querySelectorAll<HTMLElement>("[data-v]").forEach((k) => {
       const v = Number(k.dataset.v);
+      // The key of the highlighted digit is marked too, however the digit was picked.
+      k.classList.toggle("hl", sameOn && hlVal > 0 && v === hlVal);
       if (v <= 0 || v === RING) return;
       const left = S.p!.solution.filter((x) => x === v).length - cells.filter((x) => x === v).length;
       k.classList.toggle("done", left <= 0);
@@ -165,10 +168,10 @@ export function renderPart<P extends LitePuzzle>(ctx: LiteCtx<P>) {
     pad.querySelector(".pad-sticky")?.classList.toggle("on", S.sticky);
     el("solved").hidden = !S.solved;
     el("solved-time").textContent = fmtTime(S.elapsed);
-    const what = `${S.pickLevel.toLowerCase()} ${S.pickSize}×${S.pickSize} ${g.noun}`;
-    el("solved-new").textContent = `New ${what}`;
-    el("new").textContent = `New ${what}`;
-    el("print-many").textContent = `Print ${S.pickLevel.toLowerCase()} ${S.pickSize}×${S.pickSize} ${g.noun}s`;
+    const what = { level: tLevel(S.pickLevel), size: `${S.pickSize}×${S.pickSize}` };
+    el("solved-new").textContent = t(`New {level} {size} ${g.noun}`, what);
+    el("new").textContent = t(`New {level} {size} ${g.noun}`, what);
+    el("print-many").textContent = t(`Print {level} {size} ${g.noun}s`, what);
     for (const [r, val] of [["sizes", String(S.pickSize)], ["levels", S.pickLevel]] as const)
       root.querySelectorAll<HTMLButtonElement>(`[data-r=${r}] button`).forEach((b) => {
         const on = b.dataset.v === val;
@@ -180,8 +183,8 @@ export function renderPart<P extends LitePuzzle>(ctx: LiteCtx<P>) {
     card.hidden = !h;
     card.classList.toggle("error", h?.kind === "error");
     if (h) {
-      el("hint-tech").textContent = h.kind === "step" ? h.step.technique : h.kind === "error" ? "Something is off" : h.kind === "solved" ? "Solved" : "No hint available";
-      el("hint-text").textContent = h.kind === "step" ? (full ? h.step.explanation : h.step.nudge) : h.message;
+      el("hint-tech").textContent = h.kind === "step" ? h.step.technique : t(h.kind === "error" ? "Something is off" : h.kind === "solved" ? "Solved" : "No hint available");
+      el("hint-text").textContent = h.kind === "step" ? (full ? h.step.explanation : h.step.nudge) : t(h.message);
       el("hint-more").hidden = h.kind !== "step" || full;
       el("hint-apply").hidden = h.kind !== "step" || !full;
     }
@@ -208,7 +211,7 @@ export function renderPart<P extends LitePuzzle>(ctx: LiteCtx<P>) {
         x.className = "note";
         x.dataset.k = String(k);
         const id = `${g.id}-note-${k}`;
-        x.innerHTML = `<label class="note-name" for="${id}"></label><textarea id="${id}" rows="1" spellcheck="false" placeholder="Notes for this cage…"></textarea>`;
+        x.innerHTML = `<label class="note-name" for="${id}"></label><textarea id="${id}" rows="1" spellcheck="false" placeholder="${t("Notes for this cage…")}"></textarea>`;
         const ta = x.querySelector("textarea")!;
         const grow = () => {
           ta.style.height = "auto";

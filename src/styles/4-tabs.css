@@ -12,7 +12,7 @@
 /* Options */
 .options { display: flex; flex-direction: column; gap: 4px; }
 .opt { display: flex; gap: 10px; align-items: flex-start; padding: 8px 4px; border-radius: 8px; cursor: pointer; }
-.opt:hover { background: var(--peer); }
+@media (hover: hover) and (pointer: fine) { .opt:hover { background: var(--peer); } }
 .opt input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--pen); flex: none; }
 .opt span { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .opt small { color: var(--muted); font-size: 0.84rem; }
@@ -73,7 +73,7 @@
   border: 1px solid transparent; border-radius: 8px; padding: 7px 10px; cursor: pointer;
   transition: background 0.12s, box-shadow 0.12s, transform 0.12s;
 }
-.guide-item:hover { background: var(--peer); color: var(--ink); }
+@media (hover: hover) and (pointer: fine) { .guide-item:hover { background: var(--peer); color: var(--ink); } }
 .guide-item.on {
   background: var(--surface); color: var(--ink); font-weight: 700; border-color: var(--btn-border);
   box-shadow: 0 3px 10px var(--shadow), inset 3px 0 0 var(--pen); transform: translateX(-4px);
@@ -87,7 +87,7 @@
 .tech-list { display: flex; flex-direction: column; gap: 1px; }
 .tech-group { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 10px 0 2px; }
 .tech-toggle { display: flex; align-items: center; gap: 9px; padding: 4px 4px; border-radius: 6px; cursor: pointer; font-size: 0.92rem; }
-.tech-toggle:hover { background: var(--peer); }
+@media (hover: hover) and (pointer: fine) { .tech-toggle:hover { background: var(--peer); } }
 .tech-toggle input { width: 17px; height: 17px; accent-color: var(--pen); flex: none; margin: 0; }
 .tech-toggle input:disabled + span { color: var(--muted); }
 
@@ -108,7 +108,7 @@
   font: inherit; font-size: 0.85rem; font-weight: 700; color: var(--ink);
   background: var(--btn); border: 1px solid var(--m-color); border-radius: 8px; padding: 6px 8px; cursor: pointer;
 }
-.tool-btn:hover { background: var(--peer-color); }
+@media (hover: hover) and (pointer: fine) { .tool-btn:hover { background: var(--peer-color); } }
 .tool-btn:focus-visible { outline: 3px solid var(--pen); outline-offset: 2px; }
 .pal-icon { width: 22px; height: 22px; border-radius: 4px; border: 1px solid var(--btn-border); flex: none; }
 .tool-btn svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; flex: none; }

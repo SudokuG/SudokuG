@@ -1,5 +1,6 @@
 // Starting, making, saving and restoring a puzzle; stats; printing; the share link.
 
+import { t, tLevel } from "../../ui/i18n";
 import { DOT, RING } from "../logic";
 import { openPrintDialog } from "../../ui/print-dialog";
 import type { PrintPuzzle } from "../../ui/print";
@@ -58,7 +59,7 @@ export function puzzlesPart<P extends LitePuzzle>(ctx: LiteCtx<P>) {
     if (S.making) return;
     S.making = true;
     btn("new").disabled = true;
-    status(`Making a ${S.pickLevel.toLowerCase()} ${g.noun}…`);
+    status(t(`Making a {level} ${g.noun}…`, { level: tLevel(S.pickLevel) }));
     make(S.pickSize, S.pickLevel, (p) => {
       S.making = false;
       btn("new").disabled = false;
@@ -138,9 +139,17 @@ export function puzzlesPart<P extends LitePuzzle>(ctx: LiteCtx<P>) {
       /* ignore */
     }
     renderStats();
-    const help = S.hints ? `${S.hints} hint${S.hints === 1 ? "" : "s"} or revealed cell${S.hints === 1 ? "" : "s"}` : "no help";
-    return [`${key}, ${help}.`, best ? "A new best time!" : c.best !== null ? `Your best: ${fmtTime(c.best)}.` : "", `Solved ${c.solved} of these so far.`].filter(Boolean).join(" ");
+    const help = S.hints === 1 ? t("1 hint or revealed cell") : S.hints ? t("{n} hints or revealed cells", { n: S.hints }) : t("no help");
+    return [
+      `${statsLabel(key)}, ${help}.`,
+      best ? t("A new best time!") : c.best !== null ? t("Your best: {time}.", { time: fmtTime(c.best) }) : "",
+      t(c.solved === 1 ? "Solved 1 of these so far." : "Solved {n} of these so far.", { n: c.solved }),
+    ]
+      .filter(Boolean)
+      .join(" ");
   }
+  /** A stats line's name ("6×6 Medium") in the page's language. */
+  const statsLabel = (k: string) => k.split(" ").map((w, i) => (i ? t(w) : w)).join(" ");
   function renderStats(): void {
     const st = loadStats();
     const order = (k: string) => {
@@ -149,10 +158,10 @@ export function puzzlesPart<P extends LitePuzzle>(ctx: LiteCtx<P>) {
     };
     const rows = Object.keys(st)
       .sort((a, b) => order(a) - order(b))
-      .map((k) => `<tr><th scope="row">${esc(k)}</th><td>${st[k].solved}</td><td>${st[k].best === null ? "–" : fmtTime(st[k].best!)}</td><td>${fmtTime(st[k].total / st[k].solved)}</td></tr>`);
+      .map((k) => `<tr><th scope="row">${esc(statsLabel(k))}</th><td>${st[k].solved}</td><td>${st[k].best === null ? "–" : fmtTime(st[k].best!)}</td><td>${fmtTime(st[k].total / st[k].solved)}</td></tr>`);
     el("stats").innerHTML = rows.length
-      ? `<div class="table-wrap"><table class="stats-table"><thead><tr><th></th><th>Solved</th><th>Best</th><th>Average</th></tr></thead><tbody>${rows.join("")}</tbody></table></div><p class="small">Kept in this browser only. Best times count games without hints or revealed cells.</p>`
-      : `<p class="small">No puzzles finished yet.</p>`;
+      ? `<div class="table-wrap"><table class="stats-table"><thead><tr><th></th><th>${t("Solved")}</th><th>${t("Best")}</th><th>${t("Average")}</th></tr></thead><tbody>${rows.join("")}</tbody></table></div><p class="small">${t("Kept in this browser only. Best times count games without hints or revealed cells.")}</p>`
+      : `<p class="small">${t("No puzzles finished yet.")}</p>`;
   }
   // ---- Printing ----------------------------------------------------------------------
   function printPuzzle(p: P, level: string, progress: boolean): PrintPuzzle {
@@ -161,7 +170,7 @@ export function puzzlesPart<P extends LitePuzzle>(ctx: LiteCtx<P>) {
       givens: [],
       svg: progress ? g.svg(p, S.cur.cells, S.cur.cands) : g.svg(p),
       name: nameOf(code, level),
-      difficulty: `${g.title} · ${level} ${p.n}×${p.n}`,
+      difficulty: `${g.title} · ${t(level)} ${p.n}×${p.n}`,
       code,
     };
   }
@@ -171,8 +180,8 @@ export function puzzlesPart<P extends LitePuzzle>(ctx: LiteCtx<P>) {
       if (!S.p) return;
       const progress = S.cur.cells.some((v, i) => v !== -1 && !S.p!.givens[i]) || S.cur.cands.some(Boolean);
       return openPrintDialog({
-        title: "Print this puzzle",
-        what: `${nameOf(S.code, S.level)} · ${g.title} · ${S.level} ${n()}×${n()}`,
+        title: t("Print this puzzle"),
+        what: `${nameOf(S.code, S.level)} · ${g.title} · ${t(S.level)} ${n()}×${n()}`,
         offerProgress: progress,
         many: false,
         collect: (choice, _msg, done) => done([printPuzzle(S.p!, S.level, choice.progress)]),
@@ -181,8 +190,8 @@ export function puzzlesPart<P extends LitePuzzle>(ctx: LiteCtx<P>) {
     const size = S.pickSize;
     const level = S.pickLevel;
     openPrintDialog({
-      title: `Print ${level.toLowerCase()} ${g.title}`,
-      what: `New ${level.toLowerCase()} ${size}×${size} ${g.noun}s, made just for this printout.`,
+      title: t("Print {level} {title}", { level: tLevel(level), title: g.title }),
+      what: t(`New {level} {size} ${g.noun}s, made just for this printout.`, { level: tLevel(level), size: `${size}×${size}` }),
       offerProgress: false,
       many: true,
       collect: (choice, msg, done, run) => {
@@ -190,7 +199,7 @@ export function puzzlesPart<P extends LitePuzzle>(ctx: LiteCtx<P>) {
         const next = () => {
           if (run.cancelled) return;
           if (out.length === choice.count) return done(out);
-          msg(`Making ${g.noun}s: ${out.length + 1} of ${choice.count}…`);
+          msg(t(`Making ${g.noun}s: {k} of {n}…`, { k: out.length + 1, n: choice.count }));
           make(size, level, (p) => {
             out.push(printPuzzle(p, level, false));
             next();
@@ -202,7 +211,7 @@ export function puzzlesPart<P extends LitePuzzle>(ctx: LiteCtx<P>) {
   }
   function copyLink(): void {
     const url = `${location.origin}${location.pathname}#${S.code}`;
-    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(url).then(() => status("Link copied.", "good"), () => status(url));
+    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(url).then(() => status(t("Link copied."), "good"), () => status(url));
     else status(url);
   }
 

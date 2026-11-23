@@ -2,6 +2,7 @@
 // and small text helpers.
 
 import { optionLabel } from "../../ui/option-label";
+import { langSelectHtml, t } from "../../ui/i18n";
 import { RING } from "../logic";
 import { AUTO_FINISH_CHOICES, LITE_OPTION_TEXT } from "./options";
 import type { LiteGame, LitePuzzle, Tab } from "./types";
@@ -120,7 +121,7 @@ export function markup<P extends LitePuzzle>(g: LiteGame<P>, theme: boolean): st
         <span data-r="label" class="puzzle-label"></span>
         <span data-r="timer" class="timer" aria-label="Time">0:00</span>
       </div>
-      <div data-r="board" class="lite-board ${id}-board" role="grid" tabindex="0" aria-label="${esc(g.title)} grid. Arrow keys move, ${g.candidates === false ? "1 places a star, 0 or X an empty cell" : `digits enter${g.xPerLine ? ", X places an X, O a ring" : ""}`}."></div>
+      <div data-r="board" class="lite-board ${id}-board" role="grid" tabindex="0" aria-label="${esc(t(g.candidates === false ? "{title} grid. Arrow keys move, 1 places a star, 0 or X an empty cell." : g.xPerLine ? "{title} grid. Arrow keys move, digits enter, X places an X, O a ring." : "{title} grid. Arrow keys move, digits enter.", { title: g.title }))}"></div>
       ${codeRow("code-row-desktop")}
       <p data-r="status" class="status" aria-live="polite"></p>
     </section>
@@ -161,7 +162,7 @@ export function markup<P extends LitePuzzle>(g: LiteGame<P>, theme: boolean): st
       </div>
       <div data-pane="puzzles" class="pane" role="tabpanel" hidden>
         <div class="type-pick" data-type-pick></div>
-        <h2 class="pane-title">New ${esc(g.noun)}</h2>
+        <h2 class="pane-title">${t(`New ${g.noun}`)}</h2>
         <span class="small-label">Size</span>
         <div data-r="sizes" class="diff-pick lite-sizes" role="radiogroup" aria-label="Size"></div>
         <span class="small-label">Difficulty</span>
@@ -175,7 +176,7 @@ export function markup<P extends LitePuzzle>(g: LiteGame<P>, theme: boolean): st
           <span class="small">to solve on paper, or save them as a PDF</span>
         </div>
         <h2 class="pane-title">Load a puzzle</h2>
-        <label for="${id}-import" class="small-label">Paste a ${esc(g.title)} code (it looks like ${esc(g.codeHint)})</label>
+        <label for="${id}-import" class="small-label">${esc(t("Paste a {title} code (it looks like {code})", { title: g.title, code: g.codeHint }))}</label>
         <div class="row"><input id="${id}-import" data-r="import" class="code-input" type="text" spellcheck="false" placeholder="${esc(g.codeHint)}"><button data-r="load" class="btn" type="button">Load</button></div>
         <p data-r="load-msg" class="small"></p>
         <details class="info">
@@ -184,14 +185,14 @@ export function markup<P extends LitePuzzle>(g: LiteGame<P>, theme: boolean): st
         </details>
       </div>
       <div data-pane="options" class="pane" role="tabpanel" hidden>
-        ${theme ? `<div class="opt-select"><label for="${id}-theme"><b>Theme</b></label><select id="${id}-theme" data-r="theme"><option value="system">Same as my device</option><option value="light">Light</option><option value="dark">Dark</option></select></div>` : ""}
+        ${theme ? `<div class="opt-select"><label for="${id}-theme"><b>Theme</b></label><select id="${id}-theme" data-r="theme"><option value="system">Same as my device</option><option value="light">Light</option><option value="dark">Dark</option></select></div>${langSelectHtml(`${id}-lang`)}` : ""}
         <div class="options">${options}</div>
         <div class="opt-select">
           <label for="${id}-finish"><b>Auto-finish</b></label>
-          <select id="${id}-finish" data-r="finish">${AUTO_FINISH_CHOICES.map((k) => `<option value="${k}">${k ? `Last ${k} cells` : "Off"}</option>`).join("")}</select>
+          <select id="${id}-finish" data-r="finish">${AUTO_FINISH_CHOICES.map((k) => `<option value="${k}">${k ? t("Last {n} cells", { n: k }) : "Off"}</option>`).join("")}</select>
           <small>When only this many cells are left, everything you filled in is right, and the rest follows from singles, the puzzle fills itself in.</small>
         </div>
-        <p class="small">These options are for ${esc(g.title)} only; each puzzle type keeps its own.</p>
+        <p class="small">${esc(t("These options are for {title} only; each puzzle type keeps its own.", { title: g.title }))}</p>
       </div>
       <div data-pane="techniques" class="pane" role="tabpanel" hidden>
         <div data-r="guide-list" class="guide-list" role="tablist" aria-orientation="vertical" aria-label="Techniques"></div>

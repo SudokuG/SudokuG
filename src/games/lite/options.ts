@@ -108,7 +108,7 @@ export const LITE_OPTION_TEXT: (OptionText<Exclude<keyof LiteOptions, "autoFinis
   { key: "same", title: "Highlight the same digit", text: "Mark digits equal to the one in the selected cell, and lightly mark the cells that have it as a candidate (with that candidate picked out).", for: "candidates" },
   { key: "autoDots", title: "Cross automatically", text: "Placing a star crosses the cells around it, and the rest of its row, column or region once that has all its stars. Taking the star away again removes those crosses.", for: "autoDots" },
   { key: "mistakes", title: "Highlight mistakes", text: "Mark an entry red as soon as it doesn't match the solution." },
-  { key: "tidy", title: "Remove candidates automatically", text: "Placing a digit removes it from the candidates in its row and column.", for: "candidates" },
+  { key: "tidy", title: "Remove candidates automatically", text: "Placing a digit removes it from the candidates in its row and column; taking the digit out again brings them back.", for: "candidates" },
   { key: "timer", title: "Show timer" },
   { key: "padCounts", title: "Show what's left on the number pad", text: "The small number on each key: how many of that value still have to be placed. A key whose value is all placed is greyed out either way." },
   { key: "sweep", title: "Sweep over the number pad", text: "Slide a finger (or the mouse, held down) from key to key to toggle those candidates in the selected cells, in one go.", for: "candidates" },

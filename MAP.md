@@ -15,13 +15,15 @@
 - S key: phone-only pad key, held = Shift (add cells, candidates) | `pad-sticky`, ui/pad-common.ts `wireSKey` | option S key stays on
 - Sweep: slide a finger over pad keys to toggle candidates in one go | ui/pad-common.ts `wireSweep` (pointer, keys, add/remove) + hooks in sudoku/pad.ts `wirePadSweep` (modes) and lite/pad.ts `wirePad` (rings) | options sweep, sweepDigit (also in digit mode); one undo step
 - Entry mode colours: digit blue, candidates green (sudoku also pairs, colour) on board, outline and pad | sudoku: `.board.mode-<m>`, `.pad.pad-<m> base-<m>` (render.ts renderModes); light: `.lite.mode-pencil` on the page root + `.pad-pencil`/`.base-pencil` (lite/render.ts) | CSS vars --sel --accent --b-peer --b-same, one rule set in styles/2-board.css
-- Digit highlight: tapping a pad key with nothing selected marks that digit and its candidates | sudoku/state.ts `S.padDigit`, lite/ctx.ts `S.padDigit` | –
+- Digit highlight: tapping a pad key with nothing selected marks that digit and its candidates; any touch outside the pad ends it; the highlighted digit's key gets `.hl` (pad digit or selected cell's digit) | sudoku/state.ts `S.padDigit` + render.ts `highlight()`, lite/ctx.ts `S.padDigit` + lite/render.ts; outside touch: document pointerdown in sudoku/render.ts, lite/pointer.ts | –
 - Selection outline: one outline around each group of selected cells (not Futoshiki: a frame per cell) | board.ts `outlinePath`, lite/render.ts sel overlay | option Outline the selected cells
 - Region lines: thin grid + thick region/cage lines as SVG | lite/markup.ts `linesHtml`, lite/render.ts `placeOverlays`, `LiteGame.regions` | –
 - Highlight row and column / Highlight box (sudoku) / Highlight region (light types with regions): separate options | Settings.peers/box, LiteOptions.peers/region | region off by default (user, v1.2)
 - Shade cells with the candidate (sudoku): cand-same shading for the highlighted digit | Settings.candShade | light types always shade
 - Pad counts: value left per key, `.done` greys a finished key | renderModes (sudoku/render.ts), render (lite/render.ts) | options padCounts
-- Undo/Redo: both pages; lite/editing.ts pushUndo() clears redo | S.undo/S.redo | not saved
+- Undo/Redo: both pages; lite/editing.ts pushUndo() clears redo | S.undo/S.redo | sudoku saves the last 60, light types none
+- Remove candidates automatically (tidy) + giving them back: placing removes the digit from its lines; erasing/replacing it restores what those cells had in the last undo snapshot without it | lite/editing.ts `tidy`/`untidy`, sudoku/actions.ts enterNumber + `untidy` (both run in change()) | option tidy
+- Language: English/German/Dutch or device; `t(english, vars)`, `tLevel`, `tLabel`, `translateTree(root)` for static markup | src/ui/i18n.ts, rows [en, de, nl] in src/ui/lang/texts-ui.ts, texts-help.ts | `sudokug-language`; change = reload
 - Candidates (light): framed pill in the middle of the cell | lite/markup.ts `pillHtml` | Snap.cands bitmask
 - Ring: Treasure Map "a digit goes here" mark | RING in games/logic.ts | cands === RING
 - Smart input: Star Battle tap/drag crosses, double tap star, hold clears | lite/pointer.ts smartDown/Move/Up | option
@@ -38,7 +40,9 @@
 - src/ui/sudoku/ (module-level code, parts import each other's functions):
   state.ts (Settings, S, Snapshot, candidates shown) · puzzles.ts (load, save/restore, timer) · finish.ts (stats, solved card, likes, dailies) · generate.ts (library/generator runs, technique toggles, rating card) · printing.ts · actions.ts (change/afterChange, enterNumber, erase, colours, undo, auto-finish, hints, check, select) · pad.ts (buildPad, wirePadSweep hooks, Erase button) · options.ts (SUDOKU_OPTIONS, HINT_OPTIONS table → #opt-list/#opt-hints; buildOptions wires, renderOptions ticks) · render.ts ($, buildBoard, render, setMode, setTab)
 - src/ui/pad-common.ts: shared by both pads | wireSweep(pad, attr, SweepHooks), wireSKey(button, hooks)
-- src/ui/option-label.ts: OptionText, optionLabel(attr, title, text): one option's markup, both pages
+- src/ui/option-label.ts: OptionText, optionLabel(attr, title, text): one option's markup, both pages (translates title and text)
+- src/ui/i18n.ts: lang, t, tLevel, tLabel, lowerFirst, translateTree, langSelectHtml, initLanguage, TEXTS | lang/texts-*.ts
+- src/ui/lang/texts-ui.ts (short texts, messages), texts-help.ts (options, rules, keyboard help, long notes): [English, German, Dutch] rows
 - src/ui/board.ts: sudoku board DOM, selection outline, links, paint | BoardView, outlinePath() | engine
 - src/styles/N-*.css: all styles, joined by number in build.mjs (cascade order matters): 1-base (theme vars), 2-board (sudoku board, entry-mode colours), 3-panel (pad, modes, outline), 4-tabs (tabs, options, techniques, generator), 5-sudoku-phone, 6-cards (solved, likes, daily, stats, switcher), 7-lite (light page), 8-lite-types (per type `.<id>-board`, overlays, notes), 9-print; phone layout in `@media (max-width: 760px)` blocks
 - src/games/lite.ts: initLite: builds the context, makes the parts, setTab, renderOptions, timer, button wiring, shared links | initLite | lite/*
@@ -70,4 +74,6 @@ pointer/keys → sudoku/actions.ts or lite/editing.ts change() pushes undo snaps
 - Options kept per light type: types need different defaults (Star Battle no auto-finish) (v1.0)
 - Lines and selection outline as SVG overlays: CSS borders of mixed widths make notched corners (v1.1)
 - Futoshiki keeps a frame per selected cell: its cells don't touch (v1.1)
+- Own translation tables, English as key, no library (v1.7): one self-contained page; browsers' auto-translate garbled it, so `translate="no"`. Language change reloads the page instead of re-rendering every part
+- Restoring tidied candidates from the undo history, not a new field in the snapshot (v1.6): no change to saved games; light types keep no undo across visits, so restoring works within a visit there
 - Not aligned on purpose (Q1, v1.2): candidate pills stay as they are; Star Battle smart input keeps its unmarked cursor; region highlight stays off by default; sudoku keeps Fill/Clear candidates, light types keep Reveal

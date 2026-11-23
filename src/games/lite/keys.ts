@@ -75,8 +75,9 @@ export function keysPart<P extends LitePuzzle>(ctx: LiteCtx<P>) {
       e.preventDefault();
       return ctx.hint();
     }
-    if (k === "Escape" && S.hint) {
-      S.hint = null;
+    if (k === "Escape" && (S.hint || S.padDigit)) {
+      if (S.hint) S.hint = null;
+      else S.padDigit = 0;
       return ctx.render();
     }
     if (k === " " && !noCands) {

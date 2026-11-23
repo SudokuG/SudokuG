@@ -12,6 +12,7 @@
 // pointer, pad, guide, keys. This file sets up the context, the tabs and options, the timer,
 // and wires the buttons.
 
+import { t, translateTree } from "../ui/i18n";
 import { liteOptionsFor } from "./lite/options";
 import { puzzleName } from "../names";
 import { currentGame, onGameChange, setGame } from "../ui/games";
@@ -33,6 +34,7 @@ const IDLE_MS = 2 * 60 * 1000;
 /** Set up the page of one puzzle type inside `root` (a <main class="game-view lite">). */
 export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement, theme?: ThemeHooks): void {
   root.innerHTML = markup(g, !!theme);
+  translateTree(root);
   const el = (r: string) => root.querySelector<HTMLElement>(`[data-r="${r}"]`)!;
   const store = liteOptionsFor(g.id, g.optionDefaults);
   const S = newState(g);
@@ -52,7 +54,7 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
     delays: new Map(),
     noCands: g.candidates === false,
     show: (v) => (g.glyph ? g.glyph(v) : v ? String(v) : "✕"),
-    valueName: (v) => (g.valueName ? g.valueName(v) : v ? String(v) : "X"),
+    valueName: (v) => (g.valueName ? t(g.valueName(v)) : v ? String(v) : "X"),
     n: () => S.p!.n,
     maxDigit: () => g.maxDigit(S.p!.n),
     nameOf: (code, level) => puzzleName(code, level, g.id),
@@ -131,7 +133,7 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
       }),
     );
   picker("sizes", g.sizes.map(String), (v) => (g.sizeLabel ? g.sizeLabel(Number(v)) : `${v}×${v}`), (v) => (S.pickSize = Number(v)));
-  picker("levels", [...g.levels], (v) => v, (v) => (S.pickLevel = v));
+  picker("levels", [...g.levels], (v) => t(v), (v) => (S.pickLevel = v));
   root.querySelectorAll<HTMLButtonElement>("[data-tab]").forEach((b) => b.addEventListener("click", () => setTab(b.dataset.tab as Tab)));
   root.querySelectorAll<HTMLInputElement>("[data-opt]").forEach((box) =>
     box.addEventListener("change", () => store.set(box.dataset.opt as keyof typeof opt, box.checked)),
@@ -147,7 +149,7 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
   el("restart").addEventListener("click", () => {
     if (!S.p) return;
     start(S.p, S.level);
-    status("Restarted.");
+    status(t("Restarted."));
     setTab("play");
   });
   el("undo").addEventListener("click", undo);
@@ -173,10 +175,10 @@ export function initLite<P extends LitePuzzle>(g: LiteGame<P>, root: HTMLElement
   el("load").addEventListener("click", () => {
     try {
       start(g.decode((el("import") as HTMLInputElement).value.trim()));
-      el("load-msg").textContent = "Loaded.";
+      el("load-msg").textContent = t("Loaded.");
       setTab("play");
     } catch (e) {
-      el("load-msg").textContent = (e as Error).message;
+      el("load-msg").textContent = t((e as Error).message);
     }
   });
   wirePad();

@@ -1,5 +1,6 @@
 // Rendering the sudoku page: the board, colour tools, mode buttons, render(); setMode, setTab.
 
+import { t, tLabel } from "../i18n";
 import { Grid, bit, boxOf, colOf, digitsOf, isGrindyStep, rowOf } from "../../engine";
 import type { Step } from "../../engine";
 import { BoardView, PALETTES, paintBackground, stepDecor, stripes } from "../board";
@@ -61,9 +62,15 @@ export function buildBoard(): void {
   boardEl.addEventListener("pointerup", end);
   boardEl.addEventListener("pointercancel", end);
   // Tapping outside the grid (not on a control) selects nothing, so no shading is in the way.
+  // A digit highlighted from the pad goes with any touch outside the pad, controls too.
   document.addEventListener("pointerdown", (e) => {
-    if (currentGame() !== "sudoku" || !S.selection.size) return;
+    if (currentGame() !== "sudoku") return;
     const t = e.target as HTMLElement;
+    if (S.padDigit && !t.closest(".pad")) {
+      S.padDigit = 0;
+      render();
+    }
+    if (!S.selection.size) return;
     if (boardEl.contains(t) || t.closest("button, input, select, textarea, label, a, summary, dialog, .pad, .modes, .color-tools")) return;
     S.selection.clear();
     render();
@@ -82,13 +89,13 @@ export function renderColorTools(): void {
   const p = S.palette;
   ($("pal-icon") as HTMLElement).style.background =
     p === 0 ? "conic-gradient(from 45deg, var(--c2) 0 120deg, var(--c5) 120deg 240deg, var(--c7) 240deg)" : `${stripes(p, [2, 5, 7], "3px", "2px")}, var(--btn)`;
-  $("pal-label").textContent = `Palette ${p + 1}`;
-  $("palette").setAttribute("aria-label", `Palette ${p + 1} of ${PALETTES} (${PALETTE_NAMES[p]}). Tap for the next one.`);
+  $("pal-label").textContent = t("Palette {n}", { n: p + 1 });
+  $("palette").setAttribute("aria-label", t("Palette {n} of {all} ({name}). Tap for the next one.", { n: p + 1, all: PALETTES, name: t(PALETTE_NAMES[p]) }));
   const hidden = S.colorHidden[p];
   const eye = $("eye");
-  eye.innerHTML = `${hidden ? EYE_SHUT : EYE_OPEN}<span>${hidden ? "Hidden" : "Shown"}</span>`;
+  eye.innerHTML = `${hidden ? EYE_SHUT : EYE_OPEN}<span>${t(hidden ? "Hidden" : "Shown")}</span>`;
   eye.setAttribute("aria-pressed", String(hidden));
-  eye.setAttribute("aria-label", hidden ? `Palette ${p + 1} is hidden. Tap to show it.` : `Palette ${p + 1} is shown. Tap to hide it.`);
+  eye.setAttribute("aria-label", t(hidden ? "Palette {n} is hidden. Tap to show it." : "Palette {n} is shown. Tap to hide it.", { n: p + 1 }));
 }
 
 export function renderModes(): void {
@@ -104,34 +111,45 @@ export function renderModes(): void {
   const counts = new Array(10).fill(0);
   S.cur?.values.forEach((v) => v && counts[v]++);
   const names: Record<Mode, string> = { digit: "Digit", pencil: "Candidate", centre: "Pair", color: "Colour" };
+  // The key of the highlighted digit is marked too, however the digit was picked.
+  const hl = highlight();
+  const hlKey = m !== "color" && hl.sameOn ? hl.primVal : 0;
   padButtons.forEach((b, k) => {
+    b.classList.toggle("hl", hlKey === k + 1);
     const left = 9 - counts[k + 1];
     (b.querySelector(".left") as HTMLElement).textContent = m === "digit" && left > 0 && S.settings.padCounts ? String(left) : "";
     const d = k + 1;
     b.style.setProperty("--swatch", S.palette === 0 ? `linear-gradient(var(--c${d}), var(--c${d}))` : stripes(S.palette, [d], "5px", "4px"));
     // A digit that is complete is greyed out for digits, candidates and pairs alike.
     b.classList.toggle("done", m !== "color" && left <= 0);
-    b.setAttribute("aria-label", m === "digit" ? `Digit ${k + 1}, ${Math.max(left, 0)} left` : m === "color" ? `Colour ${k + 1}, palette ${S.palette + 1}` : `${names[m]} ${k + 1}`);
+    b.setAttribute("aria-label", m === "digit" ? t("Digit {d}, {n} left", { d: k + 1, n: Math.max(left, 0) }) : m === "color" ? t("Colour {d}, palette {p}", { d: k + 1, p: S.palette + 1 }) : `${t(names[m])} ${k + 1}`);
   });
-  if (!$("erase").classList.contains("armed")) $("erase").textContent = m === "color" ? "Clear colour" : "Erase";
-  $("erase").title = m === "color" ? "Clear the colour of the selected cells. Hold to clear all colours, in all palettes." : "Erase (Backspace)";
+  if (!$("erase").classList.contains("armed")) $("erase").textContent = t(m === "color" ? "Clear colour" : "Erase");
+  $("erase").title = t(m === "color" ? "Clear the colour of the selected cells. Hold to clear all colours, in all palettes." : "Erase (Backspace)");
   renderColorTools();
   const sticky = $("pad-sticky");
   sticky.classList.toggle("on", S.sticky);
   sticky.setAttribute("aria-pressed", String(S.sticky));
 }
 
+/**
+ * The digit to highlight: that of the first selected cell with a digit, so adding cells to
+ * the selection (Shift, S key, dragging) keeps the highlight you started with. A digit tapped
+ * on the pad with nothing selected wins (and shows even with "same digit" off).
+ */
+function highlight() {
+  const values = S.cur?.values ?? [];
+  const hlCell = S.selection.size ? [...S.selection].find((i) => values[i]) ?? S.primary : -1;
+  const pd = S.selection.size ? 0 : S.padDigit;
+  const primVal = pd || (hlCell >= 0 ? values[hlCell] : 0);
+  return { hlCell, pd, primVal, sameOn: S.settings.same || !!pd };
+}
+
 export function render(): void {
   const { values, colors, centre } = S.cur;
   const set = S.settings;
   const prim = S.primary;
-  // The digit to highlight: that of the first selected cell with a digit, so adding
-  // cells to the selection (Shift, S key, dragging) keeps the highlight you started with.
-  const hlCell = S.selection.size ? [...S.selection].find((i) => values[i]) ?? prim : -1;
-  // A digit tapped on the pad with nothing selected wins (and shows even with "same digit" off).
-  const pd = S.selection.size ? 0 : S.padDigit;
-  const primVal = pd || (hlCell >= 0 ? values[hlCell] : 0);
-  const sameOn = set.same || !!pd;
+  const { hlCell, pd, primVal, sameOn } = highlight();
   const clashes = new Grid(values, empty81()).conflicts();
   const single = S.selection.size === 1 && !!S.puzzle;
 
@@ -185,7 +203,7 @@ export function render(): void {
       s.textContent = on ? String(d) : "";
       s.className = on ? decor.candClass.get(i * 10 + d) ?? (sameOn && primVal === d ? "hl" : "") : "";
     }
-    el.setAttribute("aria-label", `Row ${rowOf(i) + 1}, column ${colOf(i) + 1}: ${v ? v : "empty"}`);
+    el.setAttribute("aria-label", t("Row {r}, column {c}: {what}", { r: rowOf(i) + 1, c: colOf(i) + 1, what: v ? v : t("empty") }));
     el.setAttribute("aria-selected", String(S.selection.has(i)));
   }
 
@@ -194,11 +212,11 @@ export function render(): void {
   ($("undo") as HTMLButtonElement).disabled = !S.undo.length;
   ($("redo") as HTMLButtonElement).disabled = !S.redo.length;
   $("fill-cands").hidden = set.auto;
-  $("puzzle-label").textContent = S.puzzle ? S.label : "No puzzle yet";
+  $("puzzle-label").textContent = S.puzzle ? tLabel(S.label) : t("No puzzle yet");
   $("puzzle-name").textContent = currentName();
   $("puzzle-name").hidden = !S.puzzle;
   $("puzzle-author").hidden = !S.puzzle || !S.author;
-  $("puzzle-author").textContent = S.author ? `By ${S.author}` : "";
+  $("puzzle-author").textContent = S.author ? t("By {author}", { author: S.author }) : "";
   renderSolved();
   document.querySelectorAll<HTMLElement>(".layout .puzzle-code").forEach((el) => (el.textContent = S.code));
   document.querySelectorAll<HTMLElement>(".layout .code-row").forEach((el) => (el.hidden = !S.puzzle));
@@ -225,9 +243,11 @@ export function render(): void {
       const forced = set.patterns && isGrindyStep(hint.step);
       $("hint-note").hidden = !forced;
       if (forced)
-        $("hint-note").textContent = hint.step.chainDigits
-          ? "Nothing shorter works here, so this long chain is the way forward."
-          : "No fish, wing, kite or coloring move works here, so this subset is the way forward.";
+        $("hint-note").textContent = t(
+          hint.step.chainDigits
+            ? "Nothing shorter works here, so this long chain is the way forward."
+            : "No fish, wing, kite or coloring move works here, so this subset is the way forward.",
+        );
       if (full && hint.step.notation) {
         chain.textContent = hint.step.notation;
         chain.hidden = false;
@@ -235,8 +255,8 @@ export function render(): void {
       more.hidden = full;
       apply.hidden = !full;
     } else {
-      $("hint-tech").textContent = hint.kind === "error" ? "Something is off" : hint.kind === "solved" ? "Solved" : "No hint available";
-      $("hint-text").textContent = hint.message;
+      $("hint-tech").textContent = t(hint.kind === "error" ? "Something is off" : hint.kind === "solved" ? "Solved" : "No hint available");
+      $("hint-text").textContent = t(hint.message);
       more.hidden = true;
       apply.hidden = true;
     }

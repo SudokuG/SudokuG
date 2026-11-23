@@ -1,5 +1,6 @@
 // The number pad: keys, the S key and sweeping (shared with the light page: ../pad-common.ts), the Erase / Clear colour button.
 
+import { t } from "../i18n";
 import { bit } from "../../engine";
 import { paletteBit } from "../board";
 import { afterChange, clearAllColors, editable, enterNumber, erase } from "./actions";
@@ -30,7 +31,7 @@ export function buildPad(): void {
   sticky.id = "pad-sticky";
   sticky.className = "pad-sticky";
   sticky.textContent = "S";
-  sticky.title = "Like holding Shift: select several cells, enter candidates";
+  sticky.title = t("Like holding Shift: select several cells, enter candidates");
   wireSKey(sticky, {
     staysOn: () => S.settings.stickyToggle,
     isOn: () => S.sticky,
@@ -118,13 +119,13 @@ export function wireEraseButton(): void {
     if (effectiveMode() !== "color") return;
     hintTimer = window.setTimeout(() => {
       btn.classList.add("armed");
-      btn.textContent = "Clear all colour";
+      btn.textContent = t("Clear all colour");
     }, 250);
     fireTimer = window.setTimeout(() => {
       firedAt = performance.now();
       reset();
       clearAllColors();
-      setStatus("All colours cleared, in all palettes.");
+      setStatus(t("All colours cleared, in all palettes."));
     }, HOLD_MS);
   });
   btn.addEventListener("pointerup", reset);

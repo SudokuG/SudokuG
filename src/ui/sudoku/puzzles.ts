@@ -1,5 +1,6 @@
 // Loading puzzles, saving the game (so a later visit continues it), the timer.
 
+import { t } from "../i18n";
 import { DIFFICULTIES, Grid, Rating, countSolutions, decodePuzzle, encodePuzzle } from "../../engine";
 import type { Generated } from "../../engine";
 import { puzzleName } from "../../names";
@@ -17,8 +18,8 @@ import type { Snapshot } from "./state";
 export function parsePuzzle(text: string): number[] {
   const clean = text.replace(/\s+/g, "");
   if (clean.length === 81) return Grid.fromString(clean).values;
-  if (!clean) throw new Error("Paste a puzzle code or 81 characters first.");
-  if (/^[0-9.]+$/.test(clean)) throw new Error(`Expected 81 characters, got ${clean.length}.`);
+  if (!clean) throw new Error(t("Paste a puzzle code or 81 characters first."));
+  if (/^[0-9.]+$/.test(clean)) throw new Error(t("Expected 81 characters, got {n}.", { n: clean.length }));
   return decodePuzzle(clean);
 }
 
@@ -34,7 +35,7 @@ export function loadPuzzle(text: string, label: string, known?: Generated): stri
     return (e as Error).message;
   }
   const res = known ? { count: 1, solution: known.solution } : countSolutions(g.values, 2);
-  if (res.count === 0) return "This puzzle has no solution. Check for typos.";
+  if (res.count === 0) return t("This puzzle has no solution. Check for typos.");
   S.puzzle = g.toString();
   S.code = encodePuzzle(g.values);
   markPlayed(S.code);
@@ -56,7 +57,7 @@ export function loadPuzzle(text: string, label: string, known?: Generated): stri
   S.author = "";
   S.solvedNote = "";
   S.lastInput = Date.now();
-  setStatus(res.count === 1 ? "" : "This puzzle has more than one solution, so Check and mistake highlighting are off.", res.count === 1 ? "" : "bad");
+  setStatus(res.count === 1 ? "" : t("This puzzle has more than one solution, so Check and mistake highlighting are off."), res.count === 1 ? "" : "bad");
   S.rating = known ? known.rating : null;
   renderRating();
   render();
@@ -83,7 +84,7 @@ export function clearPuzzle(): void {
 /** True (and a nudge to the Puzzles tab) when there is nothing to play yet. */
 export function noPuzzle(): boolean {
   if (S.puzzle) return false;
-  setStatus("Generate or load a puzzle in the Puzzles tab first.");
+  setStatus(t("Generate or load a puzzle in the Puzzles tab first."));
   return true;
 }
 
@@ -212,7 +213,7 @@ export function restoreGame(puzzle?: string): boolean {
   S.hintsUsed = Number(data.hints) || 0;
   S.daily = data.daily && typeof data.daily.date === "string" ? data.daily : null;
   S.author = typeof data.author === "string" ? data.author : "";
-  S.solvedNote = S.solved ? `Solved in ${fmtTime(S.elapsed)}.` : "";
+  S.solvedNote = S.solved ? t("Solved in {time}.", { time: fmtTime(S.elapsed) }) : "";
   render();
   saveGame();
   return true;
@@ -254,6 +255,6 @@ export function startTimer(): void {
     const el = $("timer");
     el.textContent = fmtTime(S.elapsed);
     el.classList.toggle("paused", playing && !active);
-    el.title = playing && !active ? "Paused: carries on when you click or type" : "";
+    el.title = playing && !active ? t("Paused: carries on when you click or type") : "";
   }, 500);
 }
