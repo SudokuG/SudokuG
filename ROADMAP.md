@@ -20,14 +20,38 @@
 - Verify: npm test (a row for every text), German and Dutch screenshots of a hint and each Techniques entry
 
 ## Next
-- v1.9 – More sudoku techniques (until Q3 is answered): Finned X-Wing / Swordfish, W-Wing,
+- v1.9 – Security hardening (from the security audit of 2026-11-25; no confirmed
+  vulnerabilities, these close two open leads and tighten defaults):
+  - Links: `decodeURIComponent(location.hash)` inside the try (app.ts:314, lite.ts:220),
+    so `#%` no longer aborts start-up and clears the continue pointer; cap code length
+    before base-62 decoding (engine/code.ts, games/latin.ts; reject leftover in unpackB62)
+  - Solvers: node budget in countSolutions (engine/solver.ts) plus hidden singles, budget
+    treated as "not checked"; Calcudoku: decoder limited to CALC_SIZES, bounded connected
+    +/× cages, node budget in cageWays (also fixes eliminations when the 5000 cap
+    truncates); restore accepts a stored "Unrated" level (lite/puzzles.ts:91);
+    decodeStars/decodeFutoshiki limited to the generated sizes
+  - Rendering: `esc()` also escapes `"` and `>` (lite/markup.ts, sudoku/generate.ts);
+    stored stats numbers through `Number()` before innerHTML (sudoku/finish.ts,
+    lite/puzzles.ts)
+  - Storage: saved daily.difficulty checked against DIFFICULTIES; stats maps and i18n
+    dictionaries without prototype (`Object.create(null)`/`Object.hasOwn`); per-field
+    type checks for settings, print and lite options against their defaults
+  - Service worker: delete only `sudokug-` caches, match in its own cache, cache only ok
+    responses (src/sw.js)
+  - CI: actions pinned to commit SHAs (deploy.yml); refresh the lockfile's stale root
+    version
+  - Local tools: grow.ts server checks Host/Origin; add-likes accepts only app-style ids
+    and readLibrary decodes ids with JSON.parse (scripts/add-likes.ts, scripts/common.ts)
+  - Verify: tests for a crafted Calcudoku code and a sparse sudoku grid returning within
+    budget, `#%` start-up, and a readLibrary/writeLibrary round-trip; screenshots unchanged
+- v1.10 – More sudoku techniques (until Q3 is answered): Finned X-Wing / Swordfish, W-Wing,
   then Unique Rectangle; each with hint texts in all languages, a guide entry with a worked
   example, its place in TECHNIQUES and the rating groups
 
 ## Later
 - A Str8ts-like puzzle type under its own name (Str8ts is a trademark)
 - Tectonic / Suguru as a light type (own name, e.g. themed like the others)
-- More sudoku techniques after v1.9: ALS, forcing chains
+- More sudoku techniques after v1.10: ALS, forcing chains
 
 ## Done
 - ✓ v1.7 – Language option: interface in English, German, Dutch; no browser auto-translate

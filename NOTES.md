@@ -9,7 +9,7 @@
 ## Questions for you
 <!-- Claude's questions about this project. Answer after "A:", or write "drop". -->
 - Q3 (v1.3) What comes after the refactoring round: more sudoku techniques (finned fish,
-  W-Wing, Unique Rectangle; now v1.9), or first a new puzzle type (Tectonic, or the Str8ts-like one)?
+  W-Wing, Unique Rectangle; now v1.10), or first a new puzzle type (Tectonic, or the Str8ts-like one)?
   A:
 - Q4 (v1.7) I added German and Dutch. Other languages, or just these? And should the German
   read better somewhere (I kept loanwords like Puzzle, Tipp; Undo/Redo are "Zurück"/"Vor" so

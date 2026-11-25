@@ -67,6 +67,7 @@ pointer/keys → sudoku/actions.ts or lite/editing.ts change() pushes undo snaps
 
 ## Decisions
 - One self-contained HTML page + PWA, no server: offline play, GitHub Pages (inferred, v1.0)
+- Deploy on pushes to main that change the site (workflow `paths:` list), not on docs/Osty-only pushes: the site must update, but Actions minutes count (P9, overrides G12, 2026-11-25); Pages permissions only on the deploy job
 - Light types share one page (lite.ts) with optional LiteGame hooks: consistency, one place to fix (v1.0)
 - Shared pad code (v1.5): one wireSweep/wireSKey with per-page hooks, since the two pages' state differs (sudoku modes and Snapshot vs light Snap and rings)
 - Styles as numbered files joined in order, not @import: one inlined page, and the cascade order stays visible (v1.5)

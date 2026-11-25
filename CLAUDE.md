@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Osty: 0.10
+Osty: 0.12
 Versions: v1.1 → v1.2 → v1.3 …; constant: "version" in package.json (v1.3 written as 1.3.0)
 This project uses the project-osty skill (Project Osty). Every session: read the global
 and project PREFERENCES.md and NOTES.md; read MAP.md before touching code; work from
@@ -16,8 +16,10 @@ mostly on a phone. Live at https://sudokug.github.io/SudokuG/
 ## Run & test
 - `npm ci` once; `npm run build` → dist/index.html (open it), site/ (GitHub Pages)
 - Before every commit: `npm run typecheck && npm test && npm run build`
-- Push to main = deploy (.github/workflows/deploy.yml: typecheck, test, build, Pages).
-  A failing test blocks the deploy.
+- Push to main that changes the site (src/, public/, test/, build.mjs, package files,
+  tsconfig, the workflow) = deploy (.github/workflows/deploy.yml: typecheck, test, build,
+  Pages); docs/Osty-only pushes run nothing (P9). A failing test blocks the deploy.
+  A new path the build reads goes into the workflow's `paths:` list.
 - Look at the page: build, then Playwright (installed globally) on dist/index.html at a
   phone size (390×844) and a desktop size; screenshots for any visual change.
 - A change that should not change the page (refactoring): screenshot every type and tab

@@ -1,16 +1,25 @@
-# On every push to main: check types, run the tests, build the site and publish it on GitHub Pages.
+# On a push to main that changes the site (or a manual run): check types, run the tests,
+# build the site and publish it on GitHub Pages. Pushes that only touch the docs or the
+# Osty files (README, ROADMAP, NOTES, …) run nothing.
 # (Repository settings → Pages → Source: "GitHub Actions".)
 name: Test and deploy
 
 on:
   push:
     branches: [main]
+    paths:
+      - "src/**"
+      - "public/**"
+      - "test/**"
+      - "build.mjs"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.json"
+      - ".github/workflows/deploy.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: pages
@@ -19,6 +28,9 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: read
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -37,6 +49,9 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

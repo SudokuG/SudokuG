@@ -25,6 +25,9 @@ Project preferences override global ones.
 - [ ] P8 Translations keep the words players already use: loanwords such as Puzzle stay
   (German "Puzzle", not "Rätsel"); names of puzzle types and techniques stay English.
   (v1.7, stated for "Puzzle", rest inferred)
+- [ ] P9 The workflow deploys the website, so it runs on every push to main that changes
+  the site (code, assets, build, package files), and never for pushes that only change
+  docs or Osty files. Overrides G12 for this project. (v1.8, stated)
 
 ## Promoted
 

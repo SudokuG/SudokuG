@@ -30,9 +30,12 @@ npm run typecheck  # checks the TypeScript types
 
 After `npm run build`, refresh `dist/index.html` in the browser to see your changes.
 
-**Publish:** push to the `main` branch. GitHub Actions (`.github/workflows/deploy.yml`)
-checks the types, runs the tests, builds the site and publishes it on GitHub Pages. If a
-test fails, nothing is published.
+**Publish:** push to the `main` branch. When the push changes the site itself (`src/`,
+`public/`, `test/`, `build.mjs`, the package files), GitHub Actions
+(`.github/workflows/deploy.yml`) checks the types, runs the tests, builds the site and
+publishes it on GitHub Pages. If a test fails, nothing is published. A push that only
+changes text files such as this README or the roadmap runs nothing. To republish by hand:
+**Actions** tab → **Test and deploy** → **Run workflow**.
 Tip: `node_modules` holds thousands of small files; if OneDrive syncing them is slow,
 keep the project in a folder outside OneDrive.
 
